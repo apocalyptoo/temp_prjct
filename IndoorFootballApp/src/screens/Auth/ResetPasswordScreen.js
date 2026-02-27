@@ -5,6 +5,12 @@ import api from '../../api/api';
 
 export default function ResetPasswordScreen({ navigation }) {
   const [token, setToken] = useState('');
+  React.useEffect(() => {
+    if (navigation && navigation.getState) {
+      const params = navigation.getState().routes.find(r => r.name === 'ResetPassword')?.params;
+      if (params && params.token) setToken(params.token);
+    }
+  }, [navigation]);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 

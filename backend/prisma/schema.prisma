@@ -36,21 +36,41 @@ model Team {
   members     TeamMember[]
 }
 
-model TeamMember {
-  id       Int      @id @default(autoincrement())
-  teamId   Int
-  userId   Int
-  role     String   @default("player")
-  status   String   @default("pending")
-  joinedAt DateTime @default(now())
-  team     Team     @relation(fields: [teamId], references: [id])
-  user     User     @relation(fields: [userId], references: [id])
+model User {
+  id                Int          @id @default(autoincrement())
+  email             String       @unique
+  password          String
+  role              Role         @default(PLAYER)
+  createdAt         DateTime     @default(now())
+  verified          Boolean      @default(false)
+  verifyToken       String?
+  resetToken        String?
+  resetTokenExpires DateTime?
 
-  @@unique([teamId, userId])
+  playerProfile     PlayerProfile?
+  ownerProfile      OwnerProfile?
 }
 
-enum Role {
-  PLAYER
-  OWNER
-  ADMIN
+model PlayerProfile {
+  id        Int     @id @default(autoincrement())
+  userId    Int     @unique
+  name      String
+  phone     String
+  position  String
+  height    Float?
+  weight    Float?
+  address   String?
+
+  user      User    @relation(fields: [userId], references: [id])
+}
+
+model OwnerProfile {
+  id           Int    @id @default(autoincrement())
+  userId       Int    @unique
+  indoorName   String
+  phone        String
+  address      String
+  description  String?
+
+  user         User   @relation(fields: [userId], references: [id])
 }

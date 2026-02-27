@@ -113,27 +113,26 @@ export const requestPasswordReset = async (req, res) => {
       return res.json({ message: 'If that email exists, a reset link was sent.' });   //hide existance of email
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { resetToken: token, resetTokenExpires: expires },
-    });
-
-    const resetLink = `${process.env.BACKEND_PUBLIC_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset?token=${token}`;
-    //const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-    
-    await transporter.sendMail({
-      from: `"App Support" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Password reset request',
-      html: `
-        <p>Click to reset your password:</p>
-        <a href="${resetLink}">Reset password</a>
-        <p>This link expires in 1 hour.</p>
-      `,
-    }).catch(err => console.error('Reset email failed:', err));
+      const token = crypto.randomBytes(32).toString('hex');
+      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { resetToken: token, resetTokenExpires: expires },
+      });
+        
+      //const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+      const resetLink = `${process.env.BACKEND_PUBLIC_URL}/auth/reset-password-page?token=${token}`;
+      await transporter.sendMail({
+        from: `"App Support" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Password reset request',
+        html: `
+          <p>Click to reset your password:</p>
+          <a href="${resetLink}">Reset password</a>
+          <p>This link expires in 1 hour.</p>
+        `,
+      }).catch(err => console.error('Reset email failed:', err));
 
     return res.json({ message: 'If that email exists, a reset link was sent.' });
   } catch (err) {
