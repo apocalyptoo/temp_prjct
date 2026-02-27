@@ -1,5 +1,4 @@
 
-
 // src/screens/Invites/InvitesScreen.js
 import React, { useEffect, useState } from 'react';
 import {
