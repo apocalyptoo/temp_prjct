@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
-export const listPlayers = async (req, res) => {
+/*export const listPlayers = async (req, res) => {
   try {
     const players = await prisma.user.findMany({
       where: { role: 'PLAYER' },
@@ -10,6 +10,38 @@ export const listPlayers = async (req, res) => {
     res.json(players);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch players', details: err.message });
+  }
+};*/
+
+export const listPlayers = async (req, res) => {
+  try {
+    const players = await prisma.user.findMany({
+      where: {
+        role: 'PLAYER',
+        playerProfile: { isNot: null }, // avoids null profiles breaking mapping
+      },
+      select: {
+        id: true,
+        email: true,
+        createdAt: true,
+        playerProfile: {
+          select: { name: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // flatten to match frontend expecting {id, name, email}
+    const result = players.map((p) => ({
+      id: p.id,
+      email: p.email,
+      createdAt: p.createdAt,
+      name: p.playerProfile?.name || 'Unknown',
+    }));
+
+    return res.json(result);
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to fetch players', details: err.message });
   }
 };
 
@@ -22,7 +54,13 @@ export const getPendingInvites = async (req, res) => {
       include: {
         team: {
           include: {
-            owner: { select: { id: true, name: true } }
+            owner: {
+              select: {
+                id: true,
+                email: true,
+                ownerProfile: { select: { indoorName: true } },
+              },
+            }
           }
         }
       },

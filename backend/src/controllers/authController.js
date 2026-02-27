@@ -22,7 +22,7 @@ transporter.verify(function (error, success) {
 });
 
 // REGISTER
-export const register = async (req, res) => {
+/*export const register = async (req, res) => {
   const { name, email, password } = req.body;
 
   try {
@@ -58,8 +58,162 @@ export const register = async (req, res) => {
     console.error('Register error:', err);
     res.status(500).json({ error: 'Server error' });
   }
-};
+};*/
 
+const validatePasswordStrength = (password) => {
+  const minLength = 8;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+  return (
+    password.length >= minLength &&
+    hasUpper &&
+    hasLower &&
+    hasNumber &&
+    hasSpecial
+  );
+};
+// REGISTER
+export const register = async (req, res) => {
+  const { name, email, password, role, profileData } = req.body;
+
+  try {
+    // 1) Validate required fields
+    if (!email || !password || !role || !profileData) {
+      return res.status(400).json({
+        error: 'Email, password, role, and profileData are required',
+      });
+    }
+
+    // 2) Validate role
+    if (!['PLAYER', 'OWNER'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role selected' });
+    }
+
+    // 3) Validate password strength
+    if (!validatePasswordStrength(password)) {
+      return res.status(400).json({
+        error:
+          'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.',
+      });
+    }
+
+    // 4) Check if email exists
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+
+    // 5) Role-based profile validation
+    if (role === 'PLAYER') {
+      // You said PlayerProfile.name should always equal "name" passed
+      if (!name) return res.status(400).json({ error: 'Name is required for PLAYER' });
+
+      const { phone, position, height, weight, address } = profileData;
+
+      if (!phone || !position) {
+        return res.status(400).json({
+          error: 'PLAYER profile requires phone and position',
+        });
+      }
+    }
+
+    if (role === 'OWNER') {
+      const { indoorName, phone, address, description } = profileData;
+
+      if (!indoorName || !phone || !address) {
+        return res.status(400).json({
+          error: 'OWNER profile requires indoorName, phone, and address',
+        });
+      }
+      // (optional) you can enforce name matches indoorName if you want
+      // if (name && name !== indoorName) return res.status(400).json({error: 'name must match indoorName'});
+    }
+
+    // 6) Hash password + generate verify token
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const verifyToken = crypto.randomBytes(32).toString('hex');
+
+    // 7) Create User + Profile atomically (single Prisma create is atomic)
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        role,
+        verifyToken,
+
+        ...(role === 'PLAYER'
+          ? {
+              playerProfile: {
+                create: {
+                  name, // stored in PlayerProfile.name
+                  phone: profileData.phone,
+                  position: profileData.position,
+                  height:
+                    profileData.height === null || profileData.height === undefined
+                      ? null
+                      : Number(profileData.height),
+                  weight:
+                    profileData.weight === null || profileData.weight === undefined
+                      ? null
+                      : Number(profileData.weight),
+                  address: profileData.address || null,
+                },
+              },
+            }
+          : {}),
+
+        ...(role === 'OWNER'
+          ? {
+              ownerProfile: {
+                create: {
+                  indoorName: profileData.indoorName, // stored in OwnerProfile.indoorName
+                  phone: profileData.phone,
+                  address: profileData.address,
+                  description: profileData.description || null,
+                },
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    // 8) Send verification email (use a friendly display name)
+    const displayName =
+      role === 'PLAYER' ? name : profileData.indoorName;
+
+    const verifyLink = `${process.env.BACKEND_PUBLIC_URL}/auth/verify?token=${verifyToken}`;
+
+    await transporter.sendMail({
+      from: `"App Support" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Verify your email address',
+      html: `
+        <h2>Welcome, ${displayName}!</h2>
+        <p>Please verify your email by clicking below:</p>
+        <a href="${verifyLink}" target="_blank"
+           style="padding:10px 20px;background:#007BFF;color:white;text-decoration:none;border-radius:5px;">
+           Verify Email
+        </a>
+      `,
+    });
+
+    return res.status(201).json({
+      message: 'Registration successful. Please check your email to verify your account.',
+      userId: user.id,
+    });
+  } catch (err) {
+    console.error('Register error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
 // VERIFY EMAIL
 export const verifyEmail = async (req, res) => {
   const { token } = req.query;
@@ -83,7 +237,13 @@ export const verifyEmail = async (req, res) => {
 export const login = async (req, res) => {
   const { email, password } = req.body;
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ 
+      where: { email },
+      include: {
+      playerProfile: true,
+      ownerProfile: true,
+      },
+     });
     if (!user) return res.status(400).json({ error: 'Invalid email' });
 
     if (!user.verified) return res.status(403).json({ error: 'Please verify your email before logging in.' });
@@ -97,7 +257,20 @@ export const login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    res.json({ token, user: { id: user.id, name: user.name,email: user.email, role: user.role } });
+    const displayName =
+      user.role === 'PLAYER'
+        ? user.playerProfile?.name
+        : user.ownerProfile?.indoorName;
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: displayName,
+        email: user.email,
+        role: user.role,
+  },
+});
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -164,3 +337,26 @@ export const resetPassword = async (req, res) => {
     return res.status(500).json({ error: 'Server error' });
   }
 };
+
+
+//Pass strength validation
+
+/*const validatePasswordStrength = (password) => {
+  const minLength = 8;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+  if (
+    password.length < minLength ||
+    !hasUpper ||
+    !hasLower ||
+    !hasNumber ||
+    !hasSpecial
+  ) {
+    return false;
+  }
+
+  return true;
+};*/

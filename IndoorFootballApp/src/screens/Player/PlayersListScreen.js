@@ -24,7 +24,9 @@ export default function PlayersListScreen() {
       const res = await api.get('/players');
       setPlayers(res.data);
     } catch (err) {
-      console.error('loadPlayers', err.message);
+      //console.error('loadPlayers', err.message);
+      console.error('loadPlayers status:', err.response?.status);
+      console.error('loadPlayers data:', err.response?.data);
     } finally {
       setLoading(false);
     }
