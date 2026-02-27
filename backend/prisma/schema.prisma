@@ -12,18 +12,45 @@ datasource db {
 }
 
 model User {
-  id                Int          @id @default(autoincrement())
-  name              String
-  email             String       @unique
+  id                Int       @id @default(autoincrement())
+  email             String    @unique
   password          String
-  role              Role         @default(PLAYER)
-  createdAt         DateTime     @default(now())
-  verified          Boolean      @default(false)
+  role              Role      @default(PLAYER)
+  createdAt         DateTime  @default(now())
+  verified          Boolean   @default(false)
   verifyToken       String?
   resetToken        String?
   resetTokenExpires DateTime?
-  ownedTeams        Team[]       @relation("OwnedTeams")
-  teamMembers       TeamMember[]
+
+  playerProfile PlayerProfile?
+  ownerProfile  OwnerProfile?
+
+  ownedTeams  Team[]       @relation("OwnedTeams")
+  teamMembers TeamMember[]
+}
+
+model PlayerProfile {
+  id       Int     @id @default(autoincrement())
+  userId   Int     @unique
+  name     String
+  phone    String
+  position String
+  height   Float?
+  weight   Float?
+  address  String?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model OwnerProfile {
+  id          Int     @id @default(autoincrement())
+  userId      Int     @unique
+  indoorName  String
+  phone       String
+  address     String
+  description String?
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 model Team {
@@ -36,41 +63,21 @@ model Team {
   members     TeamMember[]
 }
 
-model User {
-  id                Int          @id @default(autoincrement())
-  email             String       @unique
-  password          String
-  role              Role         @default(PLAYER)
-  createdAt         DateTime     @default(now())
-  verified          Boolean      @default(false)
-  verifyToken       String?
-  resetToken        String?
-  resetTokenExpires DateTime?
+model TeamMember {
+  id       Int      @id @default(autoincrement())
+  teamId   Int
+  userId   Int
+  role     String   @default("player")
+  status   String   @default("pending")
+  joinedAt DateTime @default(now())
+  team     Team     @relation(fields: [teamId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
 
-  playerProfile     PlayerProfile?
-  ownerProfile      OwnerProfile?
+  @@unique([teamId, userId])
 }
 
-model PlayerProfile {
-  id        Int     @id @default(autoincrement())
-  userId    Int     @unique
-  name      String
-  phone     String
-  position  String
-  height    Float?
-  weight    Float?
-  address   String?
-
-  user      User    @relation(fields: [userId], references: [id])
-}
-
-model OwnerProfile {
-  id           Int    @id @default(autoincrement())
-  userId       Int    @unique
-  indoorName   String
-  phone        String
-  address      String
-  description  String?
-
-  user         User   @relation(fields: [userId], references: [id])
+enum Role {
+  PLAYER
+  OWNER
+  ADMIN
 }

@@ -28,7 +28,7 @@ export default function RegisterScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Logo Section */}
+      {/* Logo Section  */ }
       <View style={styles.logoContainer}>
         <Image
           source={require('../../../assets/icons/ball.png')}
@@ -39,7 +39,7 @@ export default function RegisterScreen({ navigation }) {
         <Text style={styles.slogan}>Unleash Your Inner Champion</Text>
       </View>
 
-      {/* Tabs */}
+      {/*  Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity onPress={() => navigation.navigate('Login')}>
           <Text style={styles.tabText}>Login</Text>
@@ -89,6 +89,132 @@ export default function RegisterScreen({ navigation }) {
     </View>
   );
 }
+
+/*
+import React, { useState, useContext } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  Alert,
+  StyleSheet,
+} from 'react-native';
+import { AuthContext } from '../../contexts/AuthContext';
+
+export default function RegisterScreen({ navigation }) {
+  const { register } = useContext(AuthContext);
+
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('PLAYER');
+
+  const onRegister = async () => {
+    try {
+      // Basic frontend validation
+      if (password !== confirmPassword) {
+        return Alert.alert('Error', 'Passwords do not match');
+      }
+
+      const res = await register({
+        name,
+        email: email.trim(),
+        password,
+        role,
+      });
+
+      Alert.alert('Success', res?.message || 'Check your email to verify');
+      navigation.navigate('Login');
+
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Registration failed');
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      
+     
+      <View style={styles.logoContainer}>
+        <Image
+          source={require('../../../assets/icons/ball.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.brandName}>ConnectArena</Text>
+        <Text style={styles.slogan}>Unleash Your Inner Champion</Text>
+      </View>
+
+      
+      <View style={styles.roleContainer}>
+        <TouchableOpacity
+          style={[styles.roleButton, role === 'PLAYER' && styles.roleActive]}
+          onPress={() => setRole('PLAYER')}
+        >
+          <Text style={styles.roleText}>Player</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.roleButton, role === 'OWNER' && styles.roleActive]}
+          onPress={() => setRole('OWNER')}
+        >
+          <Text style={styles.roleText}>Indoor Owner</Text>
+        </TouchableOpacity>
+      </View>
+
+     
+      <View style={styles.tabContainer}>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text style={styles.tabText}>Login</Text>
+        </TouchableOpacity>
+        <Text style={[styles.tabText, styles.activeTab]}>Signup</Text>
+      </View>
+
+    
+      <View style={styles.form}>
+        <TextInput
+          placeholder="Full Name"
+          value={name}
+          onChangeText={setName}
+          style={styles.input}
+        />
+
+        <TextInput
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          style={styles.input}
+        />
+
+        <TextInput
+          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          style={styles.input}
+        />
+
+        <TextInput
+          placeholder="Confirm Password"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+          style={styles.input}
+        />
+
+        <TouchableOpacity style={styles.loginButton} onPress={onRegister}>
+          <Text style={styles.loginButtonText}>Register</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 
 const styles = StyleSheet.create({
   container: {
@@ -166,4 +292,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+
+  roleContainer: {
+  flexDirection: 'row',
+  marginBottom: 20,
+},
+
+roleButton: {
+  flex: 1,
+  padding: 10,
+  borderWidth: 1,
+  borderColor: '#ddd',
+  alignItems: 'center',
+  marginHorizontal: 5,
+  borderRadius: 8,
+  backgroundColor: '#fff',
+},
+
+roleActive: {
+  backgroundColor: '#000',
+},
+
+roleText: {
+  color: '#000',
+},
+
 });
+*/
