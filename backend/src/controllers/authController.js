@@ -118,6 +118,21 @@ export const register = async (req, res) => {
           error: 'PLAYER profile requires phone and position',
         });
       }
+      if (!/^\d{11}$/.test(phone)) {
+        return res.status(400).json({ error: 'Phone number must be exactly 11 digits' });
+      }
+      if (height !== null && height !== undefined) {
+        const h = Number(height);
+        if (isNaN(h) || h < 100 || h > 250) {
+          return res.status(400).json({ error: 'Height must be between 100 and 250 cm' });
+        }
+      }
+      if (weight !== null && weight !== undefined) {
+        const w = Number(weight);
+        if (isNaN(w) || w < 30 || w > 200) {
+          return res.status(400).json({ error: 'Weight must be between 30 and 200 kg' });
+        }
+      }
     }
 
     if (role === 'OWNER') {
@@ -128,8 +143,9 @@ export const register = async (req, res) => {
           error: 'OWNER profile requires indoorName, phone, and address',
         });
       }
-      // (optional) you can enforce name matches indoorName if you want
-      // if (name && name !== indoorName) return res.status(400).json({error: 'name must match indoorName'});
+      if (!/^\d{11}$/.test(phone)) {
+        return res.status(400).json({ error: 'Phone number must be exactly 11 digits' });
+      }
     }
 
     // 6) Hash password + generate verify token

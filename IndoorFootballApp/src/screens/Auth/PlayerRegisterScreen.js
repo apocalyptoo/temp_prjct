@@ -37,6 +37,24 @@ export default function PlayerRegisterScreen({ navigation }) {
         return Alert.alert('Error', 'Please fill all required fields');
       }
 
+      if (!/^\d{11}$/.test(phone)) {
+        return Alert.alert('Error', 'Phone number must be exactly 11 digits');
+      }
+
+      if (height) {
+        const h = parseFloat(height);
+        if (isNaN(h) || h < 100 || h > 250) {
+          return Alert.alert('Error', 'Height must be between 100 and 250 cm');
+        }
+      }
+
+      if (weight) {
+        const w = parseFloat(weight);
+        if (isNaN(w) || w < 30 || w > 200) {
+          return Alert.alert('Error', 'Weight must be between 30 and 200 kg');
+        }
+      }
+
       if (password !== confirmPassword) {
         return Alert.alert('Error', 'Passwords do not match');
       }
@@ -89,7 +107,7 @@ export default function PlayerRegisterScreen({ navigation }) {
       />
 
       <TextInput
-        placeholder="Phone Number"
+        placeholder="Phone Number (Must be 11 digits)"
         value={phone}
         onChangeText={setPhone}
         keyboardType="phone-pad"
@@ -104,7 +122,7 @@ export default function PlayerRegisterScreen({ navigation }) {
       />
 
       <TextInput
-        placeholder="Height (optional)"
+        placeholder="Height Between 100-250 cm (optional)"
         value={height}
         onChangeText={setHeight}
         keyboardType="numeric"
@@ -112,7 +130,7 @@ export default function PlayerRegisterScreen({ navigation }) {
       />
 
       <TextInput
-        placeholder="Weight (optional)"
+        placeholder="Weight Between 30-200 kg (optional)"
         value={weight}
         onChangeText={setWeight}
         keyboardType="numeric"

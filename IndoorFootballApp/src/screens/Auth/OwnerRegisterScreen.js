@@ -36,6 +36,10 @@ export default function OwnerRegisterScreen({ navigation }) {
         return Alert.alert('Error', 'Please fill all required fields');
       }
 
+      if (!/^\d{11}$/.test(phone)) {
+        return Alert.alert('Error', 'Phone number must be exactly 11 digits');
+      }
+
       if (password !== confirmPassword) {
         return Alert.alert('Error', 'Passwords do not match');
       }
@@ -86,7 +90,7 @@ export default function OwnerRegisterScreen({ navigation }) {
       />
 
       <TextInput
-        placeholder="Phone Number"
+        placeholder="Phone Number (must be 11 digits)"
         value={phone}
         onChangeText={setPhone}
         keyboardType="phone-pad"
