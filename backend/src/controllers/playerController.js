@@ -13,6 +13,8 @@ const prisma = new PrismaClient();
   }
 };*/
 
+
+
 export const listPlayers = async (req, res) => {
   try {
     const players = await prisma.user.findMany({
@@ -45,6 +47,42 @@ export const listPlayers = async (req, res) => {
   }
 };
 
+
+export const getMyPlayerProfile = async (req, res) => {
+  try {
+    if (req.user.role !== 'PLAYER') {
+      return res.status(403).json({ error: 'Players only' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        playerProfile: {
+          select: {
+            name: true,
+            phone: true,
+            position: true,
+            height: true,
+            weight: true,
+            address: true,
+          },
+        },
+      },
+    });
+
+    if (!user || !user.playerProfile) {
+      return res.status(404).json({ error: 'Player profile not found' });
+    }
+
+    return res.json(user);
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to fetch player profile', details: err.message });
+  }
+};
 // NEW: get pending invites for current user
 export const getPendingInvites = async (req, res) => {
   try {

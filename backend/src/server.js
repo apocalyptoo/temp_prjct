@@ -5,6 +5,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import teamRoutes from './routes/teamRoutes.js'; 
 import playerRoutes from './routes/playerRoutes.js';
+import ownerRoutes from './routes/ownerRoutes.js';
 
 
 dotenv.config();
@@ -17,6 +18,7 @@ app.use('/admin', adminRoutes);
 app.use('/auth', authRoutes);
 app.use('/teams', teamRoutes);
 app.use('/players', playerRoutes);
+app.use('/owners', ownerRoutes);
 app.get('/', (req, res) => res.send('API running ✅'));
 
 const PORT = process.env.PORT || 4000;
