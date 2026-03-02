@@ -12,6 +12,7 @@ import TeamDetailScreen from '../screens/Team/TeamDetailScreen';
 import AddMemberScreen from '../screens/Team/AddMemberScreen';
 import PlayersListScreen from '../screens/Player/PlayersListScreen';
 import InvitesScreen from '../screens/Player/InvitesScreen';
+import IndoorsListScreen from '../screens/Owner/IndoorsListScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -70,6 +71,7 @@ export default function PlayerNavigator() {
       <Stack.Screen name="AddMember" component={AddMemberScreen} options={{ title: 'Add Member' }} />
       <Stack.Screen name="Players" component={PlayersListScreen} options={{ title: 'Players' }} />
       <Stack.Screen name="Invites" component={InvitesScreen} options={{ title: 'Invites' }} />
+      <Stack.Screen name="Indoors" component={IndoorsListScreen} options={{ title: 'Registered Indoors' }} />
     </Stack.Navigator>
   );
 }

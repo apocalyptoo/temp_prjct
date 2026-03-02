@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  Linking,
+} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import api from '../../api/api';
 
@@ -38,10 +46,21 @@ export default function IndoorsListScreen() {
               <Text style={styles.meta}>{item.email}</Text>
               <Text style={styles.meta}>{item.phone}</Text>
               <Text style={styles.meta}>{item.address}</Text>
-              {!!item.description && <Text style={styles.meta}>{item.description}</Text>}
+
+              {!!item.website && (
+                <TouchableOpacity onPress={() => Linking.openURL(item.website)}>
+                  <Text style={styles.website}>{item.website}</Text>
+                </TouchableOpacity>
+              )}
+
+              {!!item.description && (
+                <Text style={styles.meta}>{item.description}</Text>
+              )}
             </View>
           )}
-          ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 30 }}>No indoors found</Text>}
+          ListEmptyComponent={
+            <Text style={{ textAlign: 'center', marginTop: 30 }}>No indoors found</Text>
+          }
         />
       )}
     </View>
@@ -51,11 +70,25 @@ export default function IndoorsListScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
   header: {
-    paddingTop: 60, paddingBottom: 40, paddingHorizontal: 20,
-    borderBottomLeftRadius: 40, borderBottomRightRadius: 40,
+    paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
   },
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff', textAlign: 'center' },
-  card: { backgroundColor: '#fff', borderRadius: 18, padding: 16, marginBottom: 12, elevation: 3 },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 3,
+  },
   title: { fontWeight: '800', color: '#1E3A8A', fontSize: 16, marginBottom: 6 },
   meta: { color: '#333', marginTop: 2 },
+  website: {
+    color: '#3B82F6',
+    marginTop: 2,
+    textDecorationLine: 'underline',
+  },
 });

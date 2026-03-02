@@ -49,6 +49,7 @@ model OwnerProfile {
   phone       String
   address     String
   description String?
+  website     String?
 
   user User @relation(fields: [userId], references: [id])
 }

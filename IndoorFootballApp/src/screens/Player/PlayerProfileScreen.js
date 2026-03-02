@@ -106,6 +106,14 @@ export default function PlayerProfileScreen() {
           <Ionicons name="mail-outline" size={24} color="#1E3A8A" />
           <Text style={styles.actionLabel}>Invites</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => navigation.navigate('Indoors')}   // ← new
+        >
+          <Ionicons name="business-outline" size={24} color="#1E3A8A" />
+          <Text style={styles.actionLabel}>Indoors</Text>
+        </TouchableOpacity>
       </View>
 
       {/* ── Player Info Card ── */}

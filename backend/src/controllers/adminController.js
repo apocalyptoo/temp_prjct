@@ -231,6 +231,7 @@ export const getAllIndoors = async (req, res) => {
       indoorName: o.indoorName,
       phone: o.phone,
       address: o.address,
+      website: o.website, 
       description: o.description,
     }));
 

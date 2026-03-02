@@ -1,3 +1,48 @@
+// Remove a player from team (owner only)
+export const removePlayer = async (req, res) => {
+  try {
+    const { teamId, userId } = req.params;
+    const requesterId = req.user.id;
+
+    const team = await prisma.team.findUnique({ where: { id: Number(teamId) } });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    if (team.ownerId !== requesterId) {
+      return res.status(403).json({ error: 'Only the team owner can remove players.' });
+    }
+    // Prevent owner from removing themselves
+    if (Number(userId) === requesterId) {
+      return res.status(400).json({ error: 'Owner cannot remove themselves from the team.' });
+    }
+    const member = await prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId: Number(teamId), userId: Number(userId) } }
+    });
+    if (!member) return res.status(404).json({ error: 'Player not found in team' });
+    await prisma.teamMember.delete({
+      where: { teamId_userId: { teamId: Number(teamId), userId: Number(userId) } }
+    });
+    res.status(200).json({ message: 'Player removed from team' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to remove player', details: error.message });
+  }
+};
+
+// Delete a team (owner only)
+export const deleteTeam = async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const requesterId = req.user.id;
+    const team = await prisma.team.findUnique({ where: { id: Number(teamId) } });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    if (team.ownerId !== requesterId) {
+      return res.status(403).json({ error: 'Only the team owner can delete the team.' });
+    }
+    await prisma.teamMember.deleteMany({ where: { teamId: Number(teamId) } });
+    await prisma.team.delete({ where: { id: Number(teamId) } });
+    res.status(200).json({ message: 'Team deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete team', details: error.message });
+  }
+};
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
@@ -33,11 +78,16 @@ export const joinTeam = async (req, res) => {
     const { teamId } = req.params;
     const userId = req.user.id;
 
-    const request = await prisma.teamMember.create({
-      data: { teamId: Number(teamId), userId },
+    // Only allow join if invited (status: pending)
+    const invite = await prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId: Number(teamId), userId } }
     });
+    if (!invite || invite.status !== 'pending') {
+      return res.status(403).json({ error: 'You must be invited by the team owner to join this team.' });
+    }
 
-    res.status(201).json(request);
+    // Accept invite (handled by acceptInvite endpoint)
+    return res.status(400).json({ error: 'Use the accept invite endpoint to join a team.' });
   } catch (error) {
     res.status(500).json({ error: "Join request failed", details: error.message });
   }

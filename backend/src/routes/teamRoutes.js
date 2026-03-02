@@ -1,5 +1,10 @@
 import express from 'express';
-import { createTeam, joinTeam, getTeams, invitePlayer, acceptInvite, getMyTeams, rejectInvite } from '../controllers/teamController.js';
+import { createTeam, joinTeam, getTeams, invitePlayer, acceptInvite, getMyTeams, rejectInvite, removePlayer, deleteTeam } from '../controllers/teamController.js';
+// Remove a player from team (owner only)
+router.delete('/:teamId/member/:userId', verifyToken, removePlayer);
+
+// Delete a team (owner only)
+router.delete('/:teamId', verifyToken, deleteTeam);
 import { verifyToken } from '../middleware/auth.js';
 const router = express.Router();
 

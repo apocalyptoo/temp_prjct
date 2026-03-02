@@ -121,7 +121,7 @@ export const register = async (req, res) => {
     }
 
     if (role === 'OWNER') {
-      const { indoorName, phone, address, description } = profileData;
+      const { indoorName, phone, address, description, website } = profileData;
 
       if (!indoorName || !phone || !address) {
         return res.status(400).json({
@@ -173,6 +173,7 @@ export const register = async (req, res) => {
                   phone: profileData.phone,
                   address: profileData.address,
                   description: profileData.description || null,
+                  website: profileData.website || null,
                 },
               },
             }

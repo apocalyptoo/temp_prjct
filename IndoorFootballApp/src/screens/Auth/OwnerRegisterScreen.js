@@ -17,6 +17,7 @@ export default function OwnerRegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [website, setWebsite] = useState('');
   const [description, setDescription] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -48,6 +49,7 @@ export default function OwnerRegisterScreen({ navigation }) {
           indoorName,
           phone,
           address,
+          website,
           description,
         },
       });
@@ -95,6 +97,12 @@ export default function OwnerRegisterScreen({ navigation }) {
         placeholder="Address"
         value={address}
         onChangeText={setAddress}
+        style={styles.input}
+      />
+      <TextInput
+        placeholder="Website (Optional)"
+        value={website}
+        onChangeText={setWebsite}
         style={styles.input}
       />
 

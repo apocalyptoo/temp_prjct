@@ -1,76 +1,3 @@
-/*import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import api from '../../api/api';
-
-export default function OwnerProfileScreen() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get('/owners/me');
-      setData(res.data);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { load(); }, []);
-
-  if (loading && !data) {
-    return <ActivityIndicator style={{ marginTop: 40 }} size="large" />;
-  }
-
-  const p = data?.ownerProfile;
-
-  return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <Text style={styles.headerTitle}>Indoor Owner Profile</Text>
-      </LinearGradient>
-
-      <View style={styles.card}>
-        <Text style={styles.label}>Indoor Name</Text>
-        <Text style={styles.value}>{p?.indoorName}</Text>
-
-        <Text style={styles.label}>Email</Text>
-        <Text style={styles.value}>{data?.email}</Text>
-
-        <Text style={styles.label}>Phone</Text>
-        <Text style={styles.value}>{p?.phone}</Text>
-
-        <Text style={styles.label}>Address</Text>
-        <Text style={styles.value}>{p?.address}</Text>
-
-        {!!p?.description && (
-          <>
-            <Text style={styles.label}>Description</Text>
-            <Text style={styles.value}>{p?.description}</Text>
-          </>
-        )}
-      </View>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: {
-    paddingTop: 60, paddingBottom: 40, paddingHorizontal: 20,
-    borderBottomLeftRadius: 40, borderBottomRightRadius: 40,
-  },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff', textAlign: 'center' },
-  card: {
-    backgroundColor: '#fff', margin: 16, padding: 16,
-    borderRadius: 18, elevation: 3,
-  },
-  label: { marginTop: 10, color: '#555', fontWeight: '700' },
-  value: { marginTop: 4, color: '#111' },
-});*/
-
-
 import React, { useEffect, useState, useContext } from 'react';
 import {
   View,
@@ -80,6 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -129,7 +57,6 @@ export default function OwnerProfileScreen() {
     >
       {/* ── Hero Header ── */}
       <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        {/* Avatar circle */}
         <View style={styles.avatarContainer}>
           <View style={styles.avatar}>
             <Ionicons name="business" size={40} color="#1E3A8A" />
@@ -139,7 +66,6 @@ export default function OwnerProfileScreen() {
         <Text style={styles.headerName}>{p?.indoorName || 'Indoor Owner'}</Text>
         <Text style={styles.headerEmail}>{data?.email}</Text>
 
-        {/* Role badge */}
         <View style={styles.badge}>
           <Ionicons name="shield-checkmark-outline" size={14} color="#1E3A8A" />
           <Text style={styles.badgeText}>Indoor Owner</Text>
@@ -170,6 +96,7 @@ export default function OwnerProfileScreen() {
         <Text style={styles.sectionTitle}>Contact Information</Text>
 
         <View style={styles.card}>
+
           {/* Phone */}
           <View style={styles.infoRow}>
             <View style={styles.infoIconWrapper}>
@@ -206,6 +133,25 @@ export default function OwnerProfileScreen() {
               <Text style={styles.infoValue}>{data?.email || 'N/A'}</Text>
             </View>
           </View>
+
+          {/* Website — only shown if present */}
+          {!!p?.website && (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.infoRow}>
+                <View style={styles.infoIconWrapper}>
+                  <Ionicons name="globe-outline" size={20} color="#1E3A8A" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.infoLabel}>Website</Text>
+                  <TouchableOpacity onPress={() => Linking.openURL(p.website)}>
+                    <Text style={styles.websiteValue}>{p.website}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </>
+          )}
+
         </View>
       </View>
 
@@ -331,8 +277,16 @@ const styles = StyleSheet.create({
   },
   infoLabel: { fontSize: 11, color: '#888', fontWeight: '600' },
   infoValue: { fontSize: 14, color: '#111', fontWeight: '500', marginTop: 2 },
-  divider: { height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 4 },
 
-  // Description
+  // Website value (blue + underline to indicate it's tappable)
+  websiteValue: {
+    fontSize: 14,
+    color: '#3B82F6',
+    fontWeight: '500',
+    marginTop: 2,
+    textDecorationLine: 'underline',
+  },
+
+  divider: { height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 4 },
   description: { color: '#444', lineHeight: 22, paddingVertical: 12 },
 });

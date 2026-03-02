@@ -20,6 +20,7 @@ export const getMyOwnerProfile = async (req, res) => {
             phone: true,
             address: true,
             description: true,
+            website: true,
           },
         },
       },
@@ -56,6 +57,7 @@ export const listIndoors = async (req, res) => {
       phone: o.phone,
       address: o.address,
       description: o.description,
+      website: o.website,
     }));
 
     return res.json(result);
