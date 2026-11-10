@@ -109,7 +109,7 @@ export default function PlayerProfileScreen() {
 
         <TouchableOpacity
           style={styles.actionBtn}
-          onPress={() => navigation.navigate('Indoors')}   // ← new
+          onPress={() => navigation.navigate('Indoors')}   
         >
           <Ionicons name="business-outline" size={24} color="#1E3A8A" />
           <Text style={styles.actionLabel}>Indoors</Text>

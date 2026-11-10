@@ -21,44 +21,6 @@ transporter.verify(function (error, success) {
   }
 });
 
-// REGISTER
-/*export const register = async (req, res) => {
-  const { name, email, password } = req.body;
-
-  try {
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) return res.status(400).json({ error: 'Email already registered' });
-
-    const hashed = await bcrypt.hash(password, 10);
-    const token = crypto.randomBytes(32).toString('hex');
-
-  
-    const user = await prisma.user.create({
-      data: { name, email, password: hashed, role: 'PLAYER', verifyToken: token },
-    });
-
-
-    const verifyLink = `${process.env.BACKEND_PUBLIC_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/verify?token=${token}`;
-
-    transporter.sendMail({
-      from: `"App Support" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Verify your email address',
-      html: `
-        <h2>Welcome, ${name}!</h2>
-        <p>Please verify your email by clicking below:</p>
-        <a href="${verifyLink}" target="_blank" style="padding:10px 20px;background:#007BFF;color:white;text-decoration:none;border-radius:5px;">Verify Email</a>
-      `,
-    }).catch(err => console.error('Email send failed:', err));
-    
-  
-
-    res.status(201).json({ message: 'Verification email sent. Please check your inbox.' });
-  } catch (err) {
-    console.error('Register error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-};*/
 
 const validatePasswordStrength = (password) => {
   const minLength = 8;
@@ -355,25 +317,3 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-
-//Pass strength validation
-
-/*const validatePasswordStrength = (password) => {
-  const minLength = 8;
-  const hasUpper = /[A-Z]/.test(password);
-  const hasLower = /[a-z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-
-  if (
-    password.length < minLength ||
-    !hasUpper ||
-    !hasLower ||
-    !hasNumber ||
-    !hasSpecial
-  ) {
-    return false;
-  }
-
-  return true;
-};*/

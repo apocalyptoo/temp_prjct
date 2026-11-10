@@ -9,8 +9,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   const email = 'ahmedjarif468@gmail.com';
-  const plain = '1234admin'; // CHANGE this to a strong password
-  const name = 'Admin';
+  const plain = '1234admin';
   const role = 'ADMIN';
 
   // Check if admin already exists
@@ -24,11 +23,13 @@ async function main() {
 
   const user = await prisma.user.create({
     data: {
-      name,
       email,
       password: hashed,
       role,
-      verified: true
+      verified: true,
+      verifyToken: null,
+      resetToken: null,
+      resetTokenExpires: null,
     }
   });
 

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getToken } from '../utils/storage';
 
-const API_URL = process.env.API_URL || 'https://buffy-mesic-bloomingly.ngrok-free.dev';
+const API_URL = process.env.API_URL || 'https://demonstrational-nonfatal-judson.ngrok-free.dev';
 
 const api = axios.create({
   baseURL: API_URL,
