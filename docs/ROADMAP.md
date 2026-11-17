@@ -83,8 +83,6 @@ Several items need schema changes. Each needs my approval before the migration i
 - [ ] Profile editing (players and venue owners)
 - [ ] Change password while logged in
 - [ ] Join request flow: captains see, approve and reject requests
-- [ ] Account deletion inside the app (needs the Account deletion decision first)
-- [ ] Basic in-app notifications for pending invites and join requests (needs the Notifications decision first)
 - [ ] Venue discovery polish
 - [ ] Team membership: record invite vs join request, accepted at date (same migration as invite/request), cancel requests and invites, leave a team, transfer captaincy, 15-member limit, "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership")
 - [ ] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion")
