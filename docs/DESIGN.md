@@ -16,11 +16,35 @@ Dark and energetic, like a floodlit indoor court at night. A near-black backgrou
 
 The look will change later (new colors, maybe a light theme). So:
 
-- **All colors, fonts, font sizes, spacing and corner radii live in one place**: a theme module in the app (for example `IndoorFootballApp/src/theme/`). It exports named values called **tokens**, like `colors.accent` or `spacing.md`.
+- **All colors, fonts, font sizes, spacing, corner radii and shadows live in one place**: the theme module. It exports named values called **tokens**, like `colors.accent` or `spacing.md`.
 - **Screens and components never contain raw values.** No hex colors, font names or loose pixel sizes in screen files. They always use tokens.
 - **Changing the look = editing the theme module.** Swapping the palette below for another must not require touching any screen.
-- **Build repeated pieces as shared components** (Button, Card, Pill, Badge, Avatar, ListRow, ScreenHeader, TabBar), so each looks the same everywhere and is styled in one place.
-- Light theme and theme switching are **not in v1.0**. The token structure above makes them possible later.
+- **Repeated pieces are shared components**, so each looks the same everywhere and is styled in one place.
+- Light theme and theme switching are **not in v1.0**. The structure below makes them possible later without editing screens again.
+
+### Folder structure
+
+```
+IndoorFootballApp/src/
+  theme/
+    palette.js        raw colors with plain names (e.g. lime, nearBlack, slate900)
+    colors.js         meanings (bg, surface, text, accent, danger…) pointing to palette colors
+    typography.js     font families + named text styles (display, title, body, meta…)
+    spacing.js        the spacing scale
+    radius.js         corner radii
+    shadows.js        minimal: only for floating things (dialogs, pop-ups), not cards
+    index.js          puts it all together as one `theme` object
+    ThemeProvider.js  provides the theme to the app, with a useTheme() hook
+  components/
+    ui/               Button, Card, Pill, Badge, Avatar, ListRow, ScreenHeader,
+                      TabBar, Icon, EmptyState, ConfirmDialog
+```
+
+### Three rules that make the look changeable
+
+1. **Two color layers.** `palette.js` holds the actual colors. `colors.js` gives them meanings. Screens use only the meanings (`colors.accent`, never `palette.lime`). Changing the look means pointing the meanings at different palette colors, or swapping the palette. A future light theme is a second `colors` mapping with the same names.
+2. **Screens get the theme through `useTheme()`**, not by importing theme files directly. That way a light/dark switch can be added later without touching screens.
+3. **Icons go through the `Icon` component.** Screens use our own icon names (`<Icon name="teams" />`), and `Icon` maps them to the icon library. Changing icon sets later means editing one file.
 
 ## 3. Colors
 
@@ -119,9 +143,12 @@ Line height: about 1.1 for headings, 1.45 for paragraphs.
 
 ## 7. Icons
 
-- Simple **line (stroke) icons**, 24×24, stroke about 1.8, rounded ends. No filled icons, no emoji.
+- **Icon set: [Lucide](https://lucide.dev)** (`lucide-react-native`), which draws its icons with `react-native-svg`. Lucide is a widely used, actively maintained open-source line icon set with 1,000+ icons in one consistent style.
+- Line (stroke) icons, 24×24, **stroke width 1.8**, rounded ends. No filled icons, no emoji.
 - Icons take the color of the text next to them.
 - Icon-only buttons always have an accessibility label.
+- Screens never import Lucide directly. They use the shared `Icon` component with our own names (see section 2).
+- The old `react-native-vector-icons` (Ionicons) is **replaced**. Remove it once no screen uses it, including its font files and config entries.
 
 ## 8. Accessibility checklist (every screen)
 
@@ -133,9 +160,10 @@ Line height: about 1.1 for headings, 1.45 for paragraphs.
 
 ## 9. Implementation notes (for Claude Code)
 
-- **Theme module first:** create the tokens (colors, typography, spacing, radius) and the shared components before restyling screens. Then restyle screens one by one.
-- **Fonts:** Barlow Condensed and Inter need to be added to the app as font files (Android `assets/fonts`, linked through the React Native config). Adding font files isn't a code dependency, but say what you're adding.
-- **Icons:** drawing line icons in React Native needs an SVG library (for example `react-native-svg`, possibly with an icon set). **That's a new dependency, so ask before installing.** Suggest options with trade-offs.
-- **Status bar:** light content (white icons) on the dark background.
-- **Dark only in v1.0.** Don't build theme switching yet. Just keep every value in tokens.
-- Don't change behaviour while restyling. Restyling a screen and changing what it does are separate tasks.
+- **Theme module first:** create the theme folder and the shared components (section 2) before restyling screens. Then restyle screens one by one.
+- **Fonts:** Barlow Condensed and Inter are added as font files, with their folder added to `react-native.config.js` (which currently links only the old icon fonts).
+- **Icons:** install `lucide-react-native` and `react-native-svg`. This is approved in DECISIONS.md, but still check that the versions work with the app's React Native version before installing, and tell me which versions you chose. Then remove `react-native-vector-icons` once nothing uses it.
+- **Status bar:** always light content (white icons), whatever the phone's light/dark setting. Today `App.js` follows the phone's setting. That's a bug for a dark-only design.
+- **Dark only in v1.0.** Don't build theme switching yet. Just keep every value in tokens and use `useTheme()`.
+- **The existing UI code isn't a constraint.** It was written as a university project. Replace screens, styles and components properly wherever they conflict with this design. Don't patch around them.
+- **Restyling and behaviour changes are separate tasks.** A restyle commit changes how a screen looks, not what it does. Text or behaviour fixes (e.g. "Owner" → "Captain") get their own task.

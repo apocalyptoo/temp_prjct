@@ -6,6 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - I'm a beginner. After every change, explain what you changed and why in plain language, before I commit.
 - Keep changes small: one task per change. Don't refactor unrelated code.
+- The existing code was a university project and is not a constraint. When a task touches code that conflicts with `docs/PRODUCT.md`, `docs/DESIGN.md` or `docs/DECISIONS.md`, replace it properly rather than patching around it. Still work task by task, with tests and small commits.
 - For bugs: reproduce first, then fix, then prove it's fixed.
 - Write or update tests for anything you change in the backend.
 - Never commit secrets, `.env` files or database dumps.

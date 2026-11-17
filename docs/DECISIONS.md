@@ -209,3 +209,23 @@ All colors, fonts, sizes, spacing and radii live in one theme module as tokens. 
 - Dark only in v1.0, with no theme switching.
 - Text on lime or on the red badge is always dark, for readability.
 - Fonts are added as files. An SVG icon library is a new dependency and needs approval.
+
+### 2026-11-18: Existing code is not a constraint
+The original code was written as a university project and has many flaws. Any part of it can and should be replaced wherever it conflicts with the current plans (PRODUCT.md, DESIGN.md, these decisions).
+This clarifies the 2026-11-17 "no rewrite" decision. There's still no big-bang rewrite of the whole app at once: work stays task by task, tested, with small commits. But when a task touches flawed code, replace it properly rather than patching around it.
+**Why:** keeping weak code just because it exists would carry its problems into the real app.
+
+### 2026-11-18: Icons use Lucide (`lucide-react-native` + `react-native-svg`)
+This replaces the existing `react-native-vector-icons` (Ionicons), which will be removed once nothing uses it.
+**Why:** Lucide is the widely used, actively maintained standard for line icons. It's one consistent style with 1,000+ icons, and it matches the Floodlight line-icon spec (24px, rounded strokes). `react-native-svg` is the standard SVG renderer for React Native.
+**Alternatives considered:** keeping Ionicons outline (rejected by the owner: wanted the standard best fit, not whatever was installed), Feather (fewer icons; Lucide is its maintained successor), Phosphor (good, but less common).
+**Consequence:** two new dependencies, approved by the owner. Claude Code checks version compatibility before installing.
+
+### 2026-11-18: Theme structure
+`src/theme/` holds palette.js, colors.js, typography.js, spacing.js, radius.js, shadows.js, index.js and ThemeProvider.js (with `useTheme()`). Shared components live in `src/components/ui/`. Details are in DESIGN.md section 2.
+**Why:**
+- Two color layers (palette and meanings) let the look change by remapping colors.
+- `useTheme()` from the start means a future light/dark switch needs no screen edits.
+- The `Icon` wrapper means the icon set can change in one file.
+
+**Consequence:** the status bar is always light in v1.0, whatever the phone's setting.

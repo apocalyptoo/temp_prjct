@@ -56,6 +56,7 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 - [ ] Don't count pending invites as members.
 - [ ] `AddMemberScreen` hooks error. Also exclude existing members from its list.
 - [ ] Owners see a "+ Create Team" button on All Teams (`TeamsListScreen.js`), but `CreateTeam` isn't a screen in `OwnerNavigator.js`, so tapping it does nothing. Hide the button for owners.
+- [ ] Rename the 'Owner' label to 'Captain' in TeamDetailScreen (and anywhere else the team creator is shown as owner)
 - [ ] Remove dead screens (`RegisterScreen.js`, `PlayerDashboard.js`, `ResetPasswordScreen.js`) or wire them up.
 - [ ] Untrack the root `node_modules`. Remove the React Native deps from the backend `package.json`. Delete commented-out old code.
 - [ ] Fix ESLint errors (19).
@@ -78,22 +79,23 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 
 Several items need schema changes. Each needs my approval before the migration is created.
 
+- [ ] Store the captain only in Team.captainId: rename from ownerId and remove the captain member role, with tests. Touches about 16 places in the backend and the app. Do this before transfer captaincy and account deletion. (PRODUCT.md, "Team membership")
 - [ ] Profile editing (players and venue owners)
 - [ ] Change password while logged in
 - [ ] Join request flow: captains see, approve and reject requests
 - [ ] Account deletion inside the app (needs the Account deletion decision first)
 - [ ] Basic in-app notifications for pending invites and join requests (needs the Notifications decision first)
 - [ ] Venue discovery polish
-- [ ] Team membership: record invite vs join request, accepted at date (same migration as invite/request), store the captain only in Team.captainId (rename from ownerId, remove the captain member role), cancel requests and invites, leave a team, transfer captaincy, 15-member limit, "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership")
+- [ ] Team membership: record invite vs join request, accepted at date (same migration as invite/request), cancel requests and invites, leave a team, transfer captaincy, 15-member limit, "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership")
 - [ ] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion")
 - [ ] Rename the player address field to "Area" (keep existing values) (PRODUCT.md, "Profile visibility")
 - [ ] Venue listing: add area, opening hours and pricing info fields; admin approval ("Pending review"); venue search by name and filter by area (PRODUCT.md, "Venue owners")
 - [ ] Notifications screen ("Needs your action" + "Updates"), badge, read/unread (PRODUCT.md, "Notifications")
 - [ ] Moderation: Report button and admin Reports screen; Block and unblock (Settings → Blocked players); suspend and unsuspend users; Terms of Use and Privacy Policy checkbox at registration (PRODUCT.md, "Administration and moderation")
 - [x] Write `docs/DESIGN.md` (colors, fonts, spacing, components, screen list) before UI work
-- [ ] Theme module and shared components (tokens for colors, typography, spacing, radius; Button, Card, Pill, Badge, Avatar, ListRow, ScreenHeader, TabBar), as described in DESIGN.md
+- [ ] Theme module and shared components, following the folder structure in DESIGN.md section 2: `src/theme/` (palette, colors, typography, spacing, radius, shadows, index, ThemeProvider with `useTheme()`) and shared components in `src/components/ui/`. Status bar always light content (fix App.js following the phone's theme).
 - [ ] Add Barlow Condensed and Inter font files
-- [ ] Choose an icon approach (new dependency: ask me first, with options)
+- [ ] Install lucide-react-native and react-native-svg (check version compatibility first, tell me the versions), build the Icon component, then remove react-native-vector-icons and its fonts and config once unused
 - [ ] Rebuild navigation as bottom tabs per role, as described in PRODUCT.md
 - [ ] Restyle all screens using the theme module, one screen at a time, without changing behaviour
 - [ ] Write a short spec in `docs/features/` before building each feature above
