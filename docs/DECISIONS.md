@@ -166,3 +166,46 @@ Full rules are in `docs/PRODUCT.md` under "Administration and moderation". In sh
 
 **Alternatives considered:** admin editing of offensive text (deferred), multiple admins (deferred), telling blocked users they were blocked (rejected: can cause conflict).
 **Consequence:** schema additions for suspension, reports and blocks (need approval). A support email address has to be created before launch.
+
+### 2026-11-18: Add an "accepted at" date to team memberships
+"Longest-standing member" (used for automatic captaincy handover) means the earliest accepted date. Existing accepted members get `joinedAt` copied in. Ties go to the lower membership id.
+**Why:** `joinedAt` records when the invite or request was created, not when the player actually joined. Without a real accepted date, the handover rule can't be applied correctly.
+**Alternatives considered:** using `joinedAt` (rejected: wrong whenever someone accepted long after being invited).
+**Consequence:** a schema change (needs approval). It goes in the same migration as the invite/request field.
+
+### 2026-11-18: The captain is stored in one place only (`Team.captainId`)
+`Team.ownerId` becomes the single record of the captain, renamed to `captainId`. The "captain" member role is removed.
+**Why:**
+- A single field can only hold one captain, so a team can never end up with zero captains or two.
+- A transfer is one update instead of two that must stay in sync.
+- The rename removes the confusing second meaning of "owner" (venue owner vs team creator).
+
+**Alternatives considered:** keeping both copies and always updating them together in a transaction (rejected: the risk of them disagreeing stays forever).
+**Consequence:** a careful, tested change to existing team code and the schema, made during the Phase 4 membership work (needs approval). Until then, any captaincy change must update both places in one transaction.
+
+### 2026-11-18: Navigation and language for v1.0
+- Bottom tabs. Player: My Teams · Explore · Notifications · Profile. Owner: My Venue · Explore · Notifications · Profile. Admin: Dashboard · Reports · Venues · Users · Teams.
+- Explore has Teams · Players · Venues sections with search. It's read-only for owners.
+- Settings sits behind a gear icon on Profile, with Delete account last.
+- English only in v1.0.
+
+Details are in `docs/PRODUCT.md` under "App structure and navigation".
+**Why:**
+- The current design hides the main features behind buttons on the Profile screen.
+- Four tabs keep the main actions one tap away, and leave room for a Matches tab in v1.1 without a redesign.
+- English only: supporting Bangla means making all text translatable and testing every screen in two languages, which is a real cost for v1.0.
+
+**Alternatives considered:** five player tabs (Teams · Players · Venues · Notifications · Profile) (rejected: no room for Matches later), Bangla support in v1.0 (deferred).
+
+### 2026-11-18: Visual design for v1.0 is "Floodlight", built on theme tokens
+Dark background (`#0E1116`), slightly lighter cards (`#171B22`), a neon-lime accent (`#C6F432`), Barlow Condensed uppercase headings and Inter for body text. Full spec: `docs/DESIGN.md`.
+All colors, fonts, sizes, spacing and radii live in one theme module as tokens. Screens never use raw values, and repeated pieces are shared components.
+**Why:**
+- The owner chose Floodlight from five mockup directions. It suits evening indoor futsal.
+- The owner wants to be able to change the look later. Tokens mean a new palette or a light theme is an edit to one module, not to every screen.
+
+**Alternatives considered:** Clean Club (light, green), Matchday (cream, orange, navy), Cream & Ink (cream, black, burnt orange), Ice & Steel (ice blue, graphite, flame orange). These are kept on the design canvas for possible later use.
+**Consequences:**
+- Dark only in v1.0, with no theme switching.
+- Text on lime or on the red badge is always dark, for readability.
+- Fonts are added as files. An SVG icon library is a new dependency and needs approval.

@@ -19,6 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Don't install or upgrade dependencies, reset the database or run destructive migrations without asking me first.
 - Don't invent product behaviour. If something isn't decided in `docs/PRODUCT.md`, stop and ask me, and suggest options with trade-offs.
 - Only build features that are in the current release scope in `docs/PRODUCT.md`.
+- For any UI work, read `docs/DESIGN.md` first. Never put raw colors, font names or loose sizes in screens; always use theme tokens.
 
 ## Docs map
 
@@ -26,6 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `docs/ROADMAP.md`: the plan and task tracker (phased checklist)
 - `docs/DECISIONS.md`: decisions and the reasons behind them
 - `docs/ARCHITECTURE.md`: how the app works, in plain English (backend, data model, mobile app)
+- `docs/DESIGN.md`: the visual design system (colors, fonts, spacing, components)
 
 ## Overview
 
@@ -79,7 +81,7 @@ A beginner-friendly explanation of the same system lives in `docs/ARCHITECTURE.m
 
 ### Data model (`prisma/schema.prisma`)
 - `User` has an optional `PlayerProfile` (name, phone, position, height/weight) or `OwnerProfile` (indoorName, phone, address, website), chosen by `role`. The display name returned at login comes from `playerProfile.name` or `ownerProfile.indoorName`.
-- **"Owner" means two different things.** `Role.OWNER` is an indoor venue owner. `Team.ownerId` is the *player* who created the team, stored as a `TeamMember` with `role: 'captain'` and `status: 'accepted'`. Team "owner-only" actions (invite, remove player, delete team) refer to the team creator, not `Role.OWNER`.
+- **"Owner" means two different things.** `Role.OWNER` is an indoor venue owner. `Team.ownerId` is the *player* who created the team, stored as a `TeamMember` with `role: 'captain'` and `status: 'accepted'`. Team "owner-only" actions (invite, remove player, delete team) refer to the team creator, not `Role.OWNER`. `Team.ownerId` will be renamed to `captainId` (planned in `docs/PRODUCT.md`, not done yet).
 - `TeamMember.status` is a free-form string. The code only uses `pending` and `accepted`; rejecting an invite deletes the row. Rows are unique on `(teamId, userId)`. Invites and join requests both create `pending` rows.
 - Validation lives in `authController.register`: strong passwords, 11-digit phone numbers, height 100–250 cm and weight 30–200 kg. The register screens repeat the phone, height and weight checks but not the password-strength rule. Keep the two sides in sync.
 

@@ -16,7 +16,7 @@ Open product decisions live in the "Open decisions" table in `PRODUCT.md`. These
 - [x] Administration (moderation powers, reporting, enforcement)
 - [x] Notifications (form of in-app notifications)
 - [x] Account deletion (flow, data kept, effect on teams)
-- [ ] UI/UX (navigation, visual design system, screen changes)
+- [x] UI/UX (navigation, visual design system, screen changes)
 
 v1.1 decisions (challenges, match scheduling, cancellation, results) wait until after launch.
 
@@ -84,14 +84,18 @@ Several items need schema changes. Each needs my approval before the migration i
 - [ ] Account deletion inside the app (needs the Account deletion decision first)
 - [ ] Basic in-app notifications for pending invites and join requests (needs the Notifications decision first)
 - [ ] Venue discovery polish
-- [ ] Team membership: record invite vs join request, cancel requests and invites, leave a team, transfer captaincy, 15-member limit, "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership")
+- [ ] Team membership: record invite vs join request, accepted at date (same migration as invite/request), store the captain only in Team.captainId (rename from ownerId, remove the captain member role), cancel requests and invites, leave a team, transfer captaincy, 15-member limit, "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership")
 - [ ] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion")
 - [ ] Rename the player address field to "Area" (keep existing values) (PRODUCT.md, "Profile visibility")
 - [ ] Venue listing: add area, opening hours and pricing info fields; admin approval ("Pending review"); venue search by name and filter by area (PRODUCT.md, "Venue owners")
 - [ ] Notifications screen ("Needs your action" + "Updates"), badge, read/unread (PRODUCT.md, "Notifications")
 - [ ] Moderation: Report button and admin Reports screen; Block and unblock (Settings → Blocked players); suspend and unsuspend users; Terms of Use and Privacy Policy checkbox at registration (PRODUCT.md, "Administration and moderation")
-- [ ] Write `docs/DESIGN.md` (colors, fonts, spacing, components, screen list) before UI work
-- [ ] UI and visual improvements, following `DESIGN.md`
+- [x] Write `docs/DESIGN.md` (colors, fonts, spacing, components, screen list) before UI work
+- [ ] Theme module and shared components (tokens for colors, typography, spacing, radius; Button, Card, Pill, Badge, Avatar, ListRow, ScreenHeader, TabBar), as described in DESIGN.md
+- [ ] Add Barlow Condensed and Inter font files
+- [ ] Choose an icon approach (new dependency: ask me first, with options)
+- [ ] Rebuild navigation as bottom tabs per role, as described in PRODUCT.md
+- [ ] Restyle all screens using the theme module, one screen at a time, without changing behaviour
 - [ ] Write a short spec in `docs/features/` before building each feature above
 
 ## Phase 5: Deployment readiness

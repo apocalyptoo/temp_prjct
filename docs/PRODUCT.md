@@ -66,6 +66,32 @@ _Design note:_ in v1.0 a venue is stored as part of the owner's profile (one ven
 
 Payments, real-time chat, advanced rankings and statistics. Any of these can move into "Later versions" if plans change (payments may come with booking).
 
+## App structure and navigation (v1.0)
+
+The current app puts only Profile and Settings in the bottom bar, and hides everything else behind buttons on the Profile screen. v1.0 replaces that with a proper bottom tab bar for each role.
+
+| Role | Bottom tabs |
+|---|---|
+| Player | **My Teams · Explore · Notifications · Profile** |
+| Venue owner | **My Venue · Explore · Notifications · Profile** |
+| Admin | **Dashboard · Reports · Venues · Users · Teams** |
+
+- **My Teams (player):** the player's teams, with a Create Team button. Opens Team detail (members; for captains, pending requests, invite, transfer captaincy; for everyone, leave team).
+- **Explore (player and owner):** three sections at the top, **Teams · Players · Venues**, each with search (venues also filter by area). Opens Team detail, Player detail and Venue detail. For owners, Explore is read-only (no invite or join buttons).
+- **My Venue (owner):** the owner's listing, its status ("Pending review" or "Live"), and an Edit button.
+- **Notifications:** see "Notifications" below. The tab shows the badge.
+- **Profile:** the user's own profile, with a gear icon for **Settings**.
+- **Settings:** Edit profile · Change password · Blocked players · Terms & Privacy · Contact support · Log out · **Delete account** (last, in red).
+- **Player detail:** public profile fields (see "Profile visibility"), plus **Invite to my team** (for captains), **Report** and **Block**.
+- **Admin Dashboard:** counts, plus highlighted "open reports" and "venues waiting for review". Admin screens prioritise clarity over styling.
+- **v1.1:** a **Matches** tab is added for players.
+
+**Language:** English only in v1.0.
+
+**New screens in v1.0:** Notifications, Edit profile, Change password, Delete account, Blocked players, Player detail, Venue detail, report form, suspension message, Terms checkbox at registration, admin Reports, admin Pending venues. Team detail gains pending requests, Leave team and Transfer captaincy.
+
+**Visual design:** the "Floodlight" look (dark, with a neon-lime accent). The full design system is in `docs/DESIGN.md`. All visual values live in theme tokens, so the look can change later without touching screens.
+
 ## Business rules (approved)
 
 ### Team membership (v1.0)
@@ -97,7 +123,11 @@ Payments, real-time chat, advanced rankings and statistics. Any of these can mov
 - When a team is full, approving a join request or accepting an invite is blocked with a clear message.
 - Pending invites and requests don't count toward the limit.
 
-_Implementation note:_ invites and join requests are currently stored the same way (`status: pending`). The data needs to record who started each one (invite vs request). This is a schema change and needs approval before it's made.
+_Implementation notes:_
+- Invites and join requests are currently stored the same way (`status: pending`). The data needs to record who started each one (invite vs request).
+- **"Longest-standing member"** means the member with the **earliest accepted date**. Memberships need a new **accepted at** date, because the current `joinedAt` records when the invite or request was created, not when it was accepted. For existing accepted members, fill accepted at with `joinedAt` (the best value available). If two dates are equal, the lower membership id wins.
+- **The captain is stored in one place only:** `Team.ownerId`, renamed to `Team.captainId`. The "captain" member role is removed, so the captain can't be recorded in two places that might disagree. A captaincy transfer is a single update of `captainId`. Until this change is made, any code that changes captaincy must update both `Team.ownerId` and the captain's `TeamMember` row in one transaction.
+- These are schema changes and need approval. The invite/request field and accepted at should go in the same migration. The `captainId` change belongs with the Phase 4 membership work.
 
 ### Account deletion (v1.0)
 
@@ -260,7 +290,6 @@ _Implementation note:_ suspension (a flag on the user), reports and blocks each 
 
 | Area | Questions | Needed for | Status |
 |---|---|---|---|
-| UI/UX | Navigation structure, visual design system, screen-by-screen changes | v1.0 | Open |
 | Challenges | Who accepts/rejects, expiry, duplicates, cancellation | v1.1 | Open |
 | Match scheduling | Who proposes/confirms date, time, venue; rescheduling | v1.1 | Open |
 | Match cancellation | Who can cancel; does the other captain need to agree | v1.1 | Open |
