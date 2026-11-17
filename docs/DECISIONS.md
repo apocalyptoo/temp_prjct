@@ -30,6 +30,7 @@ The additions are profile editing, the join request flow, venue discovery, accou
 ### 2026-11-17: Out of scope: tournaments, venue booking, payments, real-time chat, advanced stats, iOS
 Venue booking is explicitly not a core feature.
 **Why:** This is a community app, not a booking app.
+_Partly replaced on 2026-11-18. See "Venue booking and owner tournaments are planned for later versions"._
 
 ### 2026-11-17: Basic in-app notifications are required in any release where a flow waits on another person
 This covers invites and join requests now, and challenges and results later.
@@ -49,3 +50,119 @@ A change is allowed only if it's justified and approved.
 **Why:** The critical bugs don't depend on product decisions, and the backend is publicly reachable whenever ngrok is running.
 
 ### 2026-11-17: Approved business rules are recorded in `docs/PRODUCT.md`
+
+### 2026-11-17: Team membership rules for v1.0
+Full rules are in `docs/PRODUCT.md` under "Team membership". In short:
+- Invites and join requests don't expire. Either side can cancel what they sent.
+- One pending or active membership per player per team. An invited player sees "Accept invite" instead of "Request to join". Rejected players can request again.
+- Members can leave at any time. The captain must transfer captaincy before leaving. If the captain is the only member, leaving deletes the team.
+- One captain per team; no other team roles.
+- At most 15 accepted members per team (captain included). Pending items don't count. No limit on how many teams a player joins.
+
+**Why:**
+- No expiry: avoids timers and background jobs. Cancelling covers stale items, and expiry is easy to add later if needed.
+- Cancelling: cheap to build and avoids stuck items.
+- Single captain: matches the existing code and keeps permissions simple.
+- 15 members: futsal is 5-a-side, so 15 covers three full lineups. It's a single setting if it needs to change.
+- Rejected players can re-request: low abuse risk in v1.0. A cooldown can be added later.
+
+**Alternatives considered:** auto-expiry after a set number of days (deferred), vice-captain roles (deferred), a cooldown after rejection (deferred).
+**Consequence:** the data must record whether a pending membership is an invite or a join request. This needs a schema change, which needs approval first.
+
+### 2026-11-17: Account deletion rules for v1.0
+Full rules are in `docs/PRODUCT.md` under "Account deletion". In short:
+- Settings → Delete account → re-enter password → confirm → deleted immediately (no grace period).
+- Full deletion of the user, their profile, memberships, and pending invites and requests they sent or received.
+- A captain's teams pass automatically to the longest-standing accepted member. A team with no other members is deleted.
+- A venue owner's venue disappears from discovery.
+- The same email can register again.
+- A web deletion page with email confirmation (built in the deployment phase).
+- Admin deletion uses the same rules and the same shared deletion logic.
+
+**Why:**
+- Password re-entry: stops someone with access to an unlocked phone from deleting the account.
+- Immediate deletion: a grace period needs a scheduled cleanup job. It can be added later.
+- Full deletion: v1.0 has no match history to keep. Revisit in v1.1, when match results exist.
+- Automatic captaincy transfer: forcing captains to transfer every team by hand adds friction, and Google Play expects deletion to be easy.
+- Shared deletion logic: one tested code path instead of several, which also fixes the half-finished deletes found in the audit.
+
+**Alternatives considered:** a grace period of about 14 days (deferred), blocking deletion until captains transfer their teams (rejected: friction), anonymising instead of deleting (not needed in v1.0).
+
+### 2026-11-18: Profile visibility rules for v1.0
+Full rules are in `docs/PRODUCT.md` under "Profile visibility". In short:
+- Only logged-in users can see profiles.
+- Public to logged-in users: name, position, optional height and weight, teams, and area.
+- Phone: accepted teammates and the admin only. Email: the user and the admin only.
+- The player address field becomes "Area", with a hint not to enter a full address.
+- Venue listings are visible to all logged-in users. The owner's email stays hidden.
+- The admin sees everything.
+- The backend filters the fields. Hiding them only in the app isn't enough.
+
+**Why:**
+- The public fields are enough for captains to choose who to invite.
+- Teammates need the phone number to coordinate, since there's no chat in v1.0. Strangers don't.
+- Email is for logging in and account emails, not for contacting people.
+- A general area is useful for finding nearby players. A full home address doesn't belong in a community app.
+- The backend has to filter, because anything it sends can be read even if the app doesn't show it.
+
+**Alternatives considered:** an on/off setting for showing the phone to teammates (deferred), keeping the full address field (rejected: privacy).
+**Consequence:** renaming the address field is a schema change and needs approval. Existing values are kept.
+
+### 2026-11-18: Venue owner rules for v1.0
+Full rules are in `docs/PRODUCT.md` under "Venue owners". In short:
+- One venue per owner account.
+- Editable fields: the existing ones (name, address, phone, website, description), plus area and two optional text fields, opening hours and pricing info. No photos.
+- New venues are "Pending review" until an admin approves them. Only approved venues appear in discovery.
+- Owners see public information read-only, and can't create or join teams.
+- An owner who wants to play uses a separate player account.
+- Players can search venues by name and filter by area.
+
+**Why:**
+- Keep owner features basic in v1.0. A full owner system comes in later versions.
+- Hours and pricing as plain text answer players' first questions without building a booking system.
+- No photos: they need file storage and moderation.
+- Admin review: stops fake or joke venues from showing up in a core feature.
+- One role per account: supporting two roles would change login, navigation and permissions everywhere.
+
+**Alternatives considered:** no review, with the admin deleting bad listings afterwards (rejected: users would see junk first), accounts with more than one role (rejected for v1.0), venue photos (deferred).
+**Consequence:** new owner profile fields and an approval flag are schema changes and need approval. Existing venues are treated as approved.
+
+### 2026-11-18: Venue booking and owner tournaments are planned for later versions
+This replaces the earlier "venue booking is not a core feature" part of the 2026-11-17 scope decision. The planned direction for later versions (after v1.1, not scheduled) is real-time venue booking, owner-run tournaments, owner announcements, owners creating their own teams, venue photos and multiple venues per account. Payments, chat and advanced stats stay out of scope for now.
+**Why:** The owner plans to build a proper system for venue owners once the community core is launched.
+**Consequence:** the v1.0 design shouldn't block these features, but shouldn't build for them early either. For example, venues will probably move into their own table when booking arrives.
+
+### 2026-11-18: Notification rules for v1.0
+Full rules are in `docs/PRODUCT.md` under "Notifications". In short:
+- One Notifications screen with "Needs your action" (invites, join requests) and "Updates" (approved or rejected, accepted or declined, removed, became captain, team deleted, venue approved). A number badge counts pending actions plus unread updates.
+- Refreshes when the app opens or comes back into view, when the screen opens, and on pull-to-refresh. Not real-time.
+- The most recent 50 updates are shown.
+- No push notifications in v1.0 (planned for v1.1). No email notifications.
+
+**Why:**
+- In-app only keeps v1.0 smaller: no Firebase, no device tokens, no new dependency.
+- A delay of a few minutes is fine for invites and requests.
+- Push fits v1.1, where challenges and results are time-sensitive.
+- Email for every event is noisy, and personal Gmail has sending limits.
+
+**Trade-off accepted:** a user who doesn't open the app won't see pending items until they do.
+**Alternatives considered:** push in v1.0 (deferred to v1.1: delays launch), real-time updates (rejected: complexity), email notifications (rejected).
+**Consequence:** a new notifications table is needed (a schema change that needs approval).
+
+### 2026-11-18: Administration and moderation rules for v1.0
+Full rules are in `docs/PRODUCT.md` under "Administration and moderation". In short:
+- The admin can approve venues, suspend or unsuspend users, and handle reports, on top of the existing powers. No editing other users' text.
+- A Report button on players, teams and venues, with reasons and an optional note. One report per user per item.
+- A Reports screen for the admin, with dismiss, suspend or delete actions.
+- A Block button on player profiles. Blocking is silent and stops invites, join requests and seeing each other in lists. Unblock from Settings.
+- A required Terms of Use and Privacy Policy checkbox at registration.
+- A dedicated support email address.
+- One admin, created by the script.
+
+**Why:**
+- Google Play requires apps with user-generated content to have Terms of Use, in-app reporting, and in-app blocking. Profiles, team names and venue listings count as user-generated content.
+- Suspending is reversible and keeps the data. A deleted user can sign up again, so deletion alone doesn't stop a troublemaker.
+- No admin text editing keeps v1.0 smaller. Delete and suspend cover the cases.
+
+**Alternatives considered:** admin editing of offensive text (deferred), multiple admins (deferred), telling blocked users they were blocked (rejected: can cause conflict).
+**Consequence:** schema additions for suspension, reports and blocks (need approval). A support email address has to be created before launch.

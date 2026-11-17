@@ -318,7 +318,7 @@ The team owner can also remove a member (`DELETE /teams/:teamId/members/:userId`
 
 ### Join requests
 
-The backend has `POST /teams/:teamId/join`, which adds a `pending` row for the person asking. No screen in the app calls it, and owners have no way to see or approve requests. See [ROADMAP.md](ROADMAP.md), Phases 1 and 4.
+The backend has `POST /teams/:teamId/join`, which adds a `pending` row for the person asking. No screen in the app calls it, and captains have no way to see or approve requests. See [ROADMAP.md](ROADMAP.md), Phases 1 and 4.
 
 ---
 

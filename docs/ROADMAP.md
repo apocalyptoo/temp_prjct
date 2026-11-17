@@ -10,12 +10,12 @@ _Source: Claude Code read-only audit, 2026-11-17. Findings come from reading the
 
 Open product decisions live in the "Open decisions" table in `PRODUCT.md`. These v1.0 decisions can be made while the security and bug fixes are in progress. Each one must be made before the features that depend on it are built.
 
-- [ ] Team membership details (expiry, withdrawing, duplicates, captain transfer, member limits)
-- [ ] Player profile visibility
-- [ ] Venue owner capabilities
-- [ ] Administration (moderation powers, reporting, enforcement)
-- [ ] Notifications (form of in-app notifications)
-- [ ] Account deletion (flow, data kept, effect on teams)
+- [x] Team membership details (expiry, withdrawing, duplicates, captain transfer, member limits)
+- [x] Player profile visibility
+- [x] Venue owner capabilities
+- [x] Administration (moderation powers, reporting, enforcement)
+- [x] Notifications (form of in-app notifications)
+- [x] Account deletion (flow, data kept, effect on teams)
 - [ ] UI/UX (navigation, visual design system, screen changes)
 
 v1.1 decisions (challenges, match scheduling, cancellation, results) wait until after launch.
@@ -43,7 +43,7 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 9. [ ] Add rate limiting (login, register, forgot) and helmet.
 10. [ ] Hash verification and reset tokens before storing them. Add an expiry to verification tokens.
 11. [ ] Escape user names in email HTML.
-12. [ ] Hide emails in `/players`, `/teams` and `/owners` responses. Return only the fields the screen needs.
+12. [ ] Apply the profile visibility rules in PRODUCT.md on the backend: return only the fields each viewer may see (email: self and admin only; phone: accepted teammates and admin only).
 13. [ ] Add role checks on team endpoints (players only).
 
 ## Phase 2: Bugs and repo hygiene
@@ -55,7 +55,7 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 - [ ] Persist login on app start (restore the user from the token) and handle 401 globally (log out).
 - [ ] Don't count pending invites as members.
 - [ ] `AddMemberScreen` hooks error. Also exclude existing members from its list.
-- [ ] Owners see a "+ Create Team" button on All Teams (`TeamsListScreen.js`), but `CreateTeam` isn't a screen in `OwnerNavigator.js`, so tapping it does nothing. Hide the button for owners (or decide whether owners should create teams).
+- [ ] Owners see a "+ Create Team" button on All Teams (`TeamsListScreen.js`), but `CreateTeam` isn't a screen in `OwnerNavigator.js`, so tapping it does nothing. Hide the button for owners.
 - [ ] Remove dead screens (`RegisterScreen.js`, `PlayerDashboard.js`, `ResetPasswordScreen.js`) or wire them up.
 - [ ] Untrack the root `node_modules`. Remove the React Native deps from the backend `package.json`. Delete commented-out old code.
 - [ ] Fix ESLint errors (19).
@@ -76,12 +76,20 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 
 ## Phase 4: v1.0 features
 
+Several items need schema changes. Each needs my approval before the migration is created.
+
 - [ ] Profile editing (players and venue owners)
 - [ ] Change password while logged in
 - [ ] Join request flow: captains see, approve and reject requests
 - [ ] Account deletion inside the app (needs the Account deletion decision first)
 - [ ] Basic in-app notifications for pending invites and join requests (needs the Notifications decision first)
 - [ ] Venue discovery polish
+- [ ] Team membership: record invite vs join request, cancel requests and invites, leave a team, transfer captaincy, 15-member limit, "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership")
+- [ ] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion")
+- [ ] Rename the player address field to "Area" (keep existing values) (PRODUCT.md, "Profile visibility")
+- [ ] Venue listing: add area, opening hours and pricing info fields; admin approval ("Pending review"); venue search by name and filter by area (PRODUCT.md, "Venue owners")
+- [ ] Notifications screen ("Needs your action" + "Updates"), badge, read/unread (PRODUCT.md, "Notifications")
+- [ ] Moderation: Report button and admin Reports screen; Block and unblock (Settings → Blocked players); suspend and unsuspend users; Terms of Use and Privacy Policy checkbox at registration (PRODUCT.md, "Administration and moderation")
 - [ ] Write `docs/DESIGN.md` (colors, fonts, spacing, components, screen list) before UI work
 - [ ] UI and visual improvements, following `DESIGN.md`
 - [ ] Write a short spec in `docs/features/` before building each feature above
@@ -96,9 +104,12 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 - [ ] Seed data for dev/staging. Never use real dumps.
 - [ ] Purge secrets and the DB dump from git history (see Phase 0).
 - [ ] Web page or link for account deletion requests (Google Play requirement)
+- [ ] Write the Terms of Use and Privacy Policy (including backup retention period)
+- [ ] Create a dedicated support email and show it in Settings and the suspension message
 
 ## Phase 6: v1.1 (after launch)
 
 - [ ] Challenges
 - [ ] Match scheduling and cancellation
 - [ ] Match results and history
+- [ ] Push notifications
