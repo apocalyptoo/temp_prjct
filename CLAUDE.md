@@ -19,10 +19,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Don't install or upgrade dependencies, reset the database or run destructive migrations without asking me first.
 - Don't invent product behaviour. If something isn't decided in `docs/PRODUCT.md`, stop and ask me, and suggest options with trade-offs.
 - Only build features that are in the current release scope in `docs/PRODUCT.md`.
-- Work locally only. Never push, pull, fetch or otherwise interact with GitHub or any remote.
-  If something needs a remote action, stop and tell me exactly what to run. I'll do it myself.
-- Do not add any attribution or signature to commit messages (no Co-Authored-By,
-  no "Generated with Claude Code", no session links).
 
 ## Docs map
 
