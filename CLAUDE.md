@@ -10,15 +10,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Write or update tests for anything you change in the backend.
 - Never commit secrets, `.env` files or database dumps.
 - Trust the source code over any documentation, including this file. If you find this file is wrong, tell me and fix it.
-- Before starting a task, read `docs/ROADMAP.md` and `docs/DECISIONS.md`.
+- Before starting a task, read `docs/PRODUCT.md`, `docs/ROADMAP.md` and `docs/DECISIONS.md`.
 - When behaviour changes, update the relevant docs (this file, `docs/ARCHITECTURE.md`, README, `.env.example`) in the same commit.
 - When a roadmap item is done, tick its box in `docs/ROADMAP.md`.
 - Don't undo anything recorded in `docs/DECISIONS.md` without asking me.
 - Work locally only. Never push, pull, fetch or otherwise interact with GitHub or any remote. If something needs a remote action, stop and tell me exactly what to run. I'll do it myself.
 - Do not add any attribution or signature to commit messages (no Co-Authored-By, no "Generated with Claude Code", no session links).
+- Don't install or upgrade dependencies, reset the database or run destructive migrations without asking me first.
+- Don't invent product behaviour. If something isn't decided in `docs/PRODUCT.md`, stop and ask me, and suggest options with trade-offs.
+- Only build features that are in the current release scope in `docs/PRODUCT.md`.
 
 ## Docs map
 
+- `docs/PRODUCT.md`: what the app should do, v1.0 and v1.1 scope, business rules and open decisions
 - `docs/ROADMAP.md`: the plan and task tracker (phased checklist)
 - `docs/DECISIONS.md`: decisions and the reasons behind them
 - `docs/ARCHITECTURE.md`: how the app works, in plain English (backend, data model, mobile app)

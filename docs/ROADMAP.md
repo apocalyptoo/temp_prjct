@@ -1,8 +1,24 @@
 # Connect Arena: Roadmap and Tracker
 
-This is the master plan and task tracker. Tick a box (`[x]`) when an item is done. Add new items to the right phase as they come up. Decisions and their reasons go in `DECISIONS.md`, not here.
+This is the master plan and task tracker. Tick a box (`[x]`) when an item is done. Add new items to the right phase as they come up. What's in each release (scope) comes from `PRODUCT.md`. Decisions and their reasons go in `DECISIONS.md`, not here.
 
 _Source: Claude Code read-only audit, 2026-11-17. Findings come from reading the code, not from testing it against a running server. Reproduce each one before fixing it._
+
+---
+
+## Parallel track: product decisions
+
+Open product decisions live in the "Open decisions" table in `PRODUCT.md`. These v1.0 decisions can be made while the security and bug fixes are in progress. Each one must be made before the features that depend on it are built.
+
+- [ ] Team membership details (expiry, withdrawing, duplicates, captain transfer, member limits)
+- [ ] Player profile visibility
+- [ ] Venue owner capabilities
+- [ ] Administration (moderation powers, reporting, enforcement)
+- [ ] Notifications (form of in-app notifications)
+- [ ] Account deletion (flow, data kept, effect on teams)
+- [ ] UI/UX (navigation, visual design system, screen changes)
+
+v1.1 decisions (challenges, match scheduling, cancellation, results) wait until after launch.
 
 ---
 
@@ -37,9 +53,9 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 - [ ] Lowercase and trim emails. Check for existing duplicates in the DB.
 - [ ] `createTeam` must validate the team name.
 - [ ] Persist login on app start (restore the user from the token) and handle 401 globally (log out).
-- [ ] Join requests: show them to team owners and add an approve/reject flow.
 - [ ] Don't count pending invites as members.
 - [ ] `AddMemberScreen` hooks error. Also exclude existing members from its list.
+- [ ] Owners see a "+ Create Team" button on All Teams (`TeamsListScreen.js`), but `CreateTeam` isn't a screen in `OwnerNavigator.js`, so tapping it does nothing. Hide the button for owners (or decide whether owners should create teams).
 - [ ] Remove dead screens (`RegisterScreen.js`, `PlayerDashboard.js`, `ResetPasswordScreen.js`) or wire them up.
 - [ ] Untrack the root `node_modules`. Remove the React Native deps from the backend `package.json`. Delete commented-out old code.
 - [ ] Fix ESLint errors (19).
@@ -58,14 +74,17 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 - [ ] Pagination on list endpoints.
 - [ ] Validate owner website URLs (http/https only) before `Linking.openURL`.
 
-## Phase 4: Product and design (planning can start during Phases 1–2)
+## Phase 4: v1.0 features
 
-- [ ] Write `docs/PRODUCT.md`: who the users are, what each role can do, what's in version 1.
-- [ ] Write a feature spec in `docs/features/` for each new or changed feature, with "can / cannot" checks.
-- [ ] Write `docs/DESIGN.md` before the redesign: colors, fonts, spacing, components, screen list.
-- [ ] **Owner features: venues/fields, schedules, bookings.** This is the core of an indoor football app and needs a spec first.
-- [ ] Edit profile, change password (while logged in), leave or transfer a team.
-- [ ] App-wide redesign, following `DESIGN.md`.
+- [ ] Profile editing (players and venue owners)
+- [ ] Change password while logged in
+- [ ] Join request flow: captains see, approve and reject requests
+- [ ] Account deletion inside the app (needs the Account deletion decision first)
+- [ ] Basic in-app notifications for pending invites and join requests (needs the Notifications decision first)
+- [ ] Venue discovery polish
+- [ ] Write `docs/DESIGN.md` (colors, fonts, spacing, components, screen list) before UI work
+- [ ] UI and visual improvements, following `DESIGN.md`
+- [ ] Write a short spec in `docs/features/` before building each feature above
 
 ## Phase 5: Deployment readiness
 
@@ -76,3 +95,10 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 - [ ] Release keystore and ProGuard/R8 for the Android release build.
 - [ ] Seed data for dev/staging. Never use real dumps.
 - [ ] Purge secrets and the DB dump from git history (see Phase 0).
+- [ ] Web page or link for account deletion requests (Google Play requirement)
+
+## Phase 6: v1.1 (after launch)
+
+- [ ] Challenges
+- [ ] Match scheduling and cancellation
+- [ ] Match results and history
