@@ -31,7 +31,7 @@ Admin accounts can't be created from the app. They're made with a script (see [s
 
 Both players and owners can ask for a password-reset email from their Settings screen ("Change Password").
 
-Missing today: owner features like fields, schedules and bookings; editing a profile; leaving a team. See [ROADMAP.md](ROADMAP.md), Phase 4.
+Missing today: editing a profile, changing a password while logged in, deleting your own account and in-app notifications. See [ROADMAP.md](ROADMAP.md), Phase 4. What each release will include is in [PRODUCT.md](PRODUCT.md).
 
 ---
 
@@ -318,7 +318,7 @@ The team owner can also remove a member (`DELETE /teams/:teamId/members/:userId`
 
 ### Join requests
 
-The backend has `POST /teams/:teamId/join`, which adds a `pending` row for the person asking. No screen in the app calls it, and owners have no way to see or approve requests. See [ROADMAP.md](ROADMAP.md), Phases 1 and 2.
+The backend has `POST /teams/:teamId/join`, which adds a `pending` row for the person asking. No screen in the app calls it, and owners have no way to see or approve requests. See [ROADMAP.md](ROADMAP.md), Phases 1 and 4.
 
 ---
 
