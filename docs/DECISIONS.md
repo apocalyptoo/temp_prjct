@@ -229,3 +229,13 @@ This replaces the existing `react-native-vector-icons` (Ionicons), which will be
 - The `Icon` wrapper means the icon set can change in one file.
 
 **Consequence:** the status bar is always light in v1.0, whatever the phone's setting.
+
+### 2026-11-18: Registration keeps saying "Email already registered"
+**Why:** Hiding it (always replying "check your email" and emailing the real owner) confuses users who mistype or forget they signed up. Once rate limiting is in place, checking emails in bulk becomes impractical, so the remaining risk is small. Most community apps make this trade-off.
+**Alternatives considered:** always replying "check your email" (rejected for v1.0, can revisit).
+**Note:** login already gives the same reply for an unknown email and a wrong password.
+
+### 2026-11-18: Security packages `helmet` and `express-rate-limit` are approved
+`helmet` sets protective HTTP headers. `express-rate-limit` limits repeated requests to login, register, forgot-password and reset.
+**Why:** both are the standard, widely used choices for Express. Rate limiting stops password guessing and email spamming, and makes bulk email checks impractical.
+**Consequence:** two new backend dependencies, approved by the owner.

@@ -13,6 +13,17 @@ export const verifyToken = (req, res, next) => {
   }
 };
 
+// Team actions (create, invite, accept, reject) are for PLAYER accounts only
+// (docs/PRODUCT.md: venue owners and admins can view teams but not join or run them).
+export const playersOnly = (req, res, next) => {
+  if (req.user.role !== 'PLAYER') {
+    return res.status(403).json({
+      error: 'Only player accounts can create or join teams. Venue owner and admin accounts can only view teams.',
+    });
+  }
+  next();
+};
+
 export const isAdmin = (req, res, next) => {
   if (req.user.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Access denied. Admins only.' });

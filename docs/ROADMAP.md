@@ -24,8 +24,8 @@ v1.1 decisions (challenges, match scheduling, cancellation, results) wait until 
 
 ## Phase 0: Today (no code needed)
 
-- [ ] Change the admin password. The old one is committed in the history of `scripts/createAdmin.js`. To change it, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `backend/.env`, then run `node scripts/createAdmin.js`.
-- [ ] Confirm the GitHub repo is **private**.
+- [x] Change the admin password. The old one is committed in the history of `scripts/createAdmin.js`. To change it, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `backend/.env`, then run `node scripts/createAdmin.js`.
+- [x] Confirm the GitHub repo is **private**.
 - [ ] Plan to purge `backup/app_db.backup` and the plaintext admin password from git history (git filter-repo). Deleting the files alone leaves them in history. Do this after the Phase 1 fixes and before the repo is ever made public.
 
 ## Phase 1: Security fixes (small, high-value)
@@ -38,13 +38,13 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 4. [x] `createAdmin.js`: read the admin password from an env variable instead of hardcoding it.
 5. [x] Reset page XSS (the `/reset-password-page` route in `authRoutes.js`). Escape the token or stop embedding it in the HTML.
 6. [x] Password reset must apply the same strength rule as registration.
-7. [ ] Stop returning `error.message` in 500 responses. Log it on the server instead.
+7. [x] Stop returning `error.message` in 500 responses. Log it on the server instead.
 8. [x] Make the login error generic ("Invalid email or password").
-9. [ ] Add rate limiting (login, register, forgot) and helmet.
+9. [x] Add rate limiting (login, register, forgot) and helmet.
 10. [ ] Hash verification and reset tokens before storing them. Add an expiry to verification tokens.
 11. [x] Escape user names in email HTML.
 12. [ ] Apply the profile visibility rules in PRODUCT.md on the backend: return only the fields each viewer may see (email: self and admin only; phone: accepted teammates and admin only).
-13. [ ] Add role checks on team endpoints (players only).
+13. [x] Add role checks on team endpoints (players only).
 14. [x] Reject non-string email in login, forgot-password and register
 
 ## Phase 2: Bugs and repo hygiene

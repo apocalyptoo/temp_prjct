@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // ── Get all users ──
-export const getAllUsers = async (req, res) => {
+export const getAllUsers = async (req, res, next) => {
   try {
     const users = await prisma.user.findMany({
       select: {
@@ -33,13 +33,12 @@ export const getAllUsers = async (req, res) => {
 
     return res.json(result);
   } catch (err) {
-    console.error('Error fetching users:', err);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return next(err);
   }
 };
 
 // ── Delete user (full cascade) ──
-export const deleteUser = async (req, res) => {
+export const deleteUser = async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
 
@@ -62,13 +61,12 @@ export const deleteUser = async (req, res) => {
 
     return res.json({ message: 'User deleted successfully' });
   } catch (err) {
-    console.error('Error deleting user:', err);
-    return res.status(500).json({ error: 'Failed to delete user', details: err.message });
+    return next(err);
   }
 };
 
 // ── Get all teams ──
-export const getAllTeams = async (req, res) => {
+export const getAllTeams = async (req, res, next) => {
   try {
     const teams = await prisma.team.findMany({
       include: {
@@ -103,26 +101,24 @@ export const getAllTeams = async (req, res) => {
 
     return res.json(result);
   } catch (err) {
-    console.error('Error fetching teams:', err);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return next(err);
   }
 };
 
 // ── Delete team ──
-export const deleteTeam = async (req, res) => {
+export const deleteTeam = async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
     await prisma.teamMember.deleteMany({ where: { teamId: id } });
     await prisma.team.delete({ where: { id } });
     return res.json({ message: 'Team deleted successfully' });
   } catch (err) {
-    console.error('Error deleting team:', err);
-    return res.status(500).json({ error: 'Failed to delete team', details: err.message });
+    return next(err);
   }
 };
 
 // ── Get all indoors (owner profiles) ──
-export const getAllIndoors = async (req, res) => {
+export const getAllIndoors = async (req, res, next) => {
   try {
     const indoors = await prisma.ownerProfile.findMany({
       include: {
@@ -147,13 +143,12 @@ export const getAllIndoors = async (req, res) => {
 
     return res.json(result);
   } catch (err) {
-    console.error('Error fetching indoors:', err);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return next(err);
   }
 };
 
 // ── Stats ──
-export const getStats = async (req, res) => {
+export const getStats = async (req, res, next) => {
   try {
     const [userCount, teamCount, playerCount, ownerCount, adminCount] =
       await Promise.all([
@@ -172,7 +167,6 @@ export const getStats = async (req, res) => {
       adminCount,
     });
   } catch (err) {
-    console.error('Error getting stats:', err);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return next(err);
   }
 };

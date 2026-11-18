@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // ── Create new team ──
-export const createTeam = async (req, res) => {
+export const createTeam = async (req, res, next) => {
   try {
     const { name, description } = req.body;
     const ownerId = req.user.id;
@@ -24,12 +24,12 @@ export const createTeam = async (req, res) => {
 
     res.status(201).json(team);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create team', details: error.message });
+    return next(error);
   }
 };
 
 // ── Invite player (owner only) ──
-export const invitePlayer = async (req, res) => {
+export const invitePlayer = async (req, res, next) => {
   try {
     const { teamId } = req.params;
     const { userId } = req.body;
@@ -48,6 +48,11 @@ export const invitePlayer = async (req, res) => {
       return res.status(403).json({ error: 'Only the team owner can invite players.' });
     }
 
+    // Only existing PLAYER accounts can be invited. An unknown id, or a venue owner or
+    // admin account, gets the same 404 (instead of a database error).
+    const invitee = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (!invitee || invitee.role !== 'PLAYER') return res.status(404).json({ error: 'Player not found' });
+
     const existing = await prisma.teamMember.findUnique({
       where: { teamId_userId: { teamId: Number(teamId), userId } },
     });
@@ -59,12 +64,12 @@ export const invitePlayer = async (req, res) => {
 
     res.status(201).json(invite);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to invite player', details: error.message });
+    return next(error);
   }
 };
 
 // ── Remove player (owner only) ──
-export const removePlayer = async (req, res) => {
+export const removePlayer = async (req, res, next) => {
   try {
     const { teamId, userId } = req.params;
     const requesterId = req.user.id;
@@ -93,12 +98,12 @@ export const removePlayer = async (req, res) => {
 
     return res.json({ message: 'Player removed successfully.' });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to remove player', details: error.message });
+    return next(error);
   }
 };
 
 // ── Delete team (owner only) ──
-export const deleteTeam = async (req, res) => {
+export const deleteTeam = async (req, res, next) => {
   try {
     const { teamId } = req.params;
     const requesterId = req.user.id;
@@ -116,12 +121,12 @@ export const deleteTeam = async (req, res) => {
 
     return res.json({ message: 'Team deleted successfully.' });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to delete team', details: error.message });
+    return next(error);
   }
 };
 
 // ── Accept invite ──
-export const acceptInvite = async (req, res) => {
+export const acceptInvite = async (req, res, next) => {
   try {
     const { teamId } = req.params;
     const userId = req.user.id;
@@ -137,12 +142,12 @@ export const acceptInvite = async (req, res) => {
 
     res.status(200).json({ message: 'Joined team successfully' });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to join team', details: error.message });
+    return next(error);
   }
 };
 
 // ── Reject invite ──
-export const rejectInvite = async (req, res) => {
+export const rejectInvite = async (req, res, next) => {
   try {
     const { teamId } = req.params;
     const userId = req.user.id;
@@ -156,12 +161,12 @@ export const rejectInvite = async (req, res) => {
 
     res.status(200).json({ message: 'Invite rejected' });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to reject invite', details: error.message });
+    return next(error);
   }
 };
 
 // ── Get all teams ──
-export const getTeams = async (req, res) => {
+export const getTeams = async (req, res, next) => {
   try {
     const teams = await prisma.team.findMany({
       include: {
@@ -198,12 +203,12 @@ export const getTeams = async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch teams', details: error.message });
+    return next(error);
   }
 };
 
 // ── Get my teams ──
-export const getMyTeams = async (req, res) => {
+export const getMyTeams = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
@@ -247,6 +252,6 @@ export const getMyTeams = async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch user's teams", details: error.message });
+    return next(error);
   }
 };

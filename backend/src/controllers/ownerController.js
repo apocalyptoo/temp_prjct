@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
-export const getMyOwnerProfile = async (req, res) => {
+export const getMyOwnerProfile = async (req, res, next) => {
   try {
     if (req.user.role !== 'OWNER') {
       return res.status(403).json({ error: 'Owners only' });
@@ -32,11 +32,11 @@ export const getMyOwnerProfile = async (req, res) => {
 
     return res.json(user);
   } catch (err) {
-    return res.status(500).json({ error: 'Failed to fetch owner profile', details: err.message });
+    return next(err);
   }
 };
 
-export const listIndoors = async (req, res) => {
+export const listIndoors = async (req, res, next) => {
   try {
     // If you want ONLY owners to access this list, uncomment:
     // if (req.user.role !== 'OWNER') return res.status(403).json({ error: 'Owners only' });
@@ -62,6 +62,6 @@ export const listIndoors = async (req, res) => {
 
     return res.json(result);
   } catch (err) {
-    return res.status(500).json({ error: 'Failed to fetch indoors', details: err.message });
+    return next(err);
   }
 };

@@ -117,7 +117,9 @@ backend/
 │   ├── routes/          which address goes to which function
 │   ├── controllers/     the functions that do the work
 │   ├── middleware/
-│   │   └── auth.js      login and admin checks
+│   │   ├── auth.js          login, admin and player-only checks
+│   │   ├── rateLimits.js    limits on repeated login, register and password-reset requests
+│   │   └── errorHandler.js  turns any unhandled error into a short generic reply
 │   └── utils/           shared helpers: the password rule, HTML escaping, token format, email templates
 ├── prisma/
 │   ├── schema.prisma    the database tables, described in code
@@ -157,7 +159,7 @@ Route order matters in `playerRoutes.js`: `/me` and `/invites` come before `/:id
 The backend uses a **JWT** (JSON Web Token): a signed piece of text that proves who you are, a bit like a stamped wristband at an event.
 
 1. The app sends email and password to `POST /auth/login`.
-2. The controller looks up the user and checks the account is verified. It then compares the password with the stored **hash** using **bcrypt**. A hash is a scrambled one-way version of the password, so the real password is never stored. bcrypt is the library that creates and checks these hashes.
+2. The controller looks up the user and compares the password with the stored **hash** using **bcrypt**. A hash is a scrambled one-way version of the password, so the real password is never stored. bcrypt is the library that creates and checks these hashes. If the email doesn't exist, it still compares against a fixed dummy hash, so an unknown email takes as long as a wrong password and the timing gives nothing away. Only after the password matches does it check that the account is verified.
 3. If everything matches, the server creates a JWT containing the user's id, role and email, signed with the secret `JWT_SECRET`. It's valid for 7 days.
 4. The reply contains the token plus basic user info (id, name, email, role).
 
@@ -165,13 +167,21 @@ From then on, the app sends the token with every request, and `verifyToken` chec
 
 ### How permissions work
 
-There are three layers of checks:
+There are four layers of checks:
 
 - **Logged in?** `verifyToken` runs on every route except `/auth`.
 - **Admin?** The `isAdmin` middleware runs on every `/admin` route. It rejects anyone whose token role isn't `ADMIN`.
+- **Player?** The `playersOnly` middleware runs on creating a team, inviting, accepting and rejecting. Venue owner and admin accounts get a 403 saying only player accounts can create or join teams.
 - **Everything else** is checked inside the controllers. For example, `/players/me` refuses non-players, and inviting, removing or deleting in a team is refused unless you created that team.
 
 Known security problems in these checks: see [ROADMAP.md](ROADMAP.md), Phase 1.
+
+### Protection against abuse and leaks
+
+- **Security headers (helmet).** `server.js` uses the `helmet` library, which adds standard protective headers to every reply. One of them is a content security policy, a rule list telling browsers what a page may load or do. The defaults work for the reset-password page, because its form posts back to the same site and it uses no inline scripts or styles.
+- **Rate limits (express-rate-limit).** Repeated requests from the same address get a 429 "too many attempts" reply: login 10 per 15 minutes, register 5 per hour, forgot-password 5 per hour, reset 10 per 15 minutes. This stops password guessing and email spamming. The counters are kept in memory, so they reset when the server restarts.
+- **Trust proxy.** The backend is reached through ngrok, which passes each visitor's real address in the `X-Forwarded-For` header. `server.js` sets `trust proxy` to 1 (trust exactly one proxy), so Express reads the visitor's address from there. Without it, every visitor would look like ngrok and share one rate-limit counter. Trusting more than one hop would let visitors fake their address.
+- **No internal details in errors.** When something fails, controllers pass the error to `errorHandler.js`. It logs the real error on the server and replies only "Something went wrong" (500), or "Invalid request body" (400) when the request body can't be read. Error messages, stack traces and database details never reach the client.
 
 ---
 
@@ -306,13 +316,14 @@ Known problems in this flow: see [ROADMAP.md](ROADMAP.md), Phases 1 and 2.
 2. A missing or non-text email is refused. If the email exists, the backend saves a random reset token that expires in 1 hour and emails a link to `BACKEND_PUBLIC_URL/auth/reset-password-page?token=…`. The reply is the same whether or not the email exists.
 3. The link opens a small web form served by the backend. It only shows the form if the token looks like one the backend makes (64 lowercase hex characters); anything else gets an "Invalid or expired link" page. The form submits the new password to `POST /auth/reset`.
 4. The backend refuses a token that isn't plain text, and a new password that fails the same strength rule as registration. Otherwise it finds the user with that unexpired token, saves the new password hash, clears the token and marks the account verified.
+5. Because the form is used in a browser, the replies are simple web pages, not raw JSON: "Password changed" on success; for a weak password, the rule plus a "Try again" link back to the form; for a bad or expired link, a message to request a new reset from the app. Requests sent as JSON still get JSON replies.
 
 Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 
 ### Team invites
 
 1. A team owner opens their team (**My Teams** → team → **Add Member**) and picks a player (`AddMemberScreen.js`).
-2. The app sends `POST /teams/:teamId/invite`. The backend checks that the player id is a positive whole number, that the sender created the team, and that the player isn't already listed. It then adds a `TeamMember` row with status `pending`.
+2. The app sends `POST /teams/:teamId/invite`. The backend checks that the sender is a player account, that the player id is a positive whole number, that the sender created the team, that the invited person exists and is a player (otherwise 404 "Player not found"), and that they aren't already listed. It then adds a `TeamMember` row with status `pending`.
 3. The invited player sees it in **Invites** (`InvitesScreen.js`, which calls `GET /players/invites`).
 4. **Accept** (`POST /teams/:teamId/accept`) changes the status to `accepted`. **Reject** (`POST /teams/:teamId/reject`) deletes the row. Both only work on a `pending` row. If there's no pending invite for that player and team, they reply 404 "Invite not found".
 
@@ -356,7 +367,10 @@ The mobile app has no config file. Its backend address lives in `IndoorFootballA
 | How the token is saved on the phone | `IndoorFootballApp/src/utils/storage.js` |
 | A backend address (URL path) | `backend/src/routes/<area>Routes.js` |
 | What a backend action actually does | `backend/src/controllers/<area>Controller.js` |
-| The login check or admin check | `backend/src/middleware/auth.js` |
+| The login check, admin check or player-only check | `backend/src/middleware/auth.js` |
+| The rate limits (how many tries, how long) | `backend/src/middleware/rateLimits.js` |
+| What clients see when something goes wrong | `backend/src/middleware/errorHandler.js` |
+| Security headers (helmet) or the trust proxy setting | `backend/src/server.js` |
 | Registration rules (phone, height, weight) | `backend/src/controllers/authController.js` (`register`), plus the register screens |
 | The password strength rule (registration, reset and the admin script) | `backend/src/utils/password.js` |
 | The text of the verification or reset emails | `backend/src/utils/emailTemplates.js` |

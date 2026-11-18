@@ -3,8 +3,9 @@ import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import { PrismaClient } from '@prisma/client';
 import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '../utils/password.js';
-import { generateToken } from '../utils/tokens.js';
+import { generateToken, isWellFormedToken } from '../utils/tokens.js';
 import { verifyEmailHtml, resetEmailHtml } from '../utils/emailTemplates.js';
+import { isFormRequest, messagePage } from '../utils/pages.js';
 const prisma = new PrismaClient();
 
 const transporter = nodemailer.createTransport({
@@ -38,8 +39,15 @@ transporter.verify(function (error, success) {
 // to find out which emails have accounts.
 const INVALID_LOGIN = 'Invalid email or password';
 
+const INVALID_RESET_LINK = 'Invalid or expired token';
+
+// A fixed hash to compare against when the email doesn't exist, so an unknown email
+// takes as long as a wrong password (bcrypt is deliberately slow). Same cost (10) as
+// real password hashes. Nothing can log in with it: there's no user to log in as.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('no-such-user-timing-placeholder', 10);
+
 // REGISTER
-export const register = async (req, res) => {
+export const register = async (req, res, next) => {
   const { name, email, password, role, profileData } = req.body;
 
   try {
@@ -181,12 +189,11 @@ export const register = async (req, res) => {
       userId: user.id,
     });
   } catch (err) {
-    console.error('Register error:', err);
-    return res.status(500).json({ error: 'Server error' });
+    return next(err);
   }
 };
 // VERIFY EMAIL
-export const verifyEmail = async (req, res) => {
+export const verifyEmail = async (req, res, next) => {
   const { token } = req.query;
   // Only a non-empty string may reach Prisma. A missing token would mean "no filter"
   // (matching any user), and arrays or objects would break or change the query.
@@ -204,13 +211,12 @@ export const verifyEmail = async (req, res) => {
 
     res.json({ message: 'Email verified successfully. You can now log in.' });
   } catch (err) {
-    console.error('Verify email error:', err);
-    res.status(500).json({ error: 'Server error' });
+    return next(err);
   }
 };
 
 // LOGIN
-export const login = async (req, res) => {
+export const login = async (req, res, next) => {
   const { email, password } = req.body;
   // Only non-empty strings may go further: an object email would be read as a query
   // operator by Prisma, and a non-string password makes bcrypt crash.
@@ -226,9 +232,10 @@ export const login = async (req, res) => {
       },
      });
 
-    // Unknown email and wrong password get the identical reply (INVALID_LOGIN, 400).
-    const match = user ? await bcrypt.compare(password, user.password) : false;
-    if (!match) return res.status(400).json({ error: INVALID_LOGIN });
+    // Unknown email and wrong password get the identical reply (INVALID_LOGIN, 400), and
+    // take about the same time: with no user, compare against the dummy hash anyway.
+    const match = await bcrypt.compare(password, user ? user.password : DUMMY_PASSWORD_HASH);
+    if (!user || !match) return res.status(400).json({ error: INVALID_LOGIN });
 
     // Only someone who knows the password learns that the account isn't verified yet.
     if (!user.verified) return res.status(403).json({ error: 'Please verify your email before logging in.' });
@@ -254,13 +261,12 @@ export const login = async (req, res) => {
   },
 });
   } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: 'Server error' });
+    return next(err);
   }
 };
 
 // REQUEST PASSWORD RESET
-export const requestPasswordReset = async (req, res) => {
+export const requestPasswordReset = async (req, res, next) => {
   const { email } = req.body;
   // Only a non-empty string may reach Prisma (an object would be read as a query operator).
   if (typeof email !== 'string' || email === '') {
@@ -291,26 +297,46 @@ export const requestPasswordReset = async (req, res) => {
 
     return res.json({ message: 'If that email exists, a reset link was sent.' });
   } catch (err) {
-    console.error('requestPasswordReset error:', err);
-    return res.status(500).json({ error: 'Server error' });
+    return next(err);
   }
 };
 
 // RESET PASSWORD
-export const resetPassword = async (req, res) => {
+export const resetPassword = async (req, res, next) => {
   const { token, password } = req.body;
+
+  // The reset page in a browser posts form data and gets HTML pages back. The app and
+  // the tests post JSON and keep getting JSON.
+  const fromForm = isFormRequest(req);
+
+  // A problem the user can fix on the same form (like a weak password) gets a link back
+  // to it. A bad or expired link can't be fixed there: they need a new reset email.
+  const fail = (message) => {
+    if (!fromForm) return res.status(400).json({ error: message });
+    const canRetry = isWellFormedToken(token) && message !== INVALID_RESET_LINK;
+    return res.status(400).send(
+      messagePage({
+        title: 'Password not changed',
+        message: canRetry ? message : `${message}. Please request a new password reset from the app.`,
+        link: canRetry
+          ? { href: `/auth/reset-password-page?token=${encodeURIComponent(token)}`, text: 'Try again' }
+          : undefined,
+      })
+    );
+  };
+
   try {
-    if (!token || !password) return res.status(400).json({ error: 'Token and new password required' });
+    if (!token || !password) return fail('Token and new password required');
     // Only a string may reach Prisma. An object like {"not": ""} (or token[not]= from
     // the HTML form) would be treated as a query operator and match someone else's token.
-    if (typeof token !== 'string') return res.status(400).json({ error: 'Invalid or expired token' });
+    if (typeof token !== 'string') return fail(INVALID_RESET_LINK);
     // Same strength rule as registration (shared function; also rejects non-strings).
-    if (!isStrongPassword(password)) return res.status(400).json({ error: PASSWORD_RULE_MESSAGE });
+    if (!isStrongPassword(password)) return fail(PASSWORD_RULE_MESSAGE);
 
     const user = await prisma.user.findFirst({
       where: { resetToken: token, resetTokenExpires: { gt: new Date() } },
     });
-    if (!user) return res.status(400).json({ error: 'Invalid or expired token' });
+    if (!user) return fail(INVALID_RESET_LINK);
 
     const hashed = await bcrypt.hash(password, 10);
     await prisma.user.update({
@@ -318,10 +344,17 @@ export const resetPassword = async (req, res) => {
       data: { password: hashed, resetToken: null, resetTokenExpires: null, verified: true },
     });
 
+    if (fromForm) {
+      return res.send(
+        messagePage({
+          title: 'Password changed',
+          message: 'Your password has been reset. You can now log in to the app with your new password.',
+        })
+      );
+    }
     return res.json({ message: 'Password reset successful. You can now log in.' });
   } catch (err) {
-    console.error('resetPassword error:', err);
-    return res.status(500).json({ error: 'Server error' });
+    return next(err);
   }
 };
 

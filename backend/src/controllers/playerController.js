@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
-/*export const listPlayers = async (req, res) => {
+/*export const listPlayers = async (req, res, next) => {
   try {
     const players = await prisma.user.findMany({
       where: { role: 'PLAYER' },
@@ -9,13 +9,13 @@ const prisma = new PrismaClient();
     });
     res.json(players);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch players', details: err.message });
+    return next(err);
   }
 };*/
 
 
 
-export const listPlayers = async (req, res) => {
+export const listPlayers = async (req, res, next) => {
   try {
     const players = await prisma.user.findMany({
       where: {
@@ -43,12 +43,12 @@ export const listPlayers = async (req, res) => {
 
     return res.json(result);
   } catch (err) {
-    return res.status(500).json({ error: 'Failed to fetch players', details: err.message });
+    return next(err);
   }
 };
 
 
-export const getMyPlayerProfile = async (req, res) => {
+export const getMyPlayerProfile = async (req, res, next) => {
   try {
     if (req.user.role !== 'PLAYER') {
       return res.status(403).json({ error: 'Players only' });
@@ -80,11 +80,11 @@ export const getMyPlayerProfile = async (req, res) => {
 
     return res.json(user);
   } catch (err) {
-    return res.status(500).json({ error: 'Failed to fetch player profile', details: err.message });
+    return next(err);
   }
 };
 // NEW: get pending invites for current user
-export const getPendingInvites = async (req, res) => {
+export const getPendingInvites = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const invites = await prisma.teamMember.findMany({
@@ -106,13 +106,13 @@ export const getPendingInvites = async (req, res) => {
     });
     res.json(invites);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch invites', details: err.message });
+    return next(err);
   }
 };
 
 
 //  get player stats
-export const getPlayerStats = async (req, res) => {
+export const getPlayerStats = async (req, res, next) => {
   try {
     const { id } = req.params;
     const totalTeams = await prisma.teamMember.count({ where: { userId: Number(id) } });
@@ -122,7 +122,7 @@ export const getPlayerStats = async (req, res) => {
       joinedAt: user?.createdAt,
     });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch player stats', details: err.message });
+    return next(err);
   }
 };
 

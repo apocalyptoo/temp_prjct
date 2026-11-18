@@ -63,31 +63,42 @@ export async function createTestUser(t, data = {}) {
   });
 }
 
-export function postJson(path, body, jwt) {
+// A made-up client address (10.x.x.x is a private range, never a real visitor).
+// The server trusts one proxy (ngrok), so it reads the client address from the
+// X-Forwarded-For header. Giving each request its own address gives it its own
+// rate-limit counter, so the rest of the suite never trips the limits. The
+// rate-limit tests pass a fixed address on purpose to hit them.
+export const fakeClientIp = () =>
+  `10.${crypto.randomInt(256)}.${crypto.randomInt(256)}.${crypto.randomInt(1, 255)}`;
+
+export function postJson(path, body, jwt, ip = fakeClientIp()) {
   return fetch(BASE_URL + path, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-Forwarded-For': ip,
       ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
     },
     body: JSON.stringify(body),
   });
 }
 
-// Creates a verified throwaway player and logs them in. Returns { user, jwt }.
-export async function createLoggedInPlayer(t) {
-  const user = await createTestUser(t, { verified: true });
+// Creates a verified throwaway user and logs them in. Returns { user, jwt }.
+export async function createLoggedInUser(t, data = {}) {
+  const user = await createTestUser(t, { verified: true, ...data });
   const res = await postJson('/auth/login', { email: user.email, password: OLD_PASSWORD });
   if (res.status !== 200) throw new Error(`Login for test user failed with ${res.status}`);
   const { token } = await res.json();
   return { user, jwt: token };
 }
 
+export const createLoggedInPlayer = (t) => createLoggedInUser(t, { role: 'PLAYER' });
+
 // Sends the body exactly as an HTML form would (application/x-www-form-urlencoded).
-export function postForm(path, rawBody) {
+export function postForm(path, rawBody, ip = fakeClientIp()) {
   return fetch(BASE_URL + path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Forwarded-For': ip },
     body: rawBody,
   });
 }
