@@ -7,12 +7,13 @@ import crypto from 'node:crypto';
 import {
   OLD_PASSWORD, NEW_PASSWORD, prisma, getWithIp,
   createTestUser, randomToken, inOneHour, postJson, postForm, passwordIs,
+  sha256Hex, inOneDay,
 } from './helpers.js';
 
 describe('POST /auth/reset', () => {
   test('a valid token resets the password (JSON)', async (t) => {
     const token = randomToken();
-    const user = await createTestUser(t, { resetToken: token, resetTokenExpires: inOneHour() });
+    const user = await createTestUser(t, { resetToken: sha256Hex(token), resetTokenExpires: inOneHour() });
 
     const res = await postJson('/auth/reset', { token, password: NEW_PASSWORD });
 
@@ -24,7 +25,7 @@ describe('POST /auth/reset', () => {
 
   test('a valid token resets the password (HTML form)', async (t) => {
     const token = randomToken();
-    const user = await createTestUser(t, { resetToken: token, resetTokenExpires: inOneHour() });
+    const user = await createTestUser(t, { resetToken: sha256Hex(token), resetTokenExpires: inOneHour() });
 
     const res = await postForm('/auth/reset', new URLSearchParams({ token, password: NEW_PASSWORD }).toString());
 
@@ -74,7 +75,7 @@ describe('POST /auth/reset', () => {
 describe('GET /auth/verify', () => {
   test('a valid token verifies the account', async (t) => {
     const token = randomToken();
-    const user = await createTestUser(t, { verified: false, verifyToken: token });
+    const user = await createTestUser(t, { verified: false, verifyToken: sha256Hex(token), verifyTokenExpires: inOneDay() });
 
     const res = await getWithIp(`/auth/verify?token=${token}`);
 

@@ -183,13 +183,16 @@ Known security problems in these checks: see [ROADMAP.md](ROADMAP.md), Phase 1.
 
   | Route | Limit |
   |---|---|
-  | Login | Only **failed** attempts count: 10 per 15 minutes for one address + email, and at most 50 per 15 minutes for one address across all emails |
+  | Login | Only **failed** attempts (wrong password) count: 10 per 15 minutes for one address + email, and at most 50 per 15 minutes for one address across all emails. "Please verify your email" doesn't count, because the password was right |
   | Register | 20 per hour per address |
   | Forgot password | 5 per hour for one address + email, and at most 20 per hour per address |
+  | Resend verification email | 5 per hour for one address + email, and at most 20 per hour per address |
   | Reset (form submit) | 10 per 15 minutes per address |
   | Reset page and verify link (opened in a browser) | 30 per 15 minutes per address each |
 
   Emails are compared lowercased and trimmed. For IPv6, the whole /56 network counts as one address, because one connection usually owns a range of IPv6 addresses. Browser pages get a readable "Too many attempts" page instead of JSON. The counters are kept in memory, so they reset when the server restarts.
+- **Email cooldown.** A password reset email or a new verification email isn't sent again to the same account within 5 minutes. The reply is unchanged and the earlier email's link still works. This caps how many emails one inbox can get, however many addresses someone uses.
+- **Tokens are stored hashed.** The links in verification and reset emails carry a long random token. The database keeps only its **SHA-256 hash**, a fixed fingerprint that can't be turned back into the token. When a link is used, the backend hashes the token it received and looks up that hash. If the database ever leaked, the stored values couldn't be used as working links. (Passwords use bcrypt, which is deliberately slow. These tokens are long and random, so a fast hash is safe and allows a direct lookup.) The code is `hashToken` in `src/utils/tokens.js`.
 - **Trust proxy.** The backend is reached through ngrok, which passes each visitor's real address in the `X-Forwarded-For` header. `server.js` sets `trust proxy` to 1 (trust exactly one proxy), so Express reads the visitor's address from there. Without it, every visitor would look like ngrok and share one rate-limit counter. Trusting more than one hop would let visitors fake their address.
 - **No internal details in errors.** When something fails, controllers pass the error to `errorHandler.js`. It logs the real error on the server and replies only "Something went wrong" (500), or "Invalid request body" (400) when the request body can't be read. Error messages, stack traces and database details never reach the client.
 
@@ -203,7 +206,7 @@ The tables are described in `backend/prisma/schema.prisma`. Changes to that file
 
 ### The tables in plain words
 
-- **User:** one row per account. Holds the email, the hashed password, the role (`PLAYER`, `OWNER` or `ADMIN`), whether the email is verified, and temporary tokens for email verification and password reset.
+- **User:** one row per account. Holds the email, the hashed password, the role (`PLAYER`, `OWNER` or `ADMIN`), whether the email is verified, and temporary tokens for email verification and password reset, each with an expiry time. The tokens are stored only as SHA-256 hashes (see "Tokens are stored hashed" in section 4), and both token columns have an index so lookups stay fast.
 - **PlayerProfile:** extra details for a player: name, phone, playing position, and optional height, weight and address. Each player has exactly one.
 - **OwnerProfile:** extra details for a venue owner: indoor (venue) name, phone, address, and optional description and website. Each owner has exactly one.
 - **Team:** a team's name, optional description, who created it (`ownerId`), and when.
@@ -308,9 +311,16 @@ The user's details (name, role) are kept only in memory, so closing the app logs
 1. On the Login screen, the user taps **Signup**, picks Player or Owner, and fills in the form (`PlayerRegisterScreen.js` or `OwnerRegisterScreen.js`). The screen checks required fields, an 11-digit phone number, height and weight ranges (players only) and that the two passwords match. It doesn't check password strength; the backend does that.
 2. The app sends `POST /auth/register` with email, password, role and the profile details.
 3. The backend checks that the email is text, then the role, password strength (at least 8 characters with upper case, lower case, a number and a symbol), that the email is new, and the profile fields (phone, height and weight ranges).
-4. It saves the User and their profile in a single step, with `verified` set to false and a random verification token.
-5. It emails a link to `BACKEND_PUBLIC_URL/auth/verify?token=…` through Gmail.
-6. Clicking the link opens the backend in a browser. If the token is missing, isn't a single piece of text, or doesn't match anyone, it shows an "Invalid or expired link" page. Otherwise it marks the user verified and shows an "Email verified" page telling them they can now log in in the app.
+4. It saves the User and their profile in a single step, with `verified` set to false. It also saves the hash of a new random verification token and an expiry 24 hours away.
+5. It emails a link containing the token itself to `BACKEND_PUBLIC_URL/auth/verify?token=…` through Gmail.
+6. Clicking the link opens the backend in a browser. If the token isn't shaped like one the backend makes (64 lowercase hex characters), it shows an "Invalid or expired link" page without touching the database. It shows the same page if no user has that token's hash, or if the link is more than 24 hours old, with a hint to request a new email from the app's login screen. Otherwise it marks the user verified, clears the token and its expiry, and shows an "Email verified" page telling them they can now log in in the app.
+
+### Resending the verification email
+
+1. If someone logs in with the right password before verifying, login replies "Please verify your email" (403). `LoginScreen.js` then shows a **Resend verification email** button.
+2. The button calls `resendVerification()` in `AuthContext`, which sends `POST /auth/resend-verification` with the email. A missing or non-text email is refused.
+3. If that account exists and isn't verified, the backend makes a new token (only its hash is saved, valid for 24 hours, replacing the old link) and emails a new link. It doesn't do this if it already sent one in the last 5 minutes.
+4. The reply is always the same ("If that account needs verifying, we've sent a new email."), whether or not the account exists or is already verified, so it gives nothing away. The app shows that reply.
 
 Known problems in this flow: see [ROADMAP.md](ROADMAP.md), Phases 1 and 2.
 
@@ -323,9 +333,9 @@ Known problems in this flow: see [ROADMAP.md](ROADMAP.md), Phases 1 and 2.
 ### Password reset
 
 1. The user enters their email on **Forgot Password**, or taps **Change Password** in Settings. The app sends `POST /auth/forgot`.
-2. A missing or non-text email is refused. If the email exists, the backend saves a random reset token that expires in 1 hour and emails a link to `BACKEND_PUBLIC_URL/auth/reset-password-page?token=…`. The reply is the same whether or not the email exists.
+2. A missing or non-text email is refused. If the email exists, the backend saves the hash of a new random reset token, which expires in 1 hour, and emails a link containing the token to `BACKEND_PUBLIC_URL/auth/reset-password-page?token=…`. If it already sent a reset email to that account in the last 5 minutes, it sends nothing new. The reply is the same in every case, whether or not the email exists.
 3. The link opens a small web form served by the backend. It only shows the form if the token looks like one the backend makes (64 lowercase hex characters); anything else gets an "Invalid or expired link" page. The form submits the new password to `POST /auth/reset`.
-4. The backend refuses a token that isn't plain text, and a new password that fails the same strength rule as registration. Otherwise it finds the user with that unexpired token, saves the new password hash, clears the token and marks the account verified.
+4. The backend refuses a token that isn't plain text, and a new password that fails the same strength rule as registration. Otherwise it hashes the token, finds the user with that hash and an unexpired link, saves the new password hash, clears the token and its expiry, and marks the account verified.
 5. Because the form is used in a browser, the replies are simple web pages, not raw JSON: "Password changed" on success; for a weak password, the rule plus a "Try again" link back to the form; for a bad or expired link, a message to request a new reset from the app. Requests sent as JSON still get JSON replies.
 
 Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.

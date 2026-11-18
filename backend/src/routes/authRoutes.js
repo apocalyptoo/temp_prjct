@@ -1,5 +1,12 @@
 import express from 'express';
-import { register, login, verifyEmail, requestPasswordReset, resetPassword } from '../controllers/authController.js';
+import {
+  register,
+  login,
+  verifyEmail,
+  resendVerification,
+  requestPasswordReset,
+  resetPassword,
+} from '../controllers/authController.js';
 import { escapeHtml } from '../utils/html.js';
 import { isWellFormedToken } from '../utils/tokens.js';
 import { messagePage } from '../utils/pages.js';
@@ -10,12 +17,14 @@ import {
   resetPasswordLimiter,
   resetPageLimiter,
   verifyLinkLimiter,
+  resendVerificationLimiters,
 } from '../middleware/rateLimits.js';
 const router = express.Router();
 
 router.post('/register', registerLimiter, register);
 router.post('/login', ...loginLimiters, login);
 router.get('/verify', verifyLinkLimiter, verifyEmail);
+router.post('/resend-verification', ...resendVerificationLimiters, resendVerification);
 
 //password reset
 router.post('/forgot', ...forgotPasswordLimiters, requestPasswordReset);

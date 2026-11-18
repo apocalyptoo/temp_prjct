@@ -12,18 +12,34 @@ import {
 import { AuthContext } from '../../contexts/AuthContext';
 
 export default function LoginScreen({ navigation }) {
-  const { login } = useContext(AuthContext);
+  const { login, resendVerification } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  // Shown after a login attempt for an account whose email isn't verified yet.
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const onLogin = async () => {
     try {
       const res = await login(email.trim(), password);
+      setNeedsVerification(Boolean(res.needsVerification));
       if (!res.success) Alert.alert('Login failed', res.error || 'Check your credentials');
     } catch (err) {
       Alert.alert('Error', err.message || 'Login error');
     }
+  };
+
+  const onResendVerification = async () => {
+    setResending(true);
+    const res = await resendVerification(email.trim());
+    setResending(false);
+    Alert.alert(res.success ? 'Email sent' : 'Not sent', res.success ? res.message : res.error);
+  };
+
+  const onChangeEmail = value => {
+    setEmail(value);
+    setNeedsVerification(false); // the button belongs to the email that was checked
   };
 
   return (
@@ -56,7 +72,7 @@ export default function LoginScreen({ navigation }) {
             placeholder="Email Address"
             placeholderTextColor="#888"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={onChangeEmail}
             style={styles.input}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -87,6 +103,20 @@ export default function LoginScreen({ navigation }) {
         <TouchableOpacity style={styles.loginButton} onPress={onLogin}>
           <Text style={styles.loginButtonText}>Login</Text>
         </TouchableOpacity>
+
+        {/* Only after "please verify your email". Reuses the link style until the theme work. */}
+        {needsVerification && (
+          <TouchableOpacity
+            onPress={onResendVerification}
+            disabled={resending}
+            style={styles.forgotContainer}
+            accessibilityRole="button"
+          >
+            <Text style={styles.forgotText}>
+              {resending ? 'Sending…' : 'Resend verification email'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

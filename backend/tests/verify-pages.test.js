@@ -3,12 +3,12 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { prisma, createTestUser, randomToken, getWithIp } from './helpers.js';
+import { prisma, createTestUser, randomToken, getWithIp, sha256Hex, inOneDay } from './helpers.js';
 
 describe('GET /auth/verify replies with HTML pages', () => {
   test('a valid link shows a success page and verifies the account', async (t) => {
     const token = randomToken();
-    const user = await createTestUser(t, { verified: false, verifyToken: token });
+    const user = await createTestUser(t, { verified: false, verifyToken: sha256Hex(token), verifyTokenExpires: inOneDay() });
 
     const res = await getWithIp(`/auth/verify?token=${token}`);
     const body = await res.text();

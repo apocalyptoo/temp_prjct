@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import {
   BASE_URL, OLD_PASSWORD, NEW_PASSWORD, testEmail, createTestUser, randomToken, getWithIp,
   inOneHour, postJson, postForm, passwordIs,
+  sha256Hex, inOneDay,
 } from './helpers.js';
 
 const median = (values) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
@@ -40,7 +41,7 @@ describe('POST /auth/reset from the HTML form replies with HTML', () => {
 
   test('success shows a simple HTML page', async (t) => {
     const token = randomToken();
-    const user = await createTestUser(t, { resetToken: token, resetTokenExpires: inOneHour() });
+    const user = await createTestUser(t, { resetToken: sha256Hex(token), resetTokenExpires: inOneHour() });
 
     const res = await postForm('/auth/reset', formBody(token, NEW_PASSWORD));
     const body = await res.text();
@@ -53,7 +54,7 @@ describe('POST /auth/reset from the HTML form replies with HTML', () => {
 
   test('a weak password shows the rule and a link back to the form', async (t) => {
     const token = randomToken();
-    const user = await createTestUser(t, { resetToken: token, resetTokenExpires: inOneHour() });
+    const user = await createTestUser(t, { resetToken: sha256Hex(token), resetTokenExpires: inOneHour() });
 
     const res = await postForm('/auth/reset', formBody(token, 'weak'));
     const body = await res.text();
@@ -67,7 +68,7 @@ describe('POST /auth/reset from the HTML form replies with HTML', () => {
 
   test('an expired link shows an HTML page telling the user to request a new one', async (t) => {
     const token = randomToken();
-    await createTestUser(t, { resetToken: token, resetTokenExpires: new Date(Date.now() - 1000) });
+    await createTestUser(t, { resetToken: sha256Hex(token), resetTokenExpires: new Date(Date.now() - 1000) });
 
     const res = await postForm('/auth/reset', formBody(token, NEW_PASSWORD));
     const body = await res.text();
@@ -88,7 +89,7 @@ describe('POST /auth/reset from the HTML form replies with HTML', () => {
 
   test('JSON requests still get JSON', async (t) => {
     const token = randomToken();
-    await createTestUser(t, { resetToken: token, resetTokenExpires: inOneHour() });
+    await createTestUser(t, { resetToken: sha256Hex(token), resetTokenExpires: inOneHour() });
 
     const res = await postJson('/auth/reset', { token, password: 'weak' });
 

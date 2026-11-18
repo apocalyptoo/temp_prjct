@@ -52,6 +52,22 @@ export const AuthProvider = ({ children }) => {
       return {
         success: false,
         error: err.response?.data?.error || 'Login failed',
+        // 403 means the password was right but the email isn't verified yet.
+        needsVerification: err.response?.status === 403,
+      };
+    }
+  };
+
+  // 🔹 RESEND VERIFICATION EMAIL
+  // The backend gives the same reply whatever the account's state, so just show it.
+  const resendVerification = async email => {
+    try {
+      const res = await api.post('/auth/resend-verification', { email });
+      return { success: true, message: res.data?.message };
+    } catch (err) {
+      return {
+        success: false,
+        error: err.response?.data?.error || 'Could not send the email. Please try again later.',
       };
     }
   };
@@ -92,6 +108,7 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         register,
+        resendVerification,
       }}
     >
       {children}

@@ -3,7 +3,14 @@ import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import { PrismaClient } from '@prisma/client';
 import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '../utils/password.js';
-import { generateToken, isWellFormedToken } from '../utils/tokens.js';
+import {
+  generateToken,
+  hashToken,
+  isWellFormedToken,
+  sentRecently,
+  RESET_LINK_LIFETIME_MS,
+  VERIFY_LINK_LIFETIME_MS,
+} from '../utils/tokens.js';
 import { verifyEmailHtml, resetEmailHtml } from '../utils/emailTemplates.js';
 import { isFormRequest, messagePage } from '../utils/pages.js';
 const prisma = new PrismaClient();
@@ -45,6 +52,19 @@ const INVALID_RESET_LINK = 'Invalid or expired token';
 // takes as long as a wrong password (bcrypt is deliberately slow). Same cost (10) as
 // real password hashes. Nothing can log in with it: there's no user to log in as.
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('no-such-user-timing-placeholder', 10);
+
+// The verification email. `token` is the plain token: it goes only into the link,
+// never into the database.
+const sendVerificationEmail = ({ email, displayName, token }) =>
+  sendMail({
+    from: `"App Support" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: 'Verify your email address',
+    html: verifyEmailHtml({
+      displayName,
+      verifyLink: `${process.env.BACKEND_PUBLIC_URL}/auth/verify?token=${token}`,
+    }),
+  });
 
 // REGISTER
 export const register = async (req, res, next) => {
@@ -117,7 +137,7 @@ export const register = async (req, res, next) => {
       }
     }
 
-    // 6) Hash password + generate verify token
+    // 6) Hash password + generate verify token (the database keeps only its hash)
     const hashedPassword = await bcrypt.hash(password, 10);
     const verifyToken = generateToken();
 
@@ -127,7 +147,8 @@ export const register = async (req, res, next) => {
         email,
         password: hashedPassword,
         role,
-        verifyToken,
+        verifyToken: hashToken(verifyToken),
+        verifyTokenExpires: new Date(Date.now() + VERIFY_LINK_LIFETIME_MS),
 
         ...(role === 'PLAYER'
           ? {
@@ -175,14 +196,7 @@ export const register = async (req, res, next) => {
     const displayName =
       role === 'PLAYER' ? name : profileData.indoorName;
 
-    const verifyLink = `${process.env.BACKEND_PUBLIC_URL}/auth/verify?token=${verifyToken}`;
-
-    await sendMail({
-      from: `"App Support" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Verify your email address',
-      html: verifyEmailHtml({ displayName, verifyLink }),
-    });
+    await sendVerificationEmail({ email, displayName, token: verifyToken });
 
     return res.status(201).json({
       message: 'Registration successful. Please check your email to verify your account.',
@@ -203,20 +217,25 @@ export const verifyEmail = async (req, res, next) => {
       messagePage({
         title: 'Invalid or expired link',
         message:
-          'This verification link is invalid or has expired. If you have already verified your email, you can log in in the app.',
+          'This verification link is invalid or has expired. If you have already verified your email, you can log in in the app. ' +
+          "Otherwise, you can request a new verification email from the app's login screen.",
       })
     );
 
-  // Only a non-empty string may reach Prisma. A missing token would mean "no filter"
-  // (matching any user), and arrays or objects would break or change the query.
-  if (typeof token !== 'string' || token === '') return invalidLinkPage();
+  // Only a token shaped like the ones the server makes (64 lowercase hex characters)
+  // goes any further. This also stops missing tokens, arrays and objects, which would
+  // otherwise change the database query.
+  if (!isWellFormedToken(token)) return invalidLinkPage();
   try {
-    const user = await prisma.user.findFirst({ where: { verifyToken: token } });   //checks if token is present in table
+    // The database holds the token's hash, and the link must be less than 24 hours old.
+    const user = await prisma.user.findFirst({
+      where: { verifyToken: hashToken(token), verifyTokenExpires: { gt: new Date() } },
+    });
     if (!user) return invalidLinkPage();
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { verified: true, verifyToken: null },
+      data: { verified: true, verifyToken: null, verifyTokenExpires: null },
     });
 
     res.send(messagePage({ title: 'Email verified', message: 'Your email is verified. You can now log in in the app.' }));
@@ -288,12 +307,19 @@ export const requestPasswordReset = async (req, res, next) => {
       return res.json({ message: 'If that email exists, a reset link was sent.' });   //hide existance of email
     }
 
+      // Cooldown: if a reset email went to this account less than 5 minutes ago, send
+      // nothing new and keep the earlier link. The reply stays exactly the same.
+      if (sentRecently(user.resetTokenExpires, RESET_LINK_LIFETIME_MS)) {
+        return res.json({ message: 'If that email exists, a reset link was sent.' });
+      }
+
       const token = generateToken();
-      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      const expires = new Date(Date.now() + RESET_LINK_LIFETIME_MS); // 1 hour
         
+      // The database keeps only the token's hash; the email link carries the token.
       await prisma.user.update({
         where: { id: user.id },
-        data: { resetToken: token, resetTokenExpires: expires },
+        data: { resetToken: hashToken(token), resetTokenExpires: expires },
       });
         
       //const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
@@ -343,8 +369,9 @@ export const resetPassword = async (req, res, next) => {
     // Same strength rule as registration (shared function; also rejects non-strings).
     if (!isStrongPassword(password)) return fail(PASSWORD_RULE_MESSAGE);
 
+    // The database holds the token's hash, so look up the hash of what the link carried.
     const user = await prisma.user.findFirst({
-      where: { resetToken: token, resetTokenExpires: { gt: new Date() } },
+      where: { resetToken: hashToken(token), resetTokenExpires: { gt: new Date() } },
     });
     if (!user) return fail(INVALID_RESET_LINK);
 
@@ -368,3 +395,43 @@ export const resetPassword = async (req, res, next) => {
   }
 };
 
+
+// RESEND VERIFICATION EMAIL
+// Always the same reply, whether the account exists, is already verified, or is in the
+// cooldown, so the reply never reveals anything about an email address.
+const RESEND_REPLY = { message: "If that account needs verifying, we've sent a new email." };
+
+export const resendVerification = async (req, res, next) => {
+  const { email } = req.body;
+  // Only a non-empty string may reach Prisma (an object would be read as a query operator).
+  if (typeof email !== 'string' || email === '') {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { playerProfile: true, ownerProfile: true },
+    });
+    if (!user || user.verified) return res.json(RESEND_REPLY);
+
+    // Cooldown: if a verification email went out less than 5 minutes ago, send nothing
+    // new. The earlier link still works.
+    if (sentRecently(user.verifyTokenExpires, VERIFY_LINK_LIFETIME_MS)) return res.json(RESEND_REPLY);
+
+    // A new link replaces the old one (only the newest link works).
+    const token = generateToken();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { verifyToken: hashToken(token), verifyTokenExpires: new Date(Date.now() + VERIFY_LINK_LIFETIME_MS) },
+    });
+
+    const displayName = user.playerProfile?.name ?? user.ownerProfile?.indoorName ?? 'there';
+    await sendVerificationEmail({ email: user.email, displayName, token }).catch((err) =>
+      console.error('Verification email failed:', err)
+    );
+
+    return res.json(RESEND_REPLY);
+  } catch (err) {
+    return next(err);
+  }
+};

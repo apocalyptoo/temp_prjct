@@ -244,3 +244,12 @@ This replaces the existing `react-native-vector-icons` (Ionicons), which will be
 Login counts only failed attempts, limited per IP + email (10 per 15 min) with a looser per-IP cap (50 per 15 min). Register is 20 per hour per IP. Forgot-password is per IP + email (5 per hour) with a per-IP cap (20 per hour). The reset page and verify link get 30 per 15 min per IP.
 **Why:** mobile carriers in Bangladesh often put many phones behind one shared IP, so strict per-IP limits could block real groups of users. Counting only failures and keying by email keeps the protection against password guessing and email spam while letting real users through.
 **Alternatives considered:** strict per-IP limits (rejected: blocks groups on shared mobile IPs).
+
+### 2026-11-19: Tokens are stored hashed, verification links expire after 24 hours, and resend is added
+The email link carries a random token; the database stores only its SHA-256 hash. Verification links expire after 24 hours, and a "resend verification email" option exists (endpoint plus a button on the login screen). Reset and resend emails have a 5-minute cooldown per account.
+**Why:**
+- If the database ever leaks, hashed tokens can't be used as working links.
+- Links that never expire stay dangerous forever. Expiry needs a way to get a new link, hence resend.
+- The cooldown caps how many emails one inbox can receive, however many addresses an attacker uses, without locking anyone out (the user still has the earlier email).
+- SHA-256 rather than bcrypt: the tokens are long and random, so a fast hash is safe and allows direct lookup.
+**Consequence:** one additive schema change (verifyTokenExpires, token indexes), approved by the owner. Existing tokens were converted in place, so existing links keep working.

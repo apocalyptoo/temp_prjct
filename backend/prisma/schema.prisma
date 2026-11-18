@@ -18,15 +18,21 @@ model User {
   role              Role      @default(PLAYER)
   createdAt         DateTime  @default(now())
   verified          Boolean   @default(false)
-  verifyToken       String?
-  resetToken        String?
-  resetTokenExpires DateTime?
+  // Both tokens are stored as SHA-256 hashes (src/utils/tokens.js hashToken); the
+  // email link carries the original random token.
+  verifyToken        String?
+  verifyTokenExpires DateTime?
+  resetToken         String?
+  resetTokenExpires  DateTime?
 
   playerProfile PlayerProfile?
   ownerProfile  OwnerProfile?
 
   ownedTeams  Team[]       @relation("OwnedTeams")
   teamMembers TeamMember[]
+
+  @@index([verifyToken])
+  @@index([resetToken])
 }
 
 model PlayerProfile {

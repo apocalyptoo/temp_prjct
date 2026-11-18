@@ -31,6 +31,12 @@ after(() => prisma.$disconnect());
 export const testEmail = () => `test-${crypto.randomUUID()}@example.com`;
 export const randomToken = () => crypto.randomBytes(32).toString('hex');
 export const inOneHour = () => new Date(Date.now() + 60 * 60 * 1000);
+export const inOneDay = () => new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+// The database stores tokens as their SHA-256 hash (lowercase hex). Tests that put a
+// token straight into the database store sha256Hex(token) and send the plain token,
+// like a real email link. Written here independently of the app's hashToken().
+export const sha256Hex = (token) => crypto.createHash('sha256').update(token, 'utf8').digest('hex');
 
 // Deletes a user (with their profile, team memberships and the teams they created)
 // by email when the test ends, pass or fail.

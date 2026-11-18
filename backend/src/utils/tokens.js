@@ -6,3 +6,30 @@ import crypto from 'node:crypto';
 export const generateToken = () => crypto.randomBytes(32).toString('hex');
 
 export const isWellFormedToken = (value) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
+
+// What the database stores instead of the token: its SHA-256 hash in lowercase hex.
+// The email link carries the token itself; when it comes back, hash it and look up the
+// hash. If the database ever leaks, the stored values can't be used as working links.
+// A fast hash is fine here (unlike passwords) because the tokens are long and random.
+// The migration that converted old tokens uses the same thing in SQL:
+// encode(sha256(convert_to(token, 'UTF8')), 'hex').
+export const hashToken = (token) => crypto.createHash('sha256').update(token, 'utf8').digest('hex');
+
+const MINUTE = 60 * 1000;
+
+// How long a password reset link works after it's sent.
+export const RESET_LINK_LIFETIME_MS = 60 * MINUTE;
+
+// How long an email verification link works after it's sent.
+export const VERIFY_LINK_LIFETIME_MS = 24 * 60 * MINUTE;
+
+// Minimum time between two account emails of the same kind to the same account.
+export const EMAIL_COOLDOWN_MS = 5 * MINUTE;
+
+// True if an email with a link of this lifetime was sent less than EMAIL_COOLDOWN_MS ago.
+// The send time isn't stored, but it's the expiry time minus the link's lifetime.
+export const sentRecently = (expiresAt, lifetimeMs) => {
+  if (!expiresAt) return false;
+  const sentAt = expiresAt.getTime() - lifetimeMs;
+  return Date.now() - sentAt < EMAIL_COOLDOWN_MS;
+};

@@ -41,7 +41,7 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 7. [x] Stop returning `error.message` in 500 responses. Log it on the server instead.
 8. [x] Make the login error generic ("Invalid email or password").
 9. [x] Add rate limiting (login, register, forgot) and helmet.
-10. [ ] Hash verification and reset tokens before storing them. Add an expiry to verification tokens.
+10. [x] Hash verification and reset tokens before storing them. Add an expiry to verification tokens.
 11. [x] Escape user names in email HTML.
 12. [ ] Apply the profile visibility rules in PRODUCT.md on the backend: return only the fields each viewer may see (email: self and admin only; phone: accepted teammates and admin only).
 13. [x] Add role checks on team endpoints (players only).

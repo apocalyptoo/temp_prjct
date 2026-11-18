@@ -63,6 +63,19 @@ describe('Login rate limits', () => {
     assertLimitedAfter(failures, 10);
   });
 
+  test('"please verify your email" (403, password was right) does not count as a failed attempt', async (t) => {
+    const user = await createTestUser(t, { verified: false });
+    const ip = fakeClientIp();
+
+    const verifyReplies = await statusesFrom(ip, 12, () =>
+      postJson('/auth/login', { email: user.email, password: OLD_PASSWORD }, undefined, ip)
+    );
+    assert.deepEqual([...new Set(verifyReplies)], [403], '12 correct-password logins must all get the 403, never 429');
+
+    const failures = await statusesFrom(ip, 11, () => failedLogin(ip, user.email));
+    assertLimitedAfter(failures, 10);
+  });
+
   test('per-IP safety cap: 50 failed attempts across many emails, then 429', async () => {
     const ip = fakeClientIp();
 
@@ -113,6 +126,27 @@ describe('Forgot-password rate limits', () => {
   test('per-IP cap: 20 per hour across many emails, then 429', async () => {
     const ip = fakeClientIp();
     const statuses = await statusesFrom(ip, 21, () => forgot(ip, testEmail()));
+    assertLimitedAfter(statuses, 20);
+  });
+});
+
+describe('Resend-verification rate limits', () => {
+  const resend = (ip, email) => postJson('/auth/resend-verification', { email }, undefined, ip);
+
+  test('5 per hour per IP + email, then 429; another email from the same IP still works', async () => {
+    const ip = fakeClientIp();
+    const email = testEmail(); // unknown email: nothing is saved and no email is sent
+
+    const statuses = await statusesFrom(ip, 6, () => resend(ip, email));
+    assertLimitedAfter(statuses, 5);
+
+    const otherEmail = await resend(ip, testEmail());
+    assert.notEqual(otherEmail.status, 429);
+  });
+
+  test('per-IP cap: 20 per hour across many emails, then 429', async () => {
+    const ip = fakeClientIp();
+    const statuses = await statusesFrom(ip, 21, () => resend(ip, testEmail()));
     assertLimitedAfter(statuses, 20);
   });
 });

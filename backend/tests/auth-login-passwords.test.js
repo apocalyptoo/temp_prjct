@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import {
   prisma, OLD_PASSWORD, NEW_PASSWORD, testEmail, deleteUserAfter,
   createTestUser, randomToken, inOneHour, postJson, passwordIs,
+  sha256Hex, inOneDay,
 } from './helpers.js';
 
 const GENERIC_LOGIN_ERROR = 'Invalid email or password';
@@ -34,7 +35,7 @@ describe('The password rule is one shared function', () => {
 describe('POST /auth/reset password rules (item 6)', () => {
   test('rejects a weak new password and leaves the account unchanged', async (t) => {
     const token = randomToken();
-    const user = await createTestUser(t, { resetToken: token, resetTokenExpires: inOneHour() });
+    const user = await createTestUser(t, { resetToken: sha256Hex(token), resetTokenExpires: inOneHour() });
 
     const res = await postJson('/auth/reset', { token, password: 'weak' });
 
@@ -42,12 +43,12 @@ describe('POST /auth/reset password rules (item 6)', () => {
     assert.equal((await res.json()).error, PASSWORD_RULE_MESSAGE);
     assert.equal(await passwordIs(user.id, OLD_PASSWORD), true, 'password must not change');
     const after = await prisma.user.findUnique({ where: { id: user.id } });
-    assert.equal(after.resetToken, token, 'the reset link should still work');
+    assert.equal(after.resetToken, sha256Hex(token), 'the reset link should still work');
   });
 
   test('rejects a non-string new password with 400, not 500', async (t) => {
     const token = randomToken();
-    const user = await createTestUser(t, { resetToken: token, resetTokenExpires: inOneHour() });
+    const user = await createTestUser(t, { resetToken: sha256Hex(token), resetTokenExpires: inOneHour() });
 
     for (const password of [ARRAY_PASSWORD, { x: 1 }, 12345678]) {
       const res = await postJson('/auth/reset', { token, password });
