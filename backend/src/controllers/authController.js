@@ -195,21 +195,31 @@ export const register = async (req, res, next) => {
 // VERIFY EMAIL
 export const verifyEmail = async (req, res, next) => {
   const { token } = req.query;
+
+  // This link is opened from an email in a browser, so it answers with simple pages.
+  // Nothing from the link is put into the page.
+  const invalidLinkPage = () =>
+    res.status(400).send(
+      messagePage({
+        title: 'Invalid or expired link',
+        message:
+          'This verification link is invalid or has expired. If you have already verified your email, you can log in in the app.',
+      })
+    );
+
   // Only a non-empty string may reach Prisma. A missing token would mean "no filter"
   // (matching any user), and arrays or objects would break or change the query.
-  if (typeof token !== 'string' || token === '') {
-    return res.status(400).json({ error: 'Invalid or expired token' });
-  }
+  if (typeof token !== 'string' || token === '') return invalidLinkPage();
   try {
     const user = await prisma.user.findFirst({ where: { verifyToken: token } });   //checks if token is present in table
-    if (!user) return res.status(400).json({ error: 'Invalid or expired token' });
+    if (!user) return invalidLinkPage();
 
     await prisma.user.update({
       where: { id: user.id },
       data: { verified: true, verifyToken: null },
     });
 
-    res.json({ message: 'Email verified successfully. You can now log in.' });
+    res.send(messagePage({ title: 'Email verified', message: 'Your email is verified. You can now log in in the app.' }));
   } catch (err) {
     return next(err);
   }

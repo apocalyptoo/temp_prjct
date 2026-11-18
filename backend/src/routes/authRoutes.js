@@ -4,22 +4,24 @@ import { escapeHtml } from '../utils/html.js';
 import { isWellFormedToken } from '../utils/tokens.js';
 import { messagePage } from '../utils/pages.js';
 import {
-  loginLimiter,
+  loginLimiters,
   registerLimiter,
-  forgotPasswordLimiter,
+  forgotPasswordLimiters,
   resetPasswordLimiter,
+  resetPageLimiter,
+  verifyLinkLimiter,
 } from '../middleware/rateLimits.js';
 const router = express.Router();
 
 router.post('/register', registerLimiter, register);
-router.post('/login', loginLimiter, login);
-router.get('/verify', verifyEmail);
+router.post('/login', ...loginLimiters, login);
+router.get('/verify', verifyLinkLimiter, verifyEmail);
 
 //password reset
-router.post('/forgot', forgotPasswordLimiter, requestPasswordReset);
+router.post('/forgot', ...forgotPasswordLimiters, requestPasswordReset);
 router.post('/reset', resetPasswordLimiter, resetPassword);
 
-router.get('/reset-password-page', (req, res) => {
+router.get('/reset-password-page', resetPageLimiter, (req, res) => {
   const { token } = req.query;
 
   // Only show the form for a token shaped like the ones the server generates

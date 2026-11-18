@@ -3,9 +3,9 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { BASE_URL, randomToken } from './helpers.js';
+import { getWithIp, randomToken } from './helpers.js';
 
-const resetPage = (query) => fetch(`${BASE_URL}/auth/reset-password-page${query}`);
+const resetPage = (query) => getWithIp(`/auth/reset-password-page${query}`);
 
 describe('escapeHtml', () => {
   test('escapes the characters that can break out of HTML text or attributes', async () => {

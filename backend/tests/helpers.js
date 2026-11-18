@@ -83,6 +83,10 @@ export function postJson(path, body, jwt, ip = fakeClientIp()) {
   });
 }
 
+export function getWithIp(path, ip = fakeClientIp()) {
+  return fetch(BASE_URL + path, { headers: { 'X-Forwarded-For': ip } });
+}
+
 // Creates a verified throwaway user and logs them in. Returns { user, jwt }.
 export async function createLoggedInUser(t, data = {}) {
   const user = await createTestUser(t, { verified: true, ...data });

@@ -239,3 +239,8 @@ This replaces the existing `react-native-vector-icons` (Ionicons), which will be
 `helmet` sets protective HTTP headers. `express-rate-limit` limits repeated requests to login, register, forgot-password and reset.
 **Why:** both are the standard, widely used choices for Express. Rate limiting stops password guessing and email spamming, and makes bulk email checks impractical.
 **Consequence:** two new backend dependencies, approved by the owner.
+
+### 2026-11-19: Rate limits tuned for shared mobile IP addresses
+Login counts only failed attempts, limited per IP + email (10 per 15 min) with a looser per-IP cap (50 per 15 min). Register is 20 per hour per IP. Forgot-password is per IP + email (5 per hour) with a per-IP cap (20 per hour). The reset page and verify link get 30 per 15 min per IP.
+**Why:** mobile carriers in Bangladesh often put many phones behind one shared IP, so strict per-IP limits could block real groups of users. Counting only failures and keying by email keeps the protection against password guessing and email spam while letting real users through.
+**Alternatives considered:** strict per-IP limits (rejected: blocks groups on shared mobile IPs).

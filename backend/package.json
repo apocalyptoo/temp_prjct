@@ -31,5 +31,12 @@
     "nodemon": "^3.1.10",
     "prisma": "^6.17.1",
     "prisma-erd-generator": "^2.1.0"
+  },
+  "allowScripts": {
+    "@prisma/client@6.17.1": true,
+    "@prisma/engines@6.17.1": true,
+    "bcrypt@6.0.0": true,
+    "prisma@6.17.1": true,
+    "puppeteer": false
   }
 }

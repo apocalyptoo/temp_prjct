@@ -5,7 +5,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import {
-  BASE_URL, OLD_PASSWORD, NEW_PASSWORD, prisma,
+  OLD_PASSWORD, NEW_PASSWORD, prisma, getWithIp,
   createTestUser, randomToken, inOneHour, postJson, postForm, passwordIs,
 } from './helpers.js';
 
@@ -76,7 +76,7 @@ describe('GET /auth/verify', () => {
     const token = randomToken();
     const user = await createTestUser(t, { verified: false, verifyToken: token });
 
-    const res = await fetch(`${BASE_URL}/auth/verify?token=${token}`);
+    const res = await getWithIp(`/auth/verify?token=${token}`);
 
     assert.equal(res.status, 200);
     const after = await prisma.user.findUnique({ where: { id: user.id } });
@@ -86,7 +86,7 @@ describe('GET /auth/verify', () => {
 
   test('rejects an empty or repeated token', async () => {
     for (const query of ['?token=', '?token=a&token=b']) {
-      const res = await fetch(`${BASE_URL}/auth/verify${query}`);
+      const res = await getWithIp(`/auth/verify${query}`);
       assert.equal(res.status, 400, `expected 400 for ${query}`);
     }
   });
@@ -111,7 +111,7 @@ describe('GET /auth/verify', () => {
         return;
       }
 
-      const res = await fetch(`${BASE_URL}/auth/verify${query}`);
+      const res = await getWithIp(`/auth/verify${query}`);
 
       assert.equal(res.status, 400);
       if (target) {

@@ -179,7 +179,17 @@ Known security problems in these checks: see [ROADMAP.md](ROADMAP.md), Phase 1.
 ### Protection against abuse and leaks
 
 - **Security headers (helmet).** `server.js` uses the `helmet` library, which adds standard protective headers to every reply. One of them is a content security policy, a rule list telling browsers what a page may load or do. The defaults work for the reset-password page, because its form posts back to the same site and it uses no inline scripts or styles.
-- **Rate limits (express-rate-limit).** Repeated requests from the same address get a 429 "too many attempts" reply: login 10 per 15 minutes, register 5 per hour, forgot-password 5 per hour, reset 10 per 15 minutes. This stops password guessing and email spamming. The counters are kept in memory, so they reset when the server restarts.
+- **Rate limits (express-rate-limit).** Too many requests get a 429 "too many attempts" reply. This stops password guessing and email spamming. In Bangladesh many phones on a mobile network can share one public address, so most limits count per address *and* email rather than per address alone (see DECISIONS.md, 2026-11-19):
+
+  | Route | Limit |
+  |---|---|
+  | Login | Only **failed** attempts count: 10 per 15 minutes for one address + email, and at most 50 per 15 minutes for one address across all emails |
+  | Register | 20 per hour per address |
+  | Forgot password | 5 per hour for one address + email, and at most 20 per hour per address |
+  | Reset (form submit) | 10 per 15 minutes per address |
+  | Reset page and verify link (opened in a browser) | 30 per 15 minutes per address each |
+
+  Emails are compared lowercased and trimmed. For IPv6, the whole /56 network counts as one address, because one connection usually owns a range of IPv6 addresses. Browser pages get a readable "Too many attempts" page instead of JSON. The counters are kept in memory, so they reset when the server restarts.
 - **Trust proxy.** The backend is reached through ngrok, which passes each visitor's real address in the `X-Forwarded-For` header. `server.js` sets `trust proxy` to 1 (trust exactly one proxy), so Express reads the visitor's address from there. Without it, every visitor would look like ngrok and share one rate-limit counter. Trusting more than one hop would let visitors fake their address.
 - **No internal details in errors.** When something fails, controllers pass the error to `errorHandler.js`. It logs the real error on the server and replies only "Something went wrong" (500), or "Invalid request body" (400) when the request body can't be read. Error messages, stack traces and database details never reach the client.
 
@@ -300,7 +310,7 @@ The user's details (name, role) are kept only in memory, so closing the app logs
 3. The backend checks that the email is text, then the role, password strength (at least 8 characters with upper case, lower case, a number and a symbol), that the email is new, and the profile fields (phone, height and weight ranges).
 4. It saves the User and their profile in a single step, with `verified` set to false and a random verification token.
 5. It emails a link to `BACKEND_PUBLIC_URL/auth/verify?token=…` through Gmail.
-6. Clicking the link opens the backend in a browser. If the token is missing or isn't a single piece of text, the backend refuses it. Otherwise it finds the matching user, marks them verified, and shows a short JSON message.
+6. Clicking the link opens the backend in a browser. If the token is missing, isn't a single piece of text, or doesn't match anyone, it shows an "Invalid or expired link" page. Otherwise it marks the user verified and shows an "Email verified" page telling them they can now log in in the app.
 
 Known problems in this flow: see [ROADMAP.md](ROADMAP.md), Phases 1 and 2.
 

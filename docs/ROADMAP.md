@@ -111,6 +111,9 @@ Several items need schema changes. Each needs my approval before the migration i
 - [ ] Web page or link for account deletion requests (Google Play requirement)
 - [ ] Write the Terms of Use and Privacy Policy (including backup retention period)
 - [ ] Create a dedicated support email and show it in Settings and the suspension message
+- [ ] Set trust proxy correctly for the real hosting (the current value 1 assumes ngrok)
+- [ ] If running more than one server, move rate-limit counters to a shared store
+- [ ] After launch, watch for real users being rate-limited (shared mobile IPs)
 
 ## Phase 6: v1.1 (after launch)
 

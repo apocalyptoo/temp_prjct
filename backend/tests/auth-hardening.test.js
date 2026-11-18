@@ -4,7 +4,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  BASE_URL, OLD_PASSWORD, NEW_PASSWORD, testEmail, createTestUser, randomToken,
+  BASE_URL, OLD_PASSWORD, NEW_PASSWORD, testEmail, createTestUser, randomToken, getWithIp,
   inOneHour, postJson, postForm, passwordIs,
 } from './helpers.js';
 
@@ -107,7 +107,7 @@ describe('Security headers (helmet)', () => {
   });
 
   test("the reset page's form is allowed by the content security policy", async () => {
-    const res = await fetch(`${BASE_URL}/auth/reset-password-page?token=${randomToken()}`);
+    const res = await getWithIp(`/auth/reset-password-page?token=${randomToken()}`);
     const csp = res.headers.get('content-security-policy') ?? '';
     const body = await res.text();
 
