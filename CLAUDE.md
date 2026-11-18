@@ -48,10 +48,12 @@ npx prisma generate          # after any schema.prisma change
 npx prisma migrate deploy    # apply migrations; use `npx prisma migrate dev --name <name>` to create one
 npm run dev                  # nodemon on src/server.js, port 4000 by default
 node scripts/createAdmin.js  # seed an ADMIN user (verified: true). See the warning below.
+npm test                     # node:test suite in tests/ (needs `npm run dev` running and the local DB)
+node --test tests/auth-tokens.test.js   # single test file
 ```
 
 - **Warning:** `createAdmin.js` currently has a hardcoded admin password. It must read the password from an environment variable instead (roadmap Phase 0/1).
-- **Tests:** the backend has no test framework yet (`npm test` is a stub). `testFlow.js` is **out of date and fails at the first step** (roadmap Phase 2). Don't rely on it.
+- **Tests:** backend tests use Node's built-in test runner (`node:test`) and `fetch`, with no extra dependencies. They send real HTTP requests to the running local server and use Prisma directly to set up data. Each test creates its own throwaway user (`test-<uuid>@example.com`) and deletes it in `t.after()`. Shared setup lives in `tests/helpers.js`. Test files run one at a time (`--test-concurrency=1`) because they share the server and database. The register and forgot-password tests send real emails through Gmail to undeliverable `@example.com` addresses. Never change existing users in tests. `testFlow.js` is **out of date and fails at the first step** (roadmap Phase 2). Don't rely on it.
 
 Required `backend/.env` variables: `DATABASE_URL`, `JWT_SECRET`, `EMAIL_USER`, `EMAIL_PASS` (Gmail SMTP via nodemailer), `BACKEND_PUBLIC_URL` (used to build the email verify and reset links), and optionally `PORT`.
 

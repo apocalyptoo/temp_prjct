@@ -32,8 +32,8 @@ v1.1 decisions (challenges, match scheduling, cancellation, results) wait until 
 
 Root cause behind several findings: **values from `req.body` and `req.query` go straight into Prisma `where` clauses without type checks.** Fix these cases first, then add validation everywhere (Phase 3).
 
-1. [ ] **Critical:** password reset token injection (`authController.js:303`). Require the token to be a string. Also check the HTML form route (`extended: true`).
-2. [ ] `GET /auth/verify` with no token verifies an arbitrary user. Reject a missing or non-string token.
+1. [x] **Critical:** password reset token injection (`authController.js:303`). Require the token to be a string. Also check the HTML form route (`extended: true`).
+2. [x] `GET /auth/verify` with no token verifies an arbitrary user. Reject a missing or non-string token.
 3. [ ] Join-team bypass (`teamController.js:32, :139`). `acceptInvite` must only accept invites the team owner created, and it must return 404 when no row exists.
 4. [ ] `createAdmin.js`: read the admin password from an env variable instead of hardcoding it.
 5. [ ] Reset page XSS (`authRoutes.js:23`). Escape the token or stop embedding it in the HTML.
@@ -45,6 +45,7 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 11. [ ] Escape user names in email HTML.
 12. [ ] Apply the profile visibility rules in PRODUCT.md on the backend: return only the fields each viewer may see (email: self and admin only; phone: accepted teammates and admin only).
 13. [ ] Add role checks on team endpoints (players only).
+14. [x] Reject non-string email in login, forgot-password and register
 
 ## Phase 2: Bugs and repo hygiene
 

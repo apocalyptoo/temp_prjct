@@ -123,6 +123,7 @@ backend/
 │   └── migrations/      the history of changes to the tables
 ├── scripts/
 │   └── createAdmin.js   creates an admin account
+├── tests/               automated tests (run with `npm test` while the server is running)
 └── testFlow.js          an old end-to-end test script
 ```
 
@@ -285,25 +286,25 @@ The user's details (name, role) are kept only in memory, so closing the app logs
 
 1. On the Login screen, the user taps **Signup**, picks Player or Owner, and fills in the form (`PlayerRegisterScreen.js` or `OwnerRegisterScreen.js`). The screen checks required fields, an 11-digit phone number, height and weight ranges (players only) and that the two passwords match. It doesn't check password strength; the backend does that.
 2. The app sends `POST /auth/register` with email, password, role and the profile details.
-3. The backend checks the role, password strength (at least 8 characters with upper case, lower case, a number and a symbol), that the email is new, and the profile fields (phone, height and weight ranges).
+3. The backend checks that the email is text, then the role, password strength (at least 8 characters with upper case, lower case, a number and a symbol), that the email is new, and the profile fields (phone, height and weight ranges).
 4. It saves the User and their profile in a single step, with `verified` set to false and a random verification token.
 5. It emails a link to `BACKEND_PUBLIC_URL/auth/verify?token=…` through Gmail.
-6. Clicking the link opens the backend in a browser. It finds the matching user, marks them verified, and shows a short JSON message.
+6. Clicking the link opens the backend in a browser. If the token is missing or isn't a single piece of text, the backend refuses it. Otherwise it finds the matching user, marks them verified, and shows a short JSON message.
 
 Known problems in this flow: see [ROADMAP.md](ROADMAP.md), Phases 1 and 2.
 
 ### Login
 
 1. `LoginScreen.js` calls `login()` from `AuthContext`, which sends `POST /auth/login`.
-2. The backend refuses unknown emails, unverified accounts and wrong passwords. Otherwise it replies with a JWT and the user's details (see [section 4](#how-login-works)).
+2. The backend refuses a missing or non-text email, unknown emails, unverified accounts and wrong passwords. Otherwise it replies with a JWT and the user's details (see [section 4](#how-login-works)).
 3. `AuthContext` saves the token and sets `user`. `AppNavigator` then switches to that role's screens.
 
 ### Password reset
 
 1. The user enters their email on **Forgot Password**, or taps **Change Password** in Settings. The app sends `POST /auth/forgot`.
-2. If the email exists, the backend saves a random reset token that expires in 1 hour and emails a link to `BACKEND_PUBLIC_URL/auth/reset-password-page?token=…`. The reply is the same whether or not the email exists.
+2. A missing or non-text email is refused. If the email exists, the backend saves a random reset token that expires in 1 hour and emails a link to `BACKEND_PUBLIC_URL/auth/reset-password-page?token=…`. The reply is the same whether or not the email exists.
 3. The link opens a small web form served by the backend. The form submits the new password to `POST /auth/reset`.
-4. The backend finds the user with that unexpired token, saves the new password hash, clears the token and marks the account verified.
+4. The backend refuses a token that isn't plain text. Otherwise it finds the user with that unexpired token, saves the new password hash, clears the token and marks the account verified.
 
 Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 
@@ -318,7 +319,7 @@ The team owner can also remove a member (`DELETE /teams/:teamId/members/:userId`
 
 ### Join requests
 
-The backend has `POST /teams/:teamId/join`, which adds a `pending` row for the person asking. No screen in the app calls it, and captains have no way to see or approve requests. See [ROADMAP.md](ROADMAP.md), Phases 1 and 4.
+The backend has `POST /teams/:teamId/join`, which adds a `pending` row for the person asking. No screen in the app calls it, and owners have no way to see or approve requests. See [ROADMAP.md](ROADMAP.md), Phases 1 and 4.
 
 ---
 

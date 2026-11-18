@@ -43,7 +43,8 @@ export const register = async (req, res) => {
 
   try {
     // 1) Validate required fields
-    if (!email || !password || !role || !profileData) {
+    // typeof check: an object email like {"not": ""} must never reach Prisma.
+    if (typeof email !== 'string' || !email || !password || !role || !profileData) {
       return res.status(400).json({
         error: 'Email, password, role, and profileData are required',
       });
@@ -196,6 +197,11 @@ export const register = async (req, res) => {
 // VERIFY EMAIL
 export const verifyEmail = async (req, res) => {
   const { token } = req.query;
+  // Only a non-empty string may reach Prisma. A missing token would mean "no filter"
+  // (matching any user), and arrays or objects would break or change the query.
+  if (typeof token !== 'string' || token === '') {
+    return res.status(400).json({ error: 'Invalid or expired token' });
+  }
   try {
     const user = await prisma.user.findFirst({ where: { verifyToken: token } });   //checks if token is present in table
     if (!user) return res.status(400).json({ error: 'Invalid or expired token' });
@@ -215,6 +221,10 @@ export const verifyEmail = async (req, res) => {
 // LOGIN
 export const login = async (req, res) => {
   const { email, password } = req.body;
+  // Only a non-empty string may reach Prisma (an object would be read as a query operator).
+  if (typeof email !== 'string' || email === '') {
+    return res.status(400).json({ error: 'Invalid email or password' });
+  }
   try {
     const user = await prisma.user.findUnique({ 
       where: { email },
@@ -259,6 +269,10 @@ export const login = async (req, res) => {
 // REQUEST PASSWORD RESET
 export const requestPasswordReset = async (req, res) => {
   const { email } = req.body;
+  // Only a non-empty string may reach Prisma (an object would be read as a query operator).
+  if (typeof email !== 'string' || email === '') {
+    return res.status(400).json({ error: 'Email is required' });
+  }
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
@@ -298,6 +312,9 @@ export const resetPassword = async (req, res) => {
   const { token, password } = req.body;
   try {
     if (!token || !password) return res.status(400).json({ error: 'Token and new password required' });
+    // Only a string may reach Prisma. An object like {"not": ""} (or token[not]= from
+    // the HTML form) would be treated as a query operator and match someone else's token.
+    if (typeof token !== 'string') return res.status(400).json({ error: 'Invalid or expired token' });
 
     const user = await prisma.user.findFirst({
       where: { resetToken: token, resetTokenExpires: { gt: new Date() } },
