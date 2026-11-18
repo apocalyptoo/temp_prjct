@@ -28,22 +28,6 @@ export const createTeam = async (req, res) => {
   }
 };
 
-// ── Join team ──
-export const joinTeam = async (req, res) => {
-  try {
-    const { teamId } = req.params;
-    const userId = req.user.id;
-
-    const request = await prisma.teamMember.create({
-      data: { teamId: Number(teamId), userId },
-    });
-
-    res.status(201).json(request);
-  } catch (error) {
-    res.status(500).json({ error: 'Join request failed', details: error.message });
-  }
-};
-
 // ── Invite player (owner only) ──
 export const invitePlayer = async (req, res) => {
   try {
@@ -136,10 +120,14 @@ export const acceptInvite = async (req, res) => {
     const { teamId } = req.params;
     const userId = req.user.id;
 
-    await prisma.teamMember.updateMany({
-      where: { teamId: Number(teamId), userId },
+    // Only a pending row can be accepted. Interim: pending rows can only be created by
+    // the captain's invite (the /join route was removed until Phase 4 can tell
+    // invites and join requests apart).
+    const { count } = await prisma.teamMember.updateMany({
+      where: { teamId: Number(teamId), userId, status: 'pending' },
       data: { status: 'accepted' },
     });
+    if (count === 0) return res.status(404).json({ error: 'Invite not found' });
 
     res.status(200).json({ message: 'Joined team successfully' });
   } catch (error) {
@@ -153,16 +141,12 @@ export const rejectInvite = async (req, res) => {
     const { teamId } = req.params;
     const userId = req.user.id;
 
-    const member = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: Number(teamId), userId } },
+    // Only a pending row can be rejected, so this can't remove an accepted membership
+    // (including the captain's own).
+    const { count } = await prisma.teamMember.deleteMany({
+      where: { teamId: Number(teamId), userId, status: 'pending' },
     });
-
-    if (!member) return res.status(404).json({ error: 'Invite not found' });
-    if (member.userId !== userId) return res.status(403).json({ error: 'Not authorized' });
-
-    await prisma.teamMember.delete({
-      where: { teamId_userId: { teamId: Number(teamId), userId } },
-    });
+    if (count === 0) return res.status(404).json({ error: 'Invite not found' });
 
     res.status(200).json({ message: 'Invite rejected' });
   } catch (error) {

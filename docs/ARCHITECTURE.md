@@ -67,7 +67,7 @@ Some terms from the diagram:
 - **Backend** (or server) is a program that runs on a computer, receives requests from the app and sends back answers.
 - **ngrok** is a tool that gives a program on your own computer a public web address, so a phone anywhere can reach it.
 - **PostgreSQL** is the database: the program that stores all the data in tables.
-- **SMTP** is the standard way programs send email. The backend logs in to a Gmail account to send mail.
+- **SMTP** is the standard way programs send email. The backend logs in to a Gmail account to send mail. Mail to `@example.com` addresses is never sent, only logged. That domain is reserved and can't receive mail, and the automated tests use it for their throwaway users.
 
 Right now the backend and database run on the developer's own computer. Phones reach them only through the ngrok address.
 
@@ -144,7 +144,7 @@ Three terms used in this layout:
 | `/auth` | `authRoutes.js` | Register, log in, verify email, forgot/reset password (no login needed) |
 | `/players` | `playerRoutes.js` | My player profile, my pending invites, list all players, a player's stats |
 | `/owners` | `ownerRoutes.js` | My owner profile, list all registered venues |
-| `/teams` | `teamRoutes.js` | Create, list, my teams, invite, accept, reject, join, remove member, delete team |
+| `/teams` | `teamRoutes.js` | Create, list, my teams, invite, accept, reject, remove member, delete team |
 | `/admin` | `adminRoutes.js` | Stats, list/delete users, list/delete teams, list/delete venues (admins only) |
 
 There's also `GET /`, which replies "API running" so you can check the server is up.
@@ -186,7 +186,7 @@ The tables are described in `backend/prisma/schema.prisma`. Changes to that file
 - **PlayerProfile:** extra details for a player: name, phone, playing position, and optional height, weight and address. Each player has exactly one.
 - **OwnerProfile:** extra details for a venue owner: indoor (venue) name, phone, address, and optional description and website. Each owner has exactly one.
 - **Team:** a team's name, optional description, who created it (`ownerId`), and when.
-- **TeamMember:** links a user to a team. It has a `role` (`captain` or `player`) and a `status`: `pending` means invited or asked but not yet in, and `accepted` means in the team. A user can appear only once per team.
+- **TeamMember:** links a user to a team. It has a `role` (`captain` or `player`) and a `status`: `pending` means invited but not yet in, and `accepted` means in the team. A user can appear only once per team.
 
 Admins have a User row but no profile.
 
@@ -313,13 +313,13 @@ Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 1. A team owner opens their team (**My Teams** → team → **Add Member**) and picks a player (`AddMemberScreen.js`).
 2. The app sends `POST /teams/:teamId/invite`. The backend checks that the sender created the team and that the player isn't already listed. It then adds a `TeamMember` row with status `pending`.
 3. The invited player sees it in **Invites** (`InvitesScreen.js`, which calls `GET /players/invites`).
-4. **Accept** (`POST /teams/:teamId/accept`) changes the status to `accepted`. **Reject** (`POST /teams/:teamId/reject`) deletes the row.
+4. **Accept** (`POST /teams/:teamId/accept`) changes the status to `accepted`. **Reject** (`POST /teams/:teamId/reject`) deletes the row. Both only work on a `pending` row. If there's no pending invite for that player and team, they reply 404 "Invite not found".
 
 The team owner can also remove a member (`DELETE /teams/:teamId/members/:userId`) or delete the whole team (`DELETE /teams/:teamId`).
 
 ### Join requests
 
-The backend has `POST /teams/:teamId/join`, which adds a `pending` row for the person asking. No screen in the app calls it, and owners have no way to see or approve requests. See [ROADMAP.md](ROADMAP.md), Phases 1 and 4.
+There's currently no way to ask to join a team. The old `POST /teams/:teamId/join` endpoint was removed because it was a security hole: it created a `pending` row for the person asking, and since a join request looked exactly like an invite, that player could then "accept" it and join any team without the captain's approval. No screen used it. The join-request flow will be rebuilt in Phase 4, once the data can tell invites and join requests apart. See [ROADMAP.md](ROADMAP.md), Phase 4.
 
 ---
 

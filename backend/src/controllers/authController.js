@@ -13,6 +13,17 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Sends an email, except to @example.com addresses. example.com is reserved and can
+// never receive mail, so those are skipped (the tests use it for throwaway users).
+// The log line shows only the recipient and subject, never tokens or links.
+const sendMail = (options) => {
+  if (String(options.to).toLowerCase().endsWith('@example.com')) {
+    console.log(`Email skipped (example.com): to=${options.to} subject="${options.subject}"`);
+    return Promise.resolve();
+  }
+  return transporter.sendMail(options);
+};
+
 transporter.verify(function (error, success) {
   if (error) {
     console.error("SMTP Connection Error:", error);
@@ -171,7 +182,7 @@ export const register = async (req, res) => {
 
     const verifyLink = `${process.env.BACKEND_PUBLIC_URL}/auth/verify?token=${verifyToken}`;
 
-    await transporter.sendMail({
+    await sendMail({
       from: `"App Support" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: 'Verify your email address',
@@ -289,7 +300,7 @@ export const requestPasswordReset = async (req, res) => {
         
       //const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
       const resetLink = `${process.env.BACKEND_PUBLIC_URL}/auth/reset-password-page?token=${token}`;
-      await transporter.sendMail({
+      await sendMail({
         from: `"App Support" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: 'Password reset request',

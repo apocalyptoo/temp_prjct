@@ -34,7 +34,7 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 
 1. [x] **Critical:** password reset token injection (`authController.js:303`). Require the token to be a string. Also check the HTML form route (`extended: true`).
 2. [x] `GET /auth/verify` with no token verifies an arbitrary user. Reject a missing or non-string token.
-3. [ ] Join-team bypass (`teamController.js:32, :139`). `acceptInvite` must only accept invites the team owner created, and it must return 404 when no row exists.
+3. [x] Join-team bypass (`teamController.js:32, :139`). `acceptInvite` must only accept invites the team owner created, and it must return 404 when no row exists. (interim: /join removed; the join-request flow is rebuilt in Phase 4)
 4. [ ] `createAdmin.js`: read the admin password from an env variable instead of hardcoding it.
 5. [ ] Reset page XSS (`authRoutes.js:23`). Escape the token or stop embedding it in the HTML.
 6. [ ] Password reset must apply the same strength rule as registration.
@@ -83,7 +83,7 @@ Several items need schema changes. Each needs my approval before the migration i
 - [ ] Store the captain only in Team.captainId: rename from ownerId and remove the captain member role, with tests. Touches about 16 places in the backend and the app. Do this before transfer captaincy and account deletion. (PRODUCT.md, "Team membership")
 - [ ] Profile editing (players and venue owners)
 - [ ] Change password while logged in
-- [ ] Join request flow: captains see, approve and reject requests
+- [ ] Join request flow: captains see, approve and reject requests. The join endpoint was removed in Phase 1 (item 3) and needs to be rebuilt, recording that the row is a join request, not an invite.
 - [ ] Venue discovery polish
 - [ ] Team membership: record invite vs join request, accepted at date (same migration as invite/request), cancel requests and invites, leave a team, transfer captaincy, 15-member limit, "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership")
 - [ ] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion")
