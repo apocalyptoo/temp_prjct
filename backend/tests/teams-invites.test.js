@@ -63,6 +63,19 @@ describe('Joining a team needs the captain', () => {
   });
 });
 
+describe('Invite input checks', () => {
+  test('rejects a userId that is not a positive integer', async (t) => {
+    const { captain, team } = await setUpTeamAndOutsider(t);
+
+    for (const userId of [{ not: 1 }, 'abc', '5', -1, 0, 1.5, null, undefined]) {
+      const res = await postJson(`/teams/${team.id}/invite`, { userId }, captain.jwt);
+      assert.equal(res.status, 400, `expected 400 for userId ${JSON.stringify(userId)}`);
+    }
+    const pending = await prisma.teamMember.count({ where: { teamId: team.id, status: 'pending' } });
+    assert.equal(pending, 0, 'no invites should have been created');
+  });
+});
+
 describe('Normal invite flow still works', () => {
   test('captain invites, player accepts, player is a member', async (t) => {
     const { captain, outsider, team } = await setUpTeamAndOutsider(t);

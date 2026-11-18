@@ -35,6 +35,12 @@ export const invitePlayer = async (req, res) => {
     const { userId } = req.body;
     const inviterId = req.user.id;
 
+    // userId goes into a Prisma query, so it must be a real positive whole number
+    // (not a string, an object or a decimal).
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: 'userId must be a positive integer' });
+    }
+
     const team = await prisma.team.findUnique({ where: { id: Number(teamId) } });
     if (!team) return res.status(404).json({ error: 'Team not found' });
 

@@ -47,15 +47,15 @@ npm install
 npx prisma generate          # after any schema.prisma change
 npx prisma migrate deploy    # apply migrations; use `npx prisma migrate dev --name <name>` to create one
 npm run dev                  # nodemon on src/server.js, port 4000 by default
-node scripts/createAdmin.js  # seed an ADMIN user (verified: true). See the warning below.
+node scripts/createAdmin.js  # create the ADMIN user, or change its password (reads ADMIN_EMAIL, ADMIN_PASSWORD)
 npm test                     # node:test suite in tests/ (needs `npm run dev` running and the local DB)
 node --test tests/auth-tokens.test.js   # single test file
 ```
 
-- **Warning:** `createAdmin.js` currently has a hardcoded admin password. It must read the password from an environment variable instead (roadmap Phase 0/1).
+- **createAdmin.js** refuses to run if `ADMIN_EMAIL` or `ADMIN_PASSWORD` is missing or the password is weak, and never prints the password. It updates an existing admin with that email, and refuses to promote a non-admin account or to create a second admin.
 - **Tests:** backend tests use Node's built-in test runner (`node:test`) and `fetch`, with no extra dependencies. They send real HTTP requests to the running local server and use Prisma directly to set up data. Each test creates its own throwaway user (`test-<uuid>@example.com`) and deletes it in `t.after()`. Shared setup lives in `tests/helpers.js`. Test files run one at a time (`--test-concurrency=1`) because they share the server and database. `authController` never sends mail to `@example.com` addresses (it logs a line instead), so test runs send no real email. Never change existing users in tests. `testFlow.js` is **out of date and fails at the first step** (roadmap Phase 2). Don't rely on it.
 
-Required `backend/.env` variables: `DATABASE_URL`, `JWT_SECRET`, `EMAIL_USER`, `EMAIL_PASS` (Gmail SMTP via nodemailer), `BACKEND_PUBLIC_URL` (used to build the email verify and reset links), and optionally `PORT`.
+Required `backend/.env` variables: `DATABASE_URL`, `JWT_SECRET`, `EMAIL_USER`, `EMAIL_PASS` (Gmail SMTP via nodemailer), `BACKEND_PUBLIC_URL` (used to build the email verify and reset links), and optionally `PORT`. `ADMIN_EMAIL` and `ADMIN_PASSWORD` are only needed when running `scripts/createAdmin.js`.
 
 Mobile app (run from `IndoorFootballApp/`):
 ```bash
@@ -81,12 +81,14 @@ A beginner-friendly explanation of the same system lives in `docs/ARCHITECTURE.m
 - **Route ordering matters**: in `playerRoutes.js`, `/me` and `/invites` must stay above `/:id`.
 - **Registration flow**: `POST /auth/register` creates the `User` and its role-specific profile in one nested create, then emails a verification link. Login is refused until `verified` is true. Password reset sends a link to a server-rendered HTML form at `/auth/reset-password-page`, which POSTs to `/auth/reset`. That is why `express.urlencoded` is enabled.
 - **Never pass raw `req.body` / `req.query` values into Prisma `where` clauses.** Check the type first (e.g. that a token is a non-empty string). Objects like `{"not": ""}` get treated as query operators.
+- **Shared helpers in `src/utils/`:** `password.js` (the one strength rule, used by register, reset and `createAdmin.js`), `html.js` (`escapeHtml`: use it for every value inserted into HTML, in emails or server-rendered pages), `tokens.js` (generates verify/reset tokens and checks their format), `emailTemplates.js` (email HTML).
+- **Login replies** are the same for an unknown email and a wrong password ("Invalid email or password", 400). "Please verify your email" (403) is only returned after the password is correct.
 
 ### Data model (`prisma/schema.prisma`)
 - `User` has an optional `PlayerProfile` (name, phone, position, height/weight) or `OwnerProfile` (indoorName, phone, address, website), chosen by `role`. The display name returned at login comes from `playerProfile.name` or `ownerProfile.indoorName`.
 - **"Owner" means two different things.** `Role.OWNER` is an indoor venue owner. `Team.ownerId` is the *player* who created the team, stored as a `TeamMember` with `role: 'captain'` and `status: 'accepted'`. Team "owner-only" actions (invite, remove player, delete team) refer to the team creator, not `Role.OWNER`. `Team.ownerId` will be renamed to `captainId` (planned in `docs/PRODUCT.md`, not done yet).
 - `TeamMember.status` is a free-form string. The code only uses `pending` and `accepted`; rejecting an invite deletes the row. Rows are unique on `(teamId, userId)`. Only invites create `pending` rows: `POST /teams/:teamId/join` was removed (it let players accept their own join requests) and gets rebuilt in Phase 4. Accept and reject act only on `pending` rows and return 404 otherwise.
-- Validation lives in `authController.register`: strong passwords, 11-digit phone numbers, height 100–250 cm and weight 30–200 kg. The register screens repeat the phone, height and weight checks but not the password-strength rule. Keep the two sides in sync.
+- Validation lives in `authController.register` (the password rule itself is in `src/utils/password.js`): strong passwords, 11-digit phone numbers, height 100–250 cm and weight 30–200 kg. The register screens repeat the phone, height and weight checks but not the password-strength rule. Keep the two sides in sync.
 
 ### Mobile app
 - `App.js` wraps `AuthProvider` (`src/contexts/AuthContext.js`) around `AppNavigator`. `AppNavigator` switches on `user.role` between `AuthStack`, `PlayerNavigator`, `OwnerNavigator`, and `AdminStack`.

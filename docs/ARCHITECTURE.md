@@ -116,8 +116,9 @@ backend/
 │   ├── server.js        starts the server and connects the routers
 │   ├── routes/          which address goes to which function
 │   ├── controllers/     the functions that do the work
-│   └── middleware/
-│       └── auth.js      login and admin checks
+│   ├── middleware/
+│   │   └── auth.js      login and admin checks
+│   └── utils/           shared helpers: the password rule, HTML escaping, token format, email templates
 ├── prisma/
 │   ├── schema.prisma    the database tables, described in code
 │   └── migrations/      the history of changes to the tables
@@ -296,22 +297,22 @@ Known problems in this flow: see [ROADMAP.md](ROADMAP.md), Phases 1 and 2.
 ### Login
 
 1. `LoginScreen.js` calls `login()` from `AuthContext`, which sends `POST /auth/login`.
-2. The backend refuses a missing or non-text email, unknown emails, unverified accounts and wrong passwords. Otherwise it replies with a JWT and the user's details (see [section 4](#how-login-works)).
+2. The backend refuses a missing or non-text email or password. An unknown email and a wrong password get exactly the same reply ("Invalid email or password"), so nobody can use the login screen to find out who has an account. Only after the password is confirmed correct does an unverified account get told to verify its email first. Otherwise it replies with a JWT and the user's details (see [section 4](#how-login-works)).
 3. `AuthContext` saves the token and sets `user`. `AppNavigator` then switches to that role's screens.
 
 ### Password reset
 
 1. The user enters their email on **Forgot Password**, or taps **Change Password** in Settings. The app sends `POST /auth/forgot`.
 2. A missing or non-text email is refused. If the email exists, the backend saves a random reset token that expires in 1 hour and emails a link to `BACKEND_PUBLIC_URL/auth/reset-password-page?token=…`. The reply is the same whether or not the email exists.
-3. The link opens a small web form served by the backend. The form submits the new password to `POST /auth/reset`.
-4. The backend refuses a token that isn't plain text. Otherwise it finds the user with that unexpired token, saves the new password hash, clears the token and marks the account verified.
+3. The link opens a small web form served by the backend. It only shows the form if the token looks like one the backend makes (64 lowercase hex characters); anything else gets an "Invalid or expired link" page. The form submits the new password to `POST /auth/reset`.
+4. The backend refuses a token that isn't plain text, and a new password that fails the same strength rule as registration. Otherwise it finds the user with that unexpired token, saves the new password hash, clears the token and marks the account verified.
 
 Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 
 ### Team invites
 
 1. A team owner opens their team (**My Teams** → team → **Add Member**) and picks a player (`AddMemberScreen.js`).
-2. The app sends `POST /teams/:teamId/invite`. The backend checks that the sender created the team and that the player isn't already listed. It then adds a `TeamMember` row with status `pending`.
+2. The app sends `POST /teams/:teamId/invite`. The backend checks that the player id is a positive whole number, that the sender created the team, and that the player isn't already listed. It then adds a `TeamMember` row with status `pending`.
 3. The invited player sees it in **Invites** (`InvitesScreen.js`, which calls `GET /players/invites`).
 4. **Accept** (`POST /teams/:teamId/accept`) changes the status to `accepted`. **Reject** (`POST /teams/:teamId/reject`) deletes the row. Both only work on a `pending` row. If there's no pending invite for that player and team, they reply 404 "Invite not found".
 
@@ -335,8 +336,10 @@ The backend reads its settings from **environment variables**: named values set 
 | `EMAIL_PASS` | The password for that Gmail account |
 | `BACKEND_PUBLIC_URL` | The backend's public address (the ngrok URL), used to build links in emails |
 | `PORT` | Optional. The port the server listens on (4000 if not set) |
+| `ADMIN_EMAIL` | Only used by `scripts/createAdmin.js`: the admin account's email |
+| `ADMIN_PASSWORD` | Only used by `scripts/createAdmin.js`: the admin account's password |
 
-Admin accounts come from `node scripts/createAdmin.js`, run in `backend/`. The admin's email and password are currently written inside the script. See [ROADMAP.md](ROADMAP.md), Phase 0 and Phase 1.
+The admin account comes from `node scripts/createAdmin.js`, run in `backend/`. It reads `ADMIN_EMAIL` and `ADMIN_PASSWORD`, refuses to run if either is missing or the password fails the registration strength rule, and never prints the password. If an admin with that email exists, it changes that account's password, which is how you change the admin password. Otherwise it creates the admin. It won't turn an existing player or owner account into an admin, and it won't create a second admin, because the app has one admin account.
 
 The mobile app has no config file. Its backend address lives in `IndoorFootballApp/src/api/api.js`.
 
@@ -354,7 +357,8 @@ The mobile app has no config file. Its backend address lives in `IndoorFootballA
 | A backend address (URL path) | `backend/src/routes/<area>Routes.js` |
 | What a backend action actually does | `backend/src/controllers/<area>Controller.js` |
 | The login check or admin check | `backend/src/middleware/auth.js` |
-| Registration rules (password, phone, height, weight) | `backend/src/controllers/authController.js` (`register`), plus the register screens |
-| The text of the verification or reset emails | `backend/src/controllers/authController.js` |
+| Registration rules (phone, height, weight) | `backend/src/controllers/authController.js` (`register`), plus the register screens |
+| The password strength rule (registration, reset and the admin script) | `backend/src/utils/password.js` |
+| The text of the verification or reset emails | `backend/src/utils/emailTemplates.js` |
 | The database tables | `backend/prisma/schema.prisma`, then create a migration |
 | Environment variables | `backend/.env` (never commit it) |
