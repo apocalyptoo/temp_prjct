@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { withoutSecrets } from '../utils/visibility.js';
+import { deleteUserAndData, deleteTeamAndMembers } from '../utils/deletion.js';
+import { parseId } from '../utils/ids.js';
 const prisma = new PrismaClient();
 
 // ── Get all users ──
@@ -38,27 +40,15 @@ export const getAllUsers = async (req, res, next) => {
   }
 };
 
-// ── Delete user (full cascade) ──
+// ── Delete user (used by /admin/users/:id and /admin/indoors/:id) ──
 export const deleteUser = async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'Invalid user id' });
 
-    // 1) Remove from team memberships
-    await prisma.teamMember.deleteMany({ where: { userId: id } });
-
-    // 2) Delete owned teams
-    const ownedTeams = await prisma.team.findMany({ where: { ownerId: id } });
-    for (const team of ownedTeams) {
-      await prisma.teamMember.deleteMany({ where: { teamId: team.id } });
-      await prisma.team.delete({ where: { id: team.id } });
-    }
-
-    // 3) Delete profile
-    await prisma.playerProfile.deleteMany({ where: { userId: id } });
-    await prisma.ownerProfile.deleteMany({ where: { userId: id } });
-
-    // 4) Delete user
-    await prisma.user.delete({ where: { id } });
+    // Memberships, created teams, profile and account, all in one transaction.
+    const deleted = await deleteUserAndData(prisma, id);
+    if (!deleted) return res.status(404).json({ error: 'User not found' });
 
     return res.json({ message: 'User deleted successfully' });
   } catch (err) {
@@ -79,7 +69,8 @@ export const getAllTeams = async (req, res, next) => {
             playerProfile: { select: { name: true } },
           },
         },
-        members: true,
+        // Count only accepted members (a pending invite isn't membership yet).
+        _count: { select: { members: { where: { status: 'accepted' } } } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -89,7 +80,7 @@ export const getAllTeams = async (req, res, next) => {
       name: t.name,
       description: t.description,
       createdAt: t.createdAt,
-      memberCount: t.members.length,
+      memberCount: t._count.members,
       owner: {
         id: t.owner.id,
         email: t.owner.email,
@@ -109,9 +100,12 @@ export const getAllTeams = async (req, res, next) => {
 // ── Delete team ──
 export const deleteTeam = async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id);
-    await prisma.teamMember.deleteMany({ where: { teamId: id } });
-    await prisma.team.delete({ where: { id } });
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'Invalid team id' });
+
+    const deleted = await deleteTeamAndMembers(prisma, id);
+    if (!deleted) return res.status(404).json({ error: 'Team not found' });
+
     return res.json({ message: 'Team deleted successfully' });
   } catch (err) {
     return next(err);

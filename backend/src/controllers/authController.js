@@ -14,6 +14,7 @@ import {
 import { verifyEmailHtml, resetEmailHtml } from '../utils/emailTemplates.js';
 import { isFormRequest, messagePage } from '../utils/pages.js';
 import { toVisibleUser } from '../utils/visibility.js';
+import { normalizeEmail } from '../utils/email.js';
 const prisma = new PrismaClient();
 
 const transporter = nodemailer.createTransport({
@@ -28,7 +29,7 @@ const transporter = nodemailer.createTransport({
 // never receive mail, so those are skipped (the tests use it for throwaway users).
 // The log line shows only the recipient and subject, never tokens or links.
 const sendMail = (options) => {
-  const to = String(options.to).toLowerCase();
+  const to = normalizeEmail(options.to) ?? '';
   if (to.endsWith('@example.com')) {
     console.log(`Email skipped (example.com): to=${options.to} subject="${options.subject}"`);
     return Promise.resolve();
@@ -75,12 +76,14 @@ const sendVerificationEmail = ({ email, displayName, token }) =>
 
 // REGISTER
 export const register = async (req, res, next) => {
-  const { name, email, password, role, profileData } = req.body;
+  const { name, password, role, profileData } = req.body;
+  // Lowercased and trimmed (null if not a non-empty string, so an object email like
+  // {"not": ""} never reaches Prisma).
+  const email = normalizeEmail(req.body.email);
 
   try {
     // 1) Validate required fields
-    // typeof check: an object email like {"not": ""} must never reach Prisma.
-    if (typeof email !== 'string' || !email || !password || !role || !profileData) {
+    if (!email || !password || !role || !profileData) {
       return res.status(400).json({
         error: 'Email, password, role, and profileData are required',
       });
@@ -265,10 +268,11 @@ export const verifyEmail = async (req, res, next) => {
 
 // LOGIN
 export const login = async (req, res, next) => {
-  const { email, password } = req.body;
+  const { password } = req.body;
+  const email = normalizeEmail(req.body.email);
   // Only non-empty strings may go further: an object email would be read as a query
   // operator by Prisma, and a non-string password makes bcrypt crash.
-  if (typeof email !== 'string' || email === '' || typeof password !== 'string' || password === '') {
+  if (!email || typeof password !== 'string' || password === '') {
     return res.status(400).json({ error: INVALID_LOGIN });
   }
   try {
@@ -314,9 +318,9 @@ export const login = async (req, res, next) => {
 
 // REQUEST PASSWORD RESET
 export const requestPasswordReset = async (req, res, next) => {
-  const { email } = req.body;
+  const email = normalizeEmail(req.body.email);
   // Only a non-empty string may reach Prisma (an object would be read as a query operator).
-  if (typeof email !== 'string' || email === '') {
+  if (!email) {
     return res.status(400).json({ error: 'Email is required' });
   }
   try {
@@ -429,9 +433,9 @@ export const resetPassword = async (req, res, next) => {
 const RESEND_REPLY = { message: "If that account needs verifying, we've sent a new email." };
 
 export const resendVerification = async (req, res, next) => {
-  const { email } = req.body;
+  const email = normalizeEmail(req.body.email);
   // Only a non-empty string may reach Prisma (an object would be read as a query operator).
-  if (typeof email !== 'string' || email === '') {
+  if (!email) {
     return res.status(400).json({ error: 'Email is required' });
   }
   try {

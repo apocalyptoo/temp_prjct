@@ -24,6 +24,11 @@ export default function TeamDetailScreen({ route, navigation }) {
   // Check if logged-in user is the team owner
   const isOwner = user?.id === team.ownerId;
 
+  // `members` holds accepted members only. The backend adds `pendingInvites` only for
+  // the captain; they're listed after the members (labelled "pending") but not counted.
+  const members = team.members || [];
+  const listedPeople = [...members, ...(team.pendingInvites || [])];
+
   const handleRemovePlayer = (memberId, memberName) => {
     Alert.alert(
       'Remove Player',
@@ -127,12 +132,12 @@ export default function TeamDetailScreen({ route, navigation }) {
 
       {/* Members List */}
       <FlatList
-        data={team.members || []}
+        data={listedPeople}
         keyExtractor={(m) => String(m.userId || m.id)}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <Text style={styles.memberTitle}>
-            Members ({team.members?.length || 0})
+            Members ({members.length})
           </Text>
         }
         renderItem={({ item, index }) => {

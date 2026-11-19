@@ -11,6 +11,7 @@
 // restarts and aren't shared between several servers.
 import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 import { isFormRequest, messagePage } from '../utils/pages.js';
+import { normalizeEmail } from '../utils/email.js';
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
@@ -21,10 +22,11 @@ const HOUR = 60 * MINUTE;
 const ipKey = (req) => ipKeyGenerator(req.ip);
 
 // The client's address plus the email they typed (lowercased and trimmed, so "A@x.com "
-// and "a@x.com" share a counter). If the email isn't a string, the address alone.
+// and "a@x.com" share a counter, via normalizeEmail). If there's no usable email, the
+// address alone.
 const ipAndEmailKey = (req) => {
-  const email = req.body?.email;
-  return typeof email === 'string' ? `${ipKey(req)}|${email.trim().toLowerCase()}` : ipKey(req);
+  const email = normalizeEmail(req.body?.email);
+  return email ? `${ipKey(req)}|${email}` : ipKey(req);
 };
 
 const limiter = ({

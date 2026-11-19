@@ -59,6 +59,20 @@ describe('scripts/createAdmin.js', () => {
     assert.equal(result.output.includes(STRONG_PASSWORD), false, 'must never print the password');
   });
 
+  test('finds the existing admin when ADMIN_EMAIL has capitals and spaces', async (t) => {
+    const admin = await createTestUser(t, { role: 'ADMIN', verified: true });
+    const usersBefore = await prisma.user.count();
+
+    const result = await runCreateAdmin({
+      ADMIN_EMAIL: `  ${admin.email.toUpperCase()} `,
+      ADMIN_PASSWORD: STRONG_PASSWORD,
+    });
+
+    assert.equal(result.code, 0, result.output);
+    assert.equal(await passwordIs(admin.id, STRONG_PASSWORD), true, 'the same admin got the new password');
+    assert.equal(await prisma.user.count(), usersBefore, 'no second account was created');
+  });
+
   test('refuses to give a non-admin account admin rights', async (t) => {
     const player = await createTestUser(t, { verified: true });
 

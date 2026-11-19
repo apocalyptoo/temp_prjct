@@ -25,9 +25,9 @@ Every account has exactly one role, chosen when the account is created.
 |---|---|---|
 | **Player** | Someone who plays | Register, log in, view their profile, browse all teams, create a team, invite players to their team, remove players from their team, delete their team, accept or reject invites, browse all players and all venues |
 | **Owner** | Someone who runs an indoor venue | Register, log in, view their venue profile, browse all teams and all registered venues |
-| **Admin** | The person running the app | See counts (users, players, owners, teams), list and delete users, list and delete teams, list venues |
+| **Admin** | The person running the app | See counts (users, players, owners, teams), list and delete users, list and delete teams, list and delete venues (deleting a venue deletes the owner's account) |
 
-Admin accounts can't be created from the app. They're made with a script (see [section 8](#8-configuration)). Deleting a venue from the admin screen currently fails. See [ROADMAP.md](ROADMAP.md), Phase 2.
+Admin accounts can't be created from the app. They're made with a script (see [section 8](#8-configuration)).
 
 Both players and owners can ask for a password-reset email from their Settings screen ("Change Password").
 
@@ -92,7 +92,7 @@ Here's what happens, step by step, when a player creates a team.
 5. `backend/src/server.js` receives it. `express.json()` turns the JSON body into a JavaScript object. The `/teams` prefix sends it to the teams router.
 6. `backend/src/routes/teamRoutes.js` matches `POST /create` and runs two functions in order: `verifyToken`, then `createTeam`.
 7. `backend/src/middleware/auth.js`: `verifyToken` checks the token is genuine and not expired. If it's fine, the user's id and role go into `req.user`. If not, the request stops with a 401 ("not logged in") error.
-8. `backend/src/controllers/teamController.js`: `createTeam` uses Prisma to save the team. In one step it creates the `Team` row and a `TeamMember` row that makes the creator the team's captain (`role: 'captain'`, `status: 'accepted'`).
+8. `backend/src/controllers/teamController.js`: `createTeam` first checks the input. The name is required, must be text, and must be 2 to 40 characters once spaces at the ends are trimmed. The description is optional, but if given it must be text and at most 200 characters after trimming (an empty description is saved as none). Team names don't have to be unique. If a check fails, it replies 400 with a clear message, such as "Team name must be between 2 and 40 characters". Then it uses Prisma to save the trimmed values. In one step it creates the `Team` row and a `TeamMember` row that makes the creator the team's captain (`role: 'captain'`, `status: 'accepted'`).
 9. Prisma turns that into SQL and PostgreSQL stores both rows.
 
 **Back to the phone**
@@ -120,17 +120,14 @@ backend/
 │   │   ├── auth.js          login, admin and player-only checks
 │   │   ├── rateLimits.js    limits on repeated login, register and password-reset requests
 │   │   └── errorHandler.js  turns any unhandled error into a short generic reply
-│   └── utils/           shared helpers: the password rule, who may see what (visibility), HTML escaping, tokens, email templates
+│   └── utils/           shared helpers: the password rule, who may see what (visibility), email normalising, deleting users and teams, checking ids from URLs, HTML escaping, tokens, email templates
 ├── prisma/
 │   ├── schema.prisma    the database tables, described in code
 │   └── migrations/      the history of changes to the tables
 ├── scripts/
 │   └── createAdmin.js   creates an admin account
-├── tests/               automated tests (run with `npm test` while the server is running)
-└── testFlow.js          an old end-to-end test script
+└── tests/               automated tests (run with `npm test` while the server is running)
 ```
-
-`testFlow.js` is out of date and fails. See [ROADMAP.md](ROADMAP.md), Phase 2.
 
 Three terms used in this layout:
 
@@ -232,7 +229,7 @@ The tables are described in `backend/prisma/schema.prisma`. Changes to that file
 - **PlayerProfile:** extra details for a player: name, phone, playing position, and optional height, weight and address. Each player has exactly one.
 - **OwnerProfile:** extra details for a venue owner: indoor (venue) name, phone, address, and optional description and website. Each owner has exactly one.
 - **Team:** a team's name, optional description, who created it (`ownerId`), and when.
-- **TeamMember:** links a user to a team. It has a `role` (`captain` or `player`) and a `status`: `pending` means invited but not yet in, and `accepted` means in the team. A user can appear only once per team.
+- **TeamMember:** links a user to a team. It has a `role` (`captain` or `player`) and a `status`: `pending` means invited but not yet in, and `accepted` means in the team. A user can appear only once per team. Only `accepted` rows count as membership: member lists, member counts and a player's number of teams all leave out `pending` rows.
 
 Admins have a User row but no profile.
 
@@ -255,7 +252,7 @@ PlayerProfile        │        │         OwnerProfile
 - A user can create (own) many teams.
 - A team has many TeamMember rows, and a user can be a member of many teams.
 
-The database doesn't delete linked rows automatically. When the code deletes a team or a user, it first deletes the linked rows by hand (members, then teams, then profiles, then the user).
+The database doesn't delete linked rows automatically. When the code deletes a team or a user, it first deletes the linked rows by hand (members, then teams, then profiles, then the user). All those steps run inside one **transaction**: the database either does every step or, if one fails, undoes the ones already done, so nothing is ever left half-deleted. This logic lives in one shared file, `src/utils/deletion.js` (`deleteUserAndData` and `deleteTeamAndMembers`), used by both the admin screens and a captain deleting their team.
 
 ### Two meanings of "owner"
 
@@ -332,7 +329,7 @@ The user's details (name, role) are kept only in memory, so closing the app logs
 
 1. On the Login screen, the user taps **Signup**, picks Player or Owner, and fills in the form (`PlayerRegisterScreen.js` or `OwnerRegisterScreen.js`). The screen checks required fields, an 11-digit phone number, height and weight ranges (players only) and that the two passwords match. It doesn't check password strength; the backend does that.
 2. The app sends `POST /auth/register` with email, password, role and the profile details.
-3. The backend checks that the email is text, then the role, password strength (at least 8 characters with upper case, lower case, a number and a symbol), that the email is new, and the profile fields (phone, height and weight ranges).
+3. The backend lowercases the email and trims spaces from its ends (`normalizeEmail` in `src/utils/email.js`), so `Test@Example.com ` and `test@example.com` are the same account. Login, forgot password, resend verification and the admin script do the same before looking an email up. It then checks that the email isn't empty, then the role, password strength (at least 8 characters with upper case, lower case, a number and a symbol), that the email is new, and the profile fields (phone, height and weight ranges).
 4. It saves the User and their profile in a single step, with `verified` set to false. It also saves the hash of a new random verification token and an expiry 24 hours away.
 5. It emails a link containing the token itself to `BACKEND_PUBLIC_URL/auth/verify?token=…` through Gmail. If sending fails, the account still exists, so the reply is still a success (201). It says "Account created, but we couldn't send the verification email. Use 'Resend verification email' on the login screen." The error is logged on the server.
 6. Clicking the link opens the backend in a browser. If the token isn't shaped like one the backend makes (64 lowercase hex characters), it shows an "Invalid or expired link" page without touching the database. It shows the same page if no user has that token's hash, or if the link is more than 24 hours old, with a hint to request a new email from the app's login screen. Otherwise it marks the user verified, clears the token and its expiry, and shows an "Email verified" page telling them they can now log in in the app.
@@ -340,7 +337,7 @@ The user's details (name, role) are kept only in memory, so closing the app logs
 ### Resending the verification email
 
 1. If someone logs in with the right password before verifying, login replies "Please verify your email" (403). `LoginScreen.js` then shows a **Resend verification email** button.
-2. The button calls `resendVerification()` in `AuthContext`, which sends `POST /auth/resend-verification` with the email. A missing or non-text email is refused.
+2. The button calls `resendVerification()` in `AuthContext`, which sends `POST /auth/resend-verification` with the email. A missing, non-text or blank email is refused; otherwise it's lowercased and trimmed before the lookup.
 3. If that account exists and isn't verified, the backend makes a new token (only its hash is saved, valid for 24 hours, replacing the old link) and emails a new link. It doesn't do this if it already sent one in the last 5 minutes.
 4. The reply is always the same ("If that account needs verifying, we've sent a new email."), whether or not the account exists or is already verified, so it gives nothing away. The app shows that reply.
 
@@ -349,13 +346,13 @@ Known problems in this flow: see [ROADMAP.md](ROADMAP.md), Phases 1 and 2.
 ### Login
 
 1. `LoginScreen.js` calls `login()` from `AuthContext`, which sends `POST /auth/login`.
-2. The backend refuses a missing or non-text email or password. An unknown email and a wrong password get exactly the same reply ("Invalid email or password"), so nobody can use the login screen to find out who has an account. Only after the password is confirmed correct does an unverified account get told to verify its email first. Otherwise it replies with a JWT and the user's details (see [section 4](#how-login-works)).
+2. The backend refuses a missing or non-text email or password, and a blank email. The email is lowercased and trimmed before the lookup, so capitals or stray spaces don't matter. An unknown email and a wrong password get exactly the same reply ("Invalid email or password"), so nobody can use the login screen to find out who has an account. Only after the password is confirmed correct does an unverified account get told to verify its email first. Otherwise it replies with a JWT and the user's details (see [section 4](#how-login-works)).
 3. `AuthContext` saves the token and sets `user`. `AppNavigator` then switches to that role's screens.
 
 ### Password reset
 
 1. The user enters their email on **Forgot Password**, or taps **Change Password** in Settings. The app sends `POST /auth/forgot`.
-2. A missing or non-text email is refused. If the email exists, the backend saves the hash of a new random reset token, which expires in 1 hour, and emails a link containing the token to `BACKEND_PUBLIC_URL/auth/reset-password-page?token=…`. If it already sent a reset email to that account in the last 5 minutes, it sends nothing new. The reply is the same in every case, whether or not the email exists.
+2. A missing, non-text or blank email is refused; otherwise it's lowercased and trimmed. If the email exists, the backend saves the hash of a new random reset token, which expires in 1 hour, and emails a link containing the token to `BACKEND_PUBLIC_URL/auth/reset-password-page?token=…`. If it already sent a reset email to that account in the last 5 minutes, it sends nothing new. The reply is the same in every case, whether or not the email exists.
 3. The link opens a small web form served by the backend. It only shows the form if the token looks like one the backend makes (64 lowercase hex characters); anything else gets an "Invalid or expired link" page. The form submits the new password to `POST /auth/reset`.
 4. The backend refuses a token that isn't plain text, and a new password that fails the same strength rule as registration. Otherwise it hashes the token, finds the user with that hash and an unexpired link, saves the new password hash, clears the token and its expiry, and marks the account verified. The reset proves the email works, so it also clears any leftover verification link.
 5. Because the form is used in a browser, the replies are simple web pages, not raw JSON: "Password changed" on success; for a weak password, the rule plus a "Try again" link back to the form; for a bad or expired link, a message to request a new reset from the app. Requests sent as JSON still get JSON replies.
@@ -370,6 +367,8 @@ Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 4. **Accept** (`POST /teams/:teamId/accept`) changes the status to `accepted`. **Reject** (`POST /teams/:teamId/reject`) deletes the row. Both only work on a `pending` row. If there's no pending invite for that player and team, they reply 404 "Invite not found".
 
 The team owner can also remove a member (`DELETE /teams/:teamId/members/:userId`) or delete the whole team (`DELETE /teams/:teamId`).
+
+A pending invite isn't membership yet. In the team lists (`GET /teams` and `GET /teams/me`) each team's `members` holds only accepted members. The team's captain also gets a separate `pendingInvites` list, so they can see who they've invited; nobody else gets it. `TeamDetailScreen` shows the captain those invites under the members, labelled "pending", without counting them. A player's team count (`GET /players/:id`, `totalTeams`) and the admin's member counts also include only accepted memberships.
 
 ### Join requests
 
@@ -392,7 +391,7 @@ The backend reads its settings from **environment variables**: named values set 
 | `ADMIN_EMAIL` | Only used by `scripts/createAdmin.js`: the admin account's email |
 | `ADMIN_PASSWORD` | Only used by `scripts/createAdmin.js`: the admin account's password |
 
-The admin account comes from `node scripts/createAdmin.js`, run in `backend/`. It reads `ADMIN_EMAIL` and `ADMIN_PASSWORD`, refuses to run if either is missing or the password fails the registration strength rule, and never prints the password. If an admin with that email exists, it changes that account's password, which is how you change the admin password. Otherwise it creates the admin. It won't turn an existing player or owner account into an admin, and it won't create a second admin, because the app has one admin account.
+The admin account comes from `node scripts/createAdmin.js`, run in `backend/`. It reads `ADMIN_EMAIL` (lowercased and trimmed, like every email) and `ADMIN_PASSWORD`, refuses to run if either is missing or the password fails the registration strength rule, and never prints the password. If an admin with that email exists, it changes that account's password, which is how you change the admin password. Otherwise it creates the admin. It won't turn an existing player or owner account into an admin, and it won't create a second admin, because the app has one admin account.
 
 The mobile app has no config file. Its backend address lives in `IndoorFootballApp/src/api/api.js`.
 
@@ -415,6 +414,9 @@ The mobile app has no config file. Its backend address lives in `IndoorFootballA
 | Security headers (helmet) or the trust proxy setting | `backend/src/server.js` |
 | Registration rules (phone, height, weight) | `backend/src/controllers/authController.js` (`register`), plus the register screens |
 | The password strength rule (registration, reset and the admin script) | `backend/src/utils/password.js` |
+| How emails are lowercased and trimmed | `backend/src/utils/email.js` |
+| What deleting a user or a team removes | `backend/src/utils/deletion.js` |
+| Team name and description rules | `backend/src/controllers/teamController.js` (`createTeam`) |
 | Who may see which user fields | `backend/src/utils/visibility.js` |
 | The text of the verification or reset emails | `backend/src/utils/emailTemplates.js` |
 | The database tables | `backend/prisma/schema.prisma`, then create a migration |

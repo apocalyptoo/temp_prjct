@@ -1,11 +1,48 @@
 import { PrismaClient } from '@prisma/client';
 import { viewerFrom, toVisibleUser } from '../utils/visibility.js';
+import { deleteTeamAndMembers } from '../utils/deletion.js';
+import { parseId } from '../utils/ids.js';
 const prisma = new PrismaClient();
+
+const TEAM_NAME_MIN = 2;
+const TEAM_NAME_MAX = 40;
+const TEAM_DESCRIPTION_MAX = 200;
+
+// Counts characters as people see them (so a Bangla name or an emoji isn't counted
+// as several characters).
+const charCount = (text) => [...text].length;
+
+// Checks the team name and description. Returns { error } or the cleaned { name,
+// description } (trimmed; an empty or missing description becomes null).
+// Team names don't have to be unique.
+function checkTeamInput(body) {
+  const { name: rawName, description: rawDescription } = body ?? {};
+
+  if (rawName === undefined || rawName === null) return { error: 'Team name is required' };
+  if (typeof rawName !== 'string') return { error: 'Team name must be text' };
+  const name = rawName.trim();
+  if (name === '') return { error: 'Team name is required' };
+  if (charCount(name) < TEAM_NAME_MIN || charCount(name) > TEAM_NAME_MAX) {
+    return { error: `Team name must be between ${TEAM_NAME_MIN} and ${TEAM_NAME_MAX} characters` };
+  }
+
+  let description = null;
+  if (rawDescription !== undefined && rawDescription !== null) {
+    if (typeof rawDescription !== 'string') return { error: 'Description must be text' };
+    description = rawDescription.trim() || null;
+    if (description && charCount(description) > TEAM_DESCRIPTION_MAX) {
+      return { error: `Description must be at most ${TEAM_DESCRIPTION_MAX} characters` };
+    }
+  }
+
+  return { name, description };
+}
 
 // ── Create new team ──
 export const createTeam = async (req, res, next) => {
   try {
-    const { name, description } = req.body;
+    const { error, name, description } = checkTeamInput(req.body);
+    if (error) return res.status(400).json({ error });
     const ownerId = req.user.id;
 
     const team = await prisma.team.create({
@@ -106,19 +143,19 @@ export const removePlayer = async (req, res, next) => {
 // ── Delete team (owner only) ──
 export const deleteTeam = async (req, res, next) => {
   try {
-    const { teamId } = req.params;
+    const teamId = parseId(req.params.teamId);
+    if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
     const requesterId = req.user.id;
 
-    const team = await prisma.team.findUnique({ where: { id: Number(teamId) } });
+    const team = await prisma.team.findUnique({ where: { id: teamId } });
     if (!team) return res.status(404).json({ error: 'Team not found' });
 
     if (team.ownerId !== requesterId) {
       return res.status(403).json({ error: 'Only the team owner can delete this team.' });
     }
 
-    // Delete members first then team
-    await prisma.teamMember.deleteMany({ where: { teamId: Number(teamId) } });
-    await prisma.team.delete({ where: { id: Number(teamId) } });
+    // Members and team in one transaction (shared with the admin delete).
+    await deleteTeamAndMembers(prisma, teamId);
 
     return res.json({ message: 'Team deleted successfully.' });
   } catch (error) {
@@ -166,54 +203,63 @@ export const rejectInvite = async (req, res, next) => {
   }
 };
 
+// Team lists load every membership row (accepted and pending) with the member's name.
+const MEMBERS_WITH_NAMES = {
+  members: {
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          playerProfile: { select: { name: true } },
+          ownerProfile: { select: { indoorName: true } },
+        },
+      },
+    },
+  },
+};
+
+// Shapes one team for the viewer:
+// - members: accepted members only (a pending invite isn't membership yet);
+// - pendingInvites: the team's pending invites, only for the team's captain
+//   (Team.ownerId), so they can see who they've invited. Nobody else gets the field.
+// Members are other users, so they go through the visibility rules (no email).
+function toTeamResponse(team, viewer) {
+  const withVisibleUser = (m) => ({
+    ...m,
+    user: toVisibleUser(
+      {
+        ...m.user,
+        name: m.user?.playerProfile?.name || m.user?.ownerProfile?.indoorName || 'Unknown',
+      },
+      viewer
+    ),
+  });
+  const { members, ...rest } = team;
+  const result = { ...rest, members: members.filter((m) => m.status === 'accepted').map(withVisibleUser) };
+  if (team.ownerId === viewer.id) {
+    result.pendingInvites = members.filter((m) => m.status === 'pending').map(withVisibleUser);
+  }
+  return result;
+}
+
 // ── Get all teams ──
 export const getTeams = async (req, res, next) => {
   try {
     const teams = await prisma.team.findMany({
-      include: {
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                email: true,
-                playerProfile: { select: { name: true } },
-                ownerProfile: { select: { indoorName: true } },
-              },
-            },
-          },
-        },
-      },
+      include: MEMBERS_WITH_NAMES,
       orderBy: { createdAt: 'desc' },
     });
 
-    // Flatten member names
-    // Members are other users: show them through the visibility rules (no email).
     const viewer = viewerFrom(req);
-    const result = teams.map((t) => ({
-      ...t,
-      members: t.members.map((m) => ({
-        ...m,
-        user: toVisibleUser(
-          {
-            ...m.user,
-            name:
-              m.user?.playerProfile?.name ||
-              m.user?.ownerProfile?.indoorName ||
-              'Unknown',
-          },
-          viewer
-        ),
-      })),
-    }));
-
-    res.json(result);
+    res.json(teams.map((team) => toTeamResponse(team, viewer)));
   } catch (error) {
     return next(error);
   }
 };
 
 // ── Get my teams ──
+// Teams the viewer created or is an accepted member of (a pending invite doesn't count).
 export const getMyTeams = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -221,47 +267,16 @@ export const getMyTeams = async (req, res, next) => {
     const teams = await prisma.team.findMany({
       where: {
         OR: [
-          { ownerId: Number(userId) },
-          { members: { some: { userId: Number(userId), status: 'accepted' } } },
+          { ownerId: userId },
+          { members: { some: { userId, status: 'accepted' } } },
         ],
       },
-      include: {
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                email: true,
-                playerProfile: { select: { name: true } },
-                ownerProfile: { select: { indoorName: true } },
-              },
-            },
-          },
-        },
-      },
+      include: MEMBERS_WITH_NAMES,
       orderBy: { createdAt: 'desc' },
     });
 
-    // Members are other users: show them through the visibility rules (no email).
     const viewer = viewerFrom(req);
-    const result = teams.map((t) => ({
-      ...t,
-      members: t.members.map((m) => ({
-        ...m,
-        user: toVisibleUser(
-          {
-            ...m.user,
-            name:
-              m.user?.playerProfile?.name ||
-              m.user?.ownerProfile?.indoorName ||
-              'Unknown',
-          },
-          viewer
-        ),
-      })),
-    }));
-
-    res.json(result);
+    res.json(teams.map((team) => toTeamResponse(team, viewer)));
   } catch (error) {
     return next(error);
   }

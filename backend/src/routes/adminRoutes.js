@@ -14,7 +14,8 @@ router.delete('/users/:id', verifyToken, isAdmin, deleteUser);
 router.get('/teams', verifyToken, isAdmin, getAllTeams);
 router.delete('/teams/:id', verifyToken, isAdmin, deleteTeam);
 router.get('/indoors', verifyToken, isAdmin, getAllIndoors);
-router.delete('/indoors/:userId', verifyToken, isAdmin, deleteUser); // reuse deleteUser (deletes the owner account)
+// Reuses deleteUser (deletes the owner account), so the parameter must also be called :id.
+router.delete('/indoors/:id', verifyToken, isAdmin, deleteUser);
 router.get('/stats', verifyToken, isAdmin, getStats);
 
 export default router;

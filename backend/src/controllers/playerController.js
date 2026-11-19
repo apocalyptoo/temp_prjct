@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { viewerFrom, toVisibleUser, toPlayerStats } from '../utils/visibility.js';
+import { parseId } from '../utils/ids.js';
 const prisma = new PrismaClient();
 
 /*export const listPlayers = async (req, res, next) => {
@@ -124,9 +125,11 @@ export const getPendingInvites = async (req, res, next) => {
 //  get player stats
 export const getPlayerStats = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const totalTeams = await prisma.teamMember.count({ where: { userId: Number(id) } });
-    const user = await prisma.user.findUnique({ where: { id: Number(id) }, select: { createdAt: true } });
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'Invalid player id' });
+    // Only accepted memberships count; a pending invite isn't a team yet.
+    const totalTeams = await prisma.teamMember.count({ where: { userId: id, status: 'accepted' } });
+    const user = await prisma.user.findUnique({ where: { id }, select: { createdAt: true } });
     res.json(toPlayerStats({ totalTeams, user }));
   } catch (err) {
     return next(err);

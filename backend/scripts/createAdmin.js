@@ -4,12 +4,14 @@
 // Run from backend/:  node scripts/createAdmin.js
 //
 // Reads ADMIN_EMAIL and ADMIN_PASSWORD from backend/.env (or the environment).
+// The email is lowercased and trimmed (src/utils/email.js).
 // The password must pass the same strength rule as registration.
 // The password is never printed.
 import 'dotenv/config';
 import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
 import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '../src/utils/password.js';
+import { normalizeEmail } from '../src/utils/email.js';
 
 function refuse(message) {
   console.error(`createAdmin: ${message}`);
@@ -17,7 +19,8 @@ function refuse(message) {
 }
 
 async function main(prisma) {
-  const email = process.env.ADMIN_EMAIL;
+  // Lowercased and trimmed like every other email, so it matches the stored account.
+  const email = normalizeEmail(process.env.ADMIN_EMAIL);
   const password = process.env.ADMIN_PASSWORD;
 
   const missing = [!email && 'ADMIN_EMAIL', !password && 'ADMIN_PASSWORD'].filter(Boolean);
