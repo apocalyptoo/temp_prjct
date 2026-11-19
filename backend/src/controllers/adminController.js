@@ -40,21 +40,51 @@ export const getAllUsers = async (req, res, next) => {
   }
 };
 
-// ── Delete user (used by /admin/users/:id and /admin/indoors/:id) ──
-export const deleteUser = async (req, res, next) => {
-  try {
-    const id = parseId(req.params.id);
-    if (id === null) return res.status(400).json({ error: 'Invalid user id' });
+// ── Delete an account (shared by /admin/users/:id and /admin/indoors/:id) ──
+// Safety rules for both routes:
+// - the admin can't delete their own account, or any ADMIN account (403);
+// - each route deletes only the roles it's for; any other account is "not found" (404).
+// Roles can't change through the API, so checking the role just before the delete is safe.
+const CANT_DELETE_SELF = "You can't delete your own account from the admin screens.";
+const CANT_DELETE_ADMIN = "Admin accounts can't be deleted from the admin screens.";
 
-    // Memberships, created teams, profile and account, all in one transaction.
-    const deleted = await deleteUserAndData(prisma, id);
-    if (!deleted) return res.status(404).json({ error: 'User not found' });
+const deleteAccount = ({ allowedRoles, invalidIdMessage, notFoundMessage, successMessage }) =>
+  async (req, res, next) => {
+    try {
+      const id = parseId(req.params.id);
+      if (id === null) return res.status(400).json({ error: invalidIdMessage });
+      if (id === req.user.id) return res.status(403).json({ error: CANT_DELETE_SELF });
 
-    return res.json({ message: 'User deleted successfully' });
-  } catch (err) {
-    return next(err);
-  }
-};
+      const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+      if (!target) return res.status(404).json({ error: notFoundMessage });
+      if (target.role === 'ADMIN') return res.status(403).json({ error: CANT_DELETE_ADMIN });
+      if (!allowedRoles.includes(target.role)) return res.status(404).json({ error: notFoundMessage });
+
+      // Memberships, created teams, profile and account, all in one transaction.
+      const deleted = await deleteUserAndData(prisma, id);
+      if (!deleted) return res.status(404).json({ error: notFoundMessage });
+
+      return res.json({ message: successMessage });
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+// /admin/users/:id: players and venue owners.
+export const deleteUser = deleteAccount({
+  allowedRoles: ['PLAYER', 'OWNER'],
+  invalidIdMessage: 'Invalid user id',
+  notFoundMessage: 'User not found',
+  successMessage: 'User deleted successfully',
+});
+
+// /admin/indoors/:id: venue owners only (deleting the venue deletes the owner's account).
+export const deleteIndoor = deleteAccount({
+  allowedRoles: ['OWNER'],
+  invalidIdMessage: 'Invalid venue id',
+  notFoundMessage: 'Venue not found',
+  successMessage: 'Venue deleted successfully',
+});
 
 // ── Get all teams ──
 export const getAllTeams = async (req, res, next) => {

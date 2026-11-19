@@ -25,7 +25,7 @@ Every account has exactly one role, chosen when the account is created.
 |---|---|---|
 | **Player** | Someone who plays | Register, log in, view their profile, browse all teams, create a team, invite players to their team, remove players from their team, delete their team, accept or reject invites, browse all players and all venues |
 | **Owner** | Someone who runs an indoor venue | Register, log in, view their venue profile, browse all teams and all registered venues |
-| **Admin** | The person running the app | See counts (users, players, owners, teams), list and delete users, list and delete teams, list and delete venues (deleting a venue deletes the owner's account) |
+| **Admin** | The person running the app | See counts (users, players, owners, teams), list and delete users, list and delete teams, list and delete venues (deleting a venue deletes the owner's account). The admin screens can't delete the admin's own account or any admin account |
 
 Admin accounts can't be created from the app. They're made with a script (see [section 8](#8-configuration)).
 
@@ -145,7 +145,7 @@ Three terms used in this layout:
 | `/players` | `playerRoutes.js` | My player profile, my pending invites, list all players, a player's stats |
 | `/owners` | `ownerRoutes.js` | My owner profile, list all registered venues |
 | `/teams` | `teamRoutes.js` | Create, list, my teams, invite, accept, reject, remove member, delete team |
-| `/admin` | `adminRoutes.js` | Stats, list/delete users, list/delete teams, list/delete venues (admins only) |
+| `/admin` | `adminRoutes.js` | Stats, list/delete users, list/delete teams, list/delete venues (admins only). Deleting users only works on player and owner accounts, deleting venues only on owner accounts (404 "Venue not found" otherwise), and an admin account, including your own, gets 403 |
 
 There's also `GET /`, which replies "API running" so you can check the server is up.
 
@@ -214,6 +214,7 @@ Today no endpoint returns another player's phone, so teammates don't see it anyw
 - **Tokens are stored hashed.** The links in verification and reset emails carry a long random token. The database keeps only its **SHA-256 hash**, a fixed fingerprint that can't be turned back into the token. When a link is used, the backend hashes the token it received and looks up that hash. If the database ever leaked, the stored values couldn't be used as working links. (Passwords use bcrypt, which is deliberately slow. These tokens are long and random, so a fast hash is safe and allows a direct lookup.) The code is `hashToken` in `src/utils/tokens.js`.
 - **Trust proxy.** The backend is reached through ngrok, which passes each visitor's real address in the `X-Forwarded-For` header. `server.js` sets `trust proxy` to 1 (trust exactly one proxy), so Express reads the visitor's address from there. Without it, every visitor would look like ngrok and share one rate-limit counter. Trusting more than one hop would let visitors fake their address.
 - **No internal details in errors.** When something fails, controllers pass the error to `errorHandler.js`. It logs the real error on the server and replies only "Something went wrong" (500), or "Invalid request body" (400) when the request body can't be read. Error messages, stack traces and database details never reach the client.
+- **Ids in addresses are checked.** Every id taken from an address (like the `5` in `/teams/5/invite`) goes through `parseId` in `src/utils/ids.js` first. Anything that isn't a positive whole number small enough for the database gets a 400 reply ("Invalid team id" and so on) instead of reaching the database and causing a 500.
 
 ---
 

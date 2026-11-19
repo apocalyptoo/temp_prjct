@@ -100,7 +100,7 @@ describe('Admin deletes users', () => {
     assert.equal(await prisma.teamMember.count({ where: { teamId: otherTeam.id, userId: otherCaptain.id } }), 1);
   });
 
-  test('admin deletes a venue owner from the venues screen route (/admin/indoors/:userId)', async (t) => {
+  test('admin deletes a venue owner from the venues screen route (/admin/indoors/:id)', async (t) => {
     const admin = await createLoggedInAdmin(t);
     const owner = await createTestUser(t, {
       role: 'OWNER',

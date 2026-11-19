@@ -50,6 +50,8 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 ## Phase 2: Bugs and repo hygiene
 
 - [x] Admin delete route param mismatch (`:userId` vs `req.params.id`)
+- [x] Admin delete safety: the admin routes can't delete the admin's own account or any ADMIN account (403); `/admin/indoors/:id` deletes only OWNER accounts; `/admin/users/:id` deletes only PLAYER and OWNER accounts.
+- [x] Check every id in a URL with `parseId`, so a bad id gets 400 instead of 500.
 - [x] Registration gets stuck when the email fails to send. Add a "resend verification" endpoint, and don't lock the email if sending fails.
 - [x] Lowercase and trim emails. Check for existing duplicates in the DB. (shared `normalizeEmail`; DB checked 2026-11-20: no mixed-case emails, no clashes, no migration needed)
 - [x] `createTeam` must validate the team name.
@@ -59,7 +61,7 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 - [ ] Owners see a "+ Create Team" button on All Teams (`TeamsListScreen.js`), but `CreateTeam` isn't a screen in `OwnerNavigator.js`, so tapping it does nothing. Hide the button for owners.
 - [ ] Rename the 'Owner' label to 'Captain' in TeamDetailScreen (and anywhere else the team creator is shown as owner)
 - [ ] Remove dead screens (`RegisterScreen.js`, `PlayerDashboard.js`, `ResetPasswordScreen.js`) or wire them up.
-- [x] Remove the React Native deps from the backend `package.json` (also removed the unused diagram tools, `node-fetch` and the old generated Prisma client in `backend/generated/`).
+- [x] Remove the React Native deps from the backend `package.json` (also removed the unused diagram tools, `node-fetch` and the old generated Prisma client in `backend/generated/`, the leftover diagram files `prisma/ERD.svg`, `dfd1.md`, `diagram.md`, and the unused `/generated/prisma` line in `backend/.gitignore`).
 - [ ] Untrack the root `node_modules`. Delete commented-out old code (the erd generator block in `schema.prisma` is done; others remain, e.g. the old `listPlayers` in `playerController.js`).
 - [ ] Fix ESLint errors (19).
 - [x] Fix or replace the outdated `testFlow.js`. (deleted; the `tests/` suite replaces it)

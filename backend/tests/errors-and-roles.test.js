@@ -4,21 +4,31 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { prisma, BASE_URL, fakeClientIp, createLoggedInUser, createLoggedInPlayer, postJson } from './helpers.js';
+import { errorHandler } from '../src/middleware/errorHandler.js';
 
 // Text that must never reach a client: Prisma internals, error class names, stack traces.
 const LEAK_PATTERN = /prisma|invocation|PrismaClient|Error:|\bat .+\(|node_modules|stack/i;
 
 describe('Error responses never include internal details (item 7)', () => {
   test('a server error returns only a generic message', async (t) => {
-    const player = await createLoggedInPlayer(t);
+    // No route crashes on bad input any more (bad ids get 400), so make a real database
+    // error on purpose and hand it to the error handler the way Express would.
+    const prismaError = await prisma.team.findUnique({ where: { id: 'abc' } }).catch((err) => err);
+    assert.match(String(prismaError), /prisma|invocation/i, 'setup: this should be a real Prisma error');
 
-    // "abc" isn't a number, so the database query fails inside the server.
-    const res = await postJson('/teams/abc/accept', {}, player.jwt);
-    const text = await res.text();
+    t.mock.method(console, 'error', () => {}); // the handler logs the real error; keep test output quiet
+    const reply = {};
+    const res = {
+      headersSent: false,
+      status(code) { reply.status = code; return this; },
+      json(body) { reply.body = body; return this; },
+      send(body) { reply.body = body; return this; },
+    };
+    errorHandler(prismaError, { method: 'POST', originalUrl: '/teams/1/accept', is: () => false }, res, () => {});
 
-    assert.equal(res.status, 500);
-    assert.deepEqual(JSON.parse(text), { error: 'Something went wrong' });
-    assert.doesNotMatch(text, LEAK_PATTERN);
+    assert.equal(reply.status, 500);
+    assert.deepEqual(reply.body, { error: 'Something went wrong' });
+    assert.doesNotMatch(JSON.stringify(reply.body), LEAK_PATTERN);
   });
 
   test('a malformed JSON body gets a short 400, with no stack trace', async () => {
