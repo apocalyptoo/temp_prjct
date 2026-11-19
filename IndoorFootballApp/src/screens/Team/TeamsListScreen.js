@@ -1,6 +1,6 @@
 
 // src/screens/Team/TeamsListScreen.js
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,19 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import api from '../../api/api';
+import { AuthContext } from '../../contexts/AuthContext';
 
 export default function TeamsListScreen({ navigation }) {
+  const { user } = useContext(AuthContext);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);
+  // Only players can create teams (venue owners also see this screen, read-only).
+  const canCreateTeam = user?.role === 'PLAYER';
+
+  // The captain (Team.ownerId) is always one of the team's accepted members, and each
+  // member already comes with their visible name, so no extra request is needed.
+  const captainName = team =>
+    team.members?.find(m => m.userId === team.ownerId)?.user?.name || 'Unknown';
 
   const loadTeams = async () => {
     setLoading(true);
@@ -44,12 +53,14 @@ export default function TeamsListScreen({ navigation }) {
           All Teams
         </Animated.Text>
 
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => navigation.navigate('CreateTeam')}
-        >
-          <Text style={styles.createButtonText}>+ Create Team</Text>
-        </TouchableOpacity>
+        {canCreateTeam && (
+          <TouchableOpacity
+            style={styles.createButton}
+            onPress={() => navigation.navigate('CreateTeam')}
+          >
+            <Text style={styles.createButtonText}>+ Create Team</Text>
+          </TouchableOpacity>
+        )}
       </LinearGradient>
 
       {/* Content */}
@@ -77,7 +88,7 @@ export default function TeamsListScreen({ navigation }) {
                   </View>
                 </View>
                 <Text style={[styles.meta, { color: '#555' }]}>
-                  Owner ID: {item.ownerId} | Members: {item.members?.length || 0}
+                  Captain: {captainName(item)} | Members: {item.members?.length || 0}
                 </Text>
               </LinearGradient>
             </Animated.View>

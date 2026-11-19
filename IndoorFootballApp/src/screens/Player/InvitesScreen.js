@@ -85,11 +85,14 @@ export default function InvitesScreen() {
                     source={require('../../../assets/icons/inv.png')}
                     style={styles.icon}
                   />
-                  <View>
+                  <View style={styles.textColumn}>
                     <Text style={styles.teamName}>
                       {item.team?.name || `Team ${item.teamId}`}
                     </Text>
-                    <Text style={styles.status}>Status: {item.status}</Text>
+                    <Text style={styles.status}>
+                      Invited by {item.team?.owner?.name || 'the captain'} to{' '}
+                      {item.team?.name || `Team ${item.teamId}`}
+                    </Text>
                   </View>
                 </View>
 
@@ -160,6 +163,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1E3A8A',
   },
+  // Lets the invite text wrap inside the card instead of running off the edge.
+  textColumn: { flex: 1 },
   status: {
     fontSize: 14,
     color: '#555',

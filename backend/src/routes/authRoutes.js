@@ -6,7 +6,9 @@ import {
   resendVerification,
   requestPasswordReset,
   resetPassword,
+  getMe,
 } from '../controllers/authController.js';
+import { verifyToken } from '../middleware/auth.js';
 import { escapeHtml } from '../utils/html.js';
 import { isWellFormedToken } from '../utils/tokens.js';
 import { messagePage } from '../utils/pages.js';
@@ -25,6 +27,7 @@ router.post('/register', registerLimiter, register);
 router.post('/login', ...loginLimiters, login);
 router.get('/verify', verifyLinkLimiter, verifyEmail);
 router.post('/resend-verification', ...resendVerificationLimiters, resendVerification);
+router.get('/me', verifyToken, getMe); // who is logged in (the app calls it at start-up)
 
 //password reset
 router.post('/forgot', ...forgotPasswordLimiters, requestPasswordReset);

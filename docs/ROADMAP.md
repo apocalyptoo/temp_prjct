@@ -55,15 +55,15 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 - [x] Registration gets stuck when the email fails to send. Add a "resend verification" endpoint, and don't lock the email if sending fails.
 - [x] Lowercase and trim emails. Check for existing duplicates in the DB. (shared `normalizeEmail`; DB checked 2026-11-20: no mixed-case emails, no clashes, no migration needed)
 - [x] `createTeam` must validate the team name.
-- [ ] Persist login on app start (restore the user from the token) and handle 401 globally (log out).
+- [x] Persist login on app start (restore the user from the token) and handle 401 globally (log out). (`GET /auth/me`; "Can't reach the server" + Retry when offline)
 - [x] Don't count pending invites as members. (captains get a separate `pendingInvites` list)
-- [ ] `AddMemberScreen` hooks error. Also exclude existing members from its list.
-- [ ] Owners see a "+ Create Team" button on All Teams (`TeamsListScreen.js`), but `CreateTeam` isn't a screen in `OwnerNavigator.js`, so tapping it does nothing. Hide the button for owners.
-- [ ] Rename the 'Owner' label to 'Captain' in TeamDetailScreen (and anywhere else the team creator is shown as owner)
-- [ ] Remove dead screens (`RegisterScreen.js`, `PlayerDashboard.js`, `ResetPasswordScreen.js`) or wire them up.
+- [x] `AddMemberScreen` hooks error. Also exclude existing members from its list. (also leaves out the captain and pending invitees)
+- [x] Owners see a "+ Create Team" button on All Teams (`TeamsListScreen.js`), but `CreateTeam` isn't a screen in `OwnerNavigator.js`, so tapping it does nothing. Hide the button for owners.
+- [x] Rename the 'Owner' label to 'Captain' in TeamDetailScreen (and anywhere else the team creator is shown as owner) (also the backend's team error messages)
+- [x] Remove dead screens (`RegisterScreen.js`, `PlayerDashboard.js`, `ResetPasswordScreen.js`) or wire them up. (deleted; `ResetPassword` also removed from `AuthStack`)
 - [x] Remove the React Native deps from the backend `package.json` (also removed the unused diagram tools, `node-fetch` and the old generated Prisma client in `backend/generated/`, the leftover diagram files `prisma/ERD.svg`, `dfd1.md`, `diagram.md`, and the unused `/generated/prisma` line in `backend/.gitignore`).
 - [ ] Untrack the root `node_modules`. Delete commented-out old code (the erd generator block in `schema.prisma` is done; others remain, e.g. the old `listPlayers` in `playerController.js`).
-- [ ] Fix ESLint errors (19).
+- [x] Fix ESLint errors (19). (18 were in the deleted `RegisterScreen.js`, 1 was the AddMemberScreen hooks error; 0 errors now, 46 warnings remain)
 - [x] Fix or replace the outdated `testFlow.js`. (deleted; the `tests/` suite replaces it)
 - [ ] Write `README.md` (how to run locally) and `backend/.env.example`.
 - [ ] Add .gitattributes to normalise line endings, then run Prettier on the app in one formatting-only commit

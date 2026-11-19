@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useCallback, useEffect, useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ export default function MyTeamsScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
-  const loadMyTeams = async () => {
+  const loadMyTeams = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get('/teams/me');
@@ -32,9 +32,11 @@ export default function MyTeamsScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { loadMyTeams(); }, []);
+  // Reload whenever the screen comes into view (including the first time), so a team
+  // deleted or changed in Team Detail is up to date when you come back.
+  useEffect(() => navigation.addListener('focus', loadMyTeams), [navigation, loadMyTeams]);
 
   const handleDelete = (teamId, teamName) => {
     Alert.alert(
@@ -100,7 +102,7 @@ export default function MyTeamsScreen({ navigation }) {
                           <Text style={styles.teamName}>{item.name}</Text>
                           {isOwner && (
                             <View style={styles.ownerBadge}>
-                              <Text style={styles.ownerBadgeText}>Owner</Text>
+                              <Text style={styles.ownerBadgeText}>Captain</Text>
                             </View>
                           )}
                         </View>

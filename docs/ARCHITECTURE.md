@@ -141,7 +141,7 @@ Three terms used in this layout:
 
 | Prefix | Route file | What it handles |
 |---|---|---|
-| `/auth` | `authRoutes.js` | Register, log in, verify email, forgot/reset password (no login needed) |
+| `/auth` | `authRoutes.js` | Register, log in, verify email, forgot/reset password (no login needed), and `GET /auth/me`: who is logged in (needs a token) |
 | `/players` | `playerRoutes.js` | My player profile, my pending invites, list all players, a player's stats |
 | `/owners` | `ownerRoutes.js` | My owner profile, list all registered venues |
 | `/teams` | `teamRoutes.js` | Create, list, my teams, invite, accept, reject, remove member, delete team |
@@ -161,6 +161,8 @@ The backend uses a **JWT** (JSON Web Token): a signed piece of text that proves 
 4. The reply contains the token plus basic user info (id, name, email, role).
 
 From then on, the app sends the token with every request, and `verifyToken` checks it.
+
+`GET /auth/me` returns the logged-in user's own details (id, name, email, role, verified) through the visibility rules. The app calls it at start-up to restore the login from the saved token (see section 6). A missing, bad or expired token gets 401, and so does a valid token for an account that has since been deleted.
 
 ### How permissions work
 
@@ -285,8 +287,6 @@ IndoorFootballApp/
 └── ios/                 the native iOS project
 ```
 
-Some screen files aren't used by any navigator. See [ROADMAP.md](ROADMAP.md), Phase 2.
-
 ### How navigation switches by role
 
 A **navigator** is the part of the app that decides which screen is showing and lets you move between screens. The app uses React Navigation and two kinds of navigator:
@@ -299,7 +299,7 @@ The login state lives in a **context** (`AuthContext.js`). A React context is a 
 `src/navigation/AppNavigator.js` reads `user` from the context and picks a whole set of screens:
 
 ```
-no user logged in  → AuthStack        (Login, role choice, Register, Forgot password)
+no user logged in  → AuthStack        (Login, role choice, Player/Owner register, Forgot password)
 user.role PLAYER   → PlayerNavigator
 user.role OWNER    → OwnerNavigator
 user.role ADMIN    → AdminStack       (Dashboard, Manage Users/Teams/Indoors)
@@ -314,13 +314,28 @@ Because the screen set swaps as soon as `user` changes, logging in or out instan
 All requests go through `src/api/api.js`. It's a shared **axios** client (axios is a library for making web requests) with:
 
 - the backend address. This is a hardcoded ngrok URL. The `process.env.API_URL` it checks first is never set in a React Native build.
-- the interceptor that adds `Authorization: Bearer <token>` to every request when a token is saved.
+- a **request interceptor** that adds `Authorization: Bearer <token>` to every request when a token is saved.
+- a **response interceptor** that spots an expired or invalid login: when a request that carried the token gets a 401 reply, it calls the handler `AuthContext` registered (`setSessionExpiredHandler`). A 403 never counts (it means "not allowed", not "logged out"), and neither does the login request itself.
 
 ### How the login token is stored
 
 `src/utils/storage.js` saves the token in **AsyncStorage**, the phone's simple built-in key-value storage for the app, under the key `jwt`. Logging in saves it, and logging out removes it.
 
-The user's details (name, role) are kept only in memory, so closing the app logs you out. See [ROADMAP.md](ROADMAP.md), Phase 2.
+The user's details (name, role) are kept in memory, and the token stays saved until you log out, so closing the app doesn't log you out.
+
+### App start: restoring the login
+
+1. `AuthContext` looks for a saved token. With none, the login screen shows.
+2. With a token, `AppNavigator` shows a plain loading view (not the login screen) while the app calls `GET /auth/me` (15-second limit).
+3. If that works, the reply becomes `user`, and the app opens on the right screens for the role.
+4. If it replies 401, the token is no good: it's removed and the login screen shows (with the "session expired" message below).
+5. Any other failure (no connection, the ngrok tunnel down, a server error, the time limit) keeps the token and shows **"Can't reach the server"** with a **Retry** button, which runs the check again. Being offline never logs you out by itself, but a small **Log out** link under Retry removes the saved token and shows the login screen (no server call needed).
+
+The loading and "Can't reach the server" views are in `src/screens/Auth/StartupScreen.js`. They use React Native's built-in spinner, text and button with no colours of their own, until the theme module exists.
+
+### Expired or invalid login while using the app
+
+When any request that carried the token gets a 401 (for example the token's 7 days are up), the response interceptor in `api.js` tells `AuthContext`. It removes the saved token, clears `user` (so the app swaps to the login screen) and shows an alert: "Your session has expired. Please log in again." If several requests fail at once, the alert shows only once. **Log out** in Settings or on the admin dashboard also removes the saved token.
 
 ---
 
@@ -362,14 +377,14 @@ Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 
 ### Team invites
 
-1. A team owner opens their team (**My Teams** → team → **Add Member**) and picks a player (`AddMemberScreen.js`).
+1. A captain opens their team (**My Teams** → team → **Add Member**) and picks a player (`AddMemberScreen.js`). The list leaves out the captain, the team's members and anyone who already has a pending invite to it (worked out from the captain's `GET /teams/me` reply).
 2. The app sends `POST /teams/:teamId/invite`. The backend checks that the sender is a player account, that the player id is a positive whole number, that the sender created the team, that the invited person exists and is a player (otherwise 404 "Player not found"), and that they aren't already listed. It then adds a `TeamMember` row with status `pending`.
-3. The invited player sees it in **Invites** (`InvitesScreen.js`, which calls `GET /players/invites`).
+3. The invited player sees it in **Invites** (`InvitesScreen.js`, which calls `GET /players/invites`) as "Invited by <captain name> to <team name>". The reply gives each invite's `team.owner` as `{ id, name }`: the captain's player name, through the visibility rules (never their email).
 4. **Accept** (`POST /teams/:teamId/accept`) changes the status to `accepted`. **Reject** (`POST /teams/:teamId/reject`) deletes the row. Both only work on a `pending` row. If there's no pending invite for that player and team, they reply 404 "Invite not found".
 
 The team owner can also remove a member (`DELETE /teams/:teamId/members/:userId`) or delete the whole team (`DELETE /teams/:teamId`).
 
-A pending invite isn't membership yet. In the team lists (`GET /teams` and `GET /teams/me`) each team's `members` holds only accepted members. The team's captain also gets a separate `pendingInvites` list, so they can see who they've invited; nobody else gets it. `TeamDetailScreen` shows the captain those invites under the members, labelled "pending", without counting them. A player's team count (`GET /players/:id`, `totalTeams`) and the admin's member counts also include only accepted memberships.
+A pending invite isn't membership yet. In the team lists (`GET /teams` and `GET /teams/me`) each team's `members` holds only accepted members. The team's captain also gets a separate `pendingInvites` list, so they can see who they've invited; nobody else gets it. `TeamDetailScreen` shows the captain those invites under the members, labelled "pending", without counting them; the captain can remove a member or cancel an invite from there. The screen reloads its team from `GET /teams/me` whenever it comes into view and after a removal, so it never shows stale data, and goes back if the team is gone. **My Teams** also reloads whenever it comes into view, so a team deleted in Team Detail disappears straight away. **All Teams** shows each team's captain by name: the captain is always one of the team's accepted members, so the app takes the name from the `members` list the backend already sends. The app calls the team creator **Captain** everywhere (badges, labels, messages). A player's team count (`GET /players/:id`, `totalTeams`) and the admin's member counts also include only accepted memberships.
 
 ### Join requests
 

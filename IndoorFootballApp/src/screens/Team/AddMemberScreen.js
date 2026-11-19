@@ -21,30 +21,46 @@ export default function AddMemberScreen({ route, navigation }) {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [invitingId, setInvitingId] = useState(null);
+  const isCaptain = user?.id === ownerId;
 
-  // Guard: if not owner, block immediately
-  if (user?.id !== ownerId) {
+  // All hooks run on every render (React's rule), so the captain check below comes
+  // after them, and loading only happens for the captain.
+  useEffect(() => {
+    if (!isCaptain) return;
+
+    // Players who can be invited: everyone except the captain, the team's members and
+    // players who already have a pending invite. The captain's /teams/me reply has the
+    // team's accepted `members` and its `pendingInvites`.
+    const loadPlayers = async () => {
+      setLoading(true);
+      try {
+        const [playersRes, myTeamsRes] = await Promise.all([api.get('/players'), api.get('/teams/me')]);
+        const team = myTeamsRes.data.find(t => t.id === teamId);
+        const excluded = new Set([
+          user.id,
+          ...(team?.members || []).map(m => m.userId),
+          ...(team?.pendingInvites || []).map(p => p.userId),
+        ]);
+        setPlayers(playersRes.data.filter(p => !excluded.has(p.id)));
+      } catch (err) {
+        Alert.alert('Error', 'Failed to load players');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPlayers();
+  }, [isCaptain, teamId, user?.id]);
+
+  // Guard: only the team's captain can invite
+  if (!isCaptain) {
     return (
       <View style={styles.centered}>
         <Ionicons name="lock-closed-outline" size={48} color="#9CA3AF" />
-        <Text style={styles.blockedText}>Only the team owner can add members.</Text>
+        <Text style={styles.blockedText}>Only the team captain can add members.</Text>
       </View>
     );
   }
-
-  const loadPlayers = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get('/players');
-      setPlayers(res.data);
-    } catch (err) {
-      Alert.alert('Error', 'Failed to load players');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { loadPlayers(); }, []);
 
   const invite = async (userId, playerName) => {
     setInvitingId(userId);

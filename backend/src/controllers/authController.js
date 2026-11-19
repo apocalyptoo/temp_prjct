@@ -316,6 +316,37 @@ export const login = async (req, res, next) => {
   }
 };
 
+// CURRENT USER (GET /auth/me, logged-in users only)
+// The app calls this at start-up with its saved token to find out who is logged in.
+// Same details as the login reply, plus `verified`. A valid token for an account that
+// no longer exists gets 401, like a bad token, so the app logs out.
+export const getMe = async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        verified: true,
+        playerProfile: { select: { name: true } },
+        ownerProfile: { select: { indoorName: true } },
+      },
+    });
+    if (!user) return res.status(401).json({ error: 'Invalid token' });
+
+    const name = user.role === 'PLAYER' ? user.playerProfile?.name : user.ownerProfile?.indoorName;
+    return res.json(
+      toVisibleUser(
+        { id: user.id, name, email: user.email, role: user.role, verified: user.verified },
+        { id: req.user.id, role: req.user.role }
+      )
+    );
+  } catch (err) {
+    return next(err);
+  }
+};
+
 // REQUEST PASSWORD RESET
 export const requestPasswordReset = async (req, res, next) => {
   const email = normalizeEmail(req.body.email);

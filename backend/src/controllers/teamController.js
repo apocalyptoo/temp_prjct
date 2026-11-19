@@ -84,7 +84,7 @@ export const invitePlayer = async (req, res, next) => {
     if (!team) return res.status(404).json({ error: 'Team not found' });
 
     if (team.ownerId !== inviterId) {
-      return res.status(403).json({ error: 'Only the team owner can invite players.' });
+      return res.status(403).json({ error: 'Only the team captain can invite players.' });
     }
 
     // Only existing PLAYER accounts can be invited. An unknown id, or a venue owner or
@@ -121,12 +121,12 @@ export const removePlayer = async (req, res, next) => {
 
     // Only team owner can remove players
     if (team.ownerId !== requesterId) {
-      return res.status(403).json({ error: 'Only the team owner can remove players.' });
+      return res.status(403).json({ error: 'Only the team captain can remove players.' });
     }
 
     // Owner cannot remove themselves
     if (userId === requesterId) {
-      return res.status(400).json({ error: 'Team owner cannot remove themselves.' });
+      return res.status(400).json({ error: 'The team captain cannot remove themselves.' });
     }
 
     const member = await prisma.teamMember.findUnique({
@@ -155,7 +155,7 @@ export const deleteTeam = async (req, res, next) => {
     if (!team) return res.status(404).json({ error: 'Team not found' });
 
     if (team.ownerId !== requesterId) {
-      return res.status(403).json({ error: 'Only the team owner can delete this team.' });
+      return res.status(403).json({ error: 'Only the team captain can delete this team.' });
     }
 
     // Members and team in one transaction (shared with the admin delete).

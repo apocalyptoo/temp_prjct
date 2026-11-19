@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -16,12 +16,35 @@ import { AuthContext } from '../../contexts/AuthContext';
 import api from '../../api/api';
 
 export default function TeamDetailScreen({ route, navigation }) {
-  const { team } = route.params;
   const { user } = useContext(AuthContext);
+  // Starts as the team passed in from My Teams, then is reloaded from the backend.
+  const [team, setTeam] = useState(route.params.team);
   const [removingId, setRemovingId] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const teamId = route.params.team.id;
 
-  // Check if logged-in user is the team owner
+  // Reloads this team. The screen is only opened from My Teams, so the viewer is the
+  // captain or a member, and /teams/me includes it (with pendingInvites for the captain).
+  // If it's no longer there (deleted, or you were removed), go back.
+  const loadTeam = useCallback(async () => {
+    try {
+      const res = await api.get('/teams/me');
+      const fresh = res.data.find(t => t.id === teamId);
+      if (fresh) {
+        setTeam(fresh);
+      } else {
+        Alert.alert('Team not available', 'This team no longer exists, or you are no longer in it.');
+        navigation.goBack();
+      }
+    } catch (err) {
+      console.error('loadTeam', err?.response?.data || err.message);
+    }
+  }, [navigation, teamId]);
+
+  // Reload whenever the screen comes into view (for example back from Add Member).
+  useEffect(() => navigation.addListener('focus', loadTeam), [navigation, loadTeam]);
+
+  // Check if logged-in user is the team's captain (Team.ownerId)
   const isOwner = user?.id === team.ownerId;
 
   // `members` holds accepted members only. The backend adds `pendingInvites` only for
@@ -29,21 +52,29 @@ export default function TeamDetailScreen({ route, navigation }) {
   const members = team.members || [];
   const listedPeople = [...members, ...(team.pendingInvites || [])];
 
-  const handleRemovePlayer = (memberId, memberName) => {
+  // Removes a member, or cancels a pending invite (same backend call), then reloads.
+  const handleRemovePlayer = (memberId, memberName, isPendingInvite) => {
     Alert.alert(
-      'Remove Player',
-      `Are you sure you want to remove "${memberName}" from the team?`,
+      isPendingInvite ? 'Cancel Invite' : 'Remove Player',
+      isPendingInvite
+        ? `Cancel the invite to "${memberName}"?`
+        : `Are you sure you want to remove "${memberName}" from the team?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Remove',
+          text: isPendingInvite ? 'Cancel Invite' : 'Remove',
           style: 'destructive',
           onPress: async () => {
             setRemovingId(memberId);
             try {
               await api.delete(`/teams/${team.id}/members/${memberId}`);
-              Alert.alert('Removed', `${memberName} has been removed from the team.`);
-              navigation.goBack();
+              Alert.alert(
+                isPendingInvite ? 'Invite cancelled' : 'Removed',
+                isPendingInvite
+                  ? `The invite to ${memberName} has been cancelled.`
+                  : `${memberName} has been removed from the team.`
+              );
+              await loadTeam();
             } catch (err) {
               Alert.alert('Error', err.response?.data?.error || 'Failed to remove player.');
             } finally {
@@ -91,7 +122,7 @@ export default function TeamDetailScreen({ route, navigation }) {
         {isOwner && (
           <View style={styles.ownerBadge}>
             <Ionicons name="shield-checkmark-outline" size={13} color="#1E3A8A" />
-            <Text style={styles.ownerBadgeText}>You are the owner</Text>
+            <Text style={styles.ownerBadgeText}>You are the captain</Text>
           </View>
         )}
       </LinearGradient>
@@ -102,7 +133,7 @@ export default function TeamDetailScreen({ route, navigation }) {
           {team.description || 'No description provided.'}
         </Text>
 
-        {/* Owner-only action buttons */}
+        {/* Captain-only action buttons */}
         {isOwner && (
           <View style={styles.ownerActions}>
             <TouchableOpacity
@@ -161,7 +192,7 @@ export default function TeamDetailScreen({ route, navigation }) {
                     <Text style={styles.memberName}>{memberName}</Text>
                     {isThisOwner && (
                       <View style={styles.captainBadge}>
-                        <Text style={styles.captainText}>Owner</Text>
+                        <Text style={styles.captainText}>Captain</Text>
                       </View>
                     )}
                   </View>
@@ -169,14 +200,14 @@ export default function TeamDetailScreen({ route, navigation }) {
                   <Text style={styles.memberStatus}>{item.status || 'member'}</Text>
                 </View>
 
-                {/* Remove button — only owner sees it, and only for non-owner members */}
+                {/* Remove button — only the captain sees it, and not on their own row */}
                 {isOwner && !isThisOwner && (
                   <TouchableOpacity
                     style={[
                       styles.removeBtn,
                       removingId === memberUserId && styles.removeBtnDisabled,
                     ]}
-                    onPress={() => handleRemovePlayer(memberUserId, memberName)}
+                    onPress={() => handleRemovePlayer(memberUserId, memberName, item.status === 'pending')}
                     disabled={removingId === memberUserId}
                   >
                     {removingId === memberUserId

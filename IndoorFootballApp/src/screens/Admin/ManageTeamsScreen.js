@@ -260,7 +260,7 @@ export default function ManageTeamsScreen() {
                     </Text>
                   )}
                   <Text style={styles.meta}>
-                    Owner: {item.owner?.name || 'Unknown'}
+                    Captain: {item.owner?.name || 'Unknown'}
                   </Text>
                   <View style={styles.infoRow}>
                     <View style={styles.memberBadge}>
