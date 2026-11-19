@@ -43,14 +43,14 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 9. [x] Add rate limiting (login, register, forgot) and helmet.
 10. [x] Hash verification and reset tokens before storing them. Add an expiry to verification tokens.
 11. [x] Escape user names in email HTML.
-12. [ ] Apply the profile visibility rules in PRODUCT.md on the backend: return only the fields each viewer may see (email: self and admin only; phone: accepted teammates and admin only).
+12. [x] Apply the profile visibility rules in PRODUCT.md on the backend: return only the fields each viewer may see (email: self and admin only; phone: accepted teammates and admin only).
 13. [x] Add role checks on team endpoints (players only).
 14. [x] Reject non-string email in login, forgot-password and register
 
 ## Phase 2: Bugs and repo hygiene
 
 - [ ] Admin delete route param mismatch (`:userId` vs `req.params.id`)
-- [ ] Registration gets stuck when the email fails to send. Add a "resend verification" endpoint, and don't lock the email if sending fails.
+- [x] Registration gets stuck when the email fails to send. Add a "resend verification" endpoint, and don't lock the email if sending fails.
 - [ ] Lowercase and trim emails. Check for existing duplicates in the DB.
 - [ ] `createTeam` must validate the team name.
 - [ ] Persist login on app start (restore the user from the token) and handle 401 globally (log out).
@@ -63,6 +63,8 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 - [ ] Fix ESLint errors (19).
 - [ ] Fix or replace the outdated `testFlow.js`.
 - [ ] Write `README.md` (how to run locally) and `backend/.env.example`.
+- [ ] Add .gitattributes to normalise line endings, then run Prettier on the app in one formatting-only commit
+- [ ] Fix the app's Jest test (needs an AsyncStorage mock)
 
 ## Phase 3: Foundations
 
@@ -114,6 +116,7 @@ Several items need schema changes. Each needs my approval before the migration i
 - [ ] Set trust proxy correctly for the real hosting (the current value 1 assumes ngrok)
 - [ ] If running more than one server, move rate-limit counters to a shared store
 - [ ] After launch, watch for real users being rate-limited (shared mobile IPs)
+- [ ] Error monitoring and alerts (e.g. when emails fail to send)
 
 ## Phase 6: v1.1 (after launch)
 

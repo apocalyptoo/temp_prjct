@@ -160,7 +160,7 @@ export default function TeamDetailScreen({ route, navigation }) {
                       </View>
                     )}
                   </View>
-                  <Text style={styles.memberEmail}>{memberEmail}</Text>
+                  {!!memberEmail && <Text style={styles.memberEmail}>{memberEmail}</Text>}
                   <Text style={styles.memberStatus}>{item.status || 'member'}</Text>
                 </View>
 

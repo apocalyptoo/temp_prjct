@@ -13,6 +13,7 @@ import {
 } from '../utils/tokens.js';
 import { verifyEmailHtml, resetEmailHtml } from '../utils/emailTemplates.js';
 import { isFormRequest, messagePage } from '../utils/pages.js';
+import { toVisibleUser } from '../utils/visibility.js';
 const prisma = new PrismaClient();
 
 const transporter = nodemailer.createTransport({
@@ -27,9 +28,15 @@ const transporter = nodemailer.createTransport({
 // never receive mail, so those are skipped (the tests use it for throwaway users).
 // The log line shows only the recipient and subject, never tokens or links.
 const sendMail = (options) => {
-  if (String(options.to).toLowerCase().endsWith('@example.com')) {
+  const to = String(options.to).toLowerCase();
+  if (to.endsWith('@example.com')) {
     console.log(`Email skipped (example.com): to=${options.to} subject="${options.subject}"`);
     return Promise.resolve();
+  }
+  // .invalid is a reserved top-level domain that can never receive mail, so fail at once
+  // instead of handing it to Gmail. (The tests use it to make sending fail on purpose.)
+  if (to.endsWith('.invalid')) {
+    return Promise.reject(new Error(`Can't send email to a .invalid address (to=${options.to})`));
   }
   return transporter.sendMail(options);
 };
@@ -196,7 +203,19 @@ export const register = async (req, res, next) => {
     const displayName =
       role === 'PLAYER' ? name : profileData.indoorName;
 
-    await sendVerificationEmail({ email, displayName, token: verifyToken });
+    // The account exists now whatever happens to the email. If sending fails, still
+    // reply success, and point to "Resend verification email" (instead of a 500 that
+    // makes the user think the sign-up failed, then hit "Email already registered").
+    try {
+      await sendVerificationEmail({ email, displayName, token: verifyToken });
+    } catch (mailError) {
+      console.error(`Verification email failed for new user ${user.id}:`, mailError);
+      return res.status(201).json({
+        message:
+          "Account created, but we couldn't send the verification email. Use 'Resend verification email' on the login screen.",
+        userId: user.id,
+      });
+    }
 
     return res.status(201).json({
       message: 'Registration successful. Please check your email to verify your account.',
@@ -280,15 +299,14 @@ export const login = async (req, res, next) => {
         ? user.playerProfile?.name
         : user.ownerProfile?.indoorName;
 
+    // Your own details, through the same visibility rules as every other response.
     res.json({
       token,
-      user: {
-        id: user.id,
-        name: displayName,
-        email: user.email,
-        role: user.role,
-  },
-});
+      user: toVisibleUser(
+        { id: user.id, name: displayName, email: user.email, role: user.role },
+        { id: user.id, role: user.role }
+      ),
+    });
   } catch (err) {
     return next(err);
   }
@@ -378,7 +396,16 @@ export const resetPassword = async (req, res, next) => {
     const hashed = await bcrypt.hash(password, 10);
     await prisma.user.update({
       where: { id: user.id },
-      data: { password: hashed, resetToken: null, resetTokenExpires: null, verified: true },
+      // The reset proves the email works, so it also marks the account verified and
+      // clears any leftover verification link.
+      data: {
+        password: hashed,
+        resetToken: null,
+        resetTokenExpires: null,
+        verified: true,
+        verifyToken: null,
+        verifyTokenExpires: null,
+      },
     });
 
     if (fromForm) {

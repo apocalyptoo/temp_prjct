@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { withoutSecrets } from '../utils/visibility.js';
 const prisma = new PrismaClient();
 
 // ── Get all users ──
@@ -31,7 +32,7 @@ export const getAllUsers = async (req, res, next) => {
           : 'Admin',
     }));
 
-    return res.json(result);
+    return res.json(withoutSecrets(result)); // admin sees everything except secrets
   } catch (err) {
     return next(err);
   }
@@ -99,7 +100,7 @@ export const getAllTeams = async (req, res, next) => {
       },
     }));
 
-    return res.json(result);
+    return res.json(withoutSecrets(result)); // admin sees everything except secrets
   } catch (err) {
     return next(err);
   }
@@ -141,7 +142,7 @@ export const getAllIndoors = async (req, res, next) => {
       description: o.description,
     }));
 
-    return res.json(result);
+    return res.json(withoutSecrets(result)); // admin sees everything except secrets
   } catch (err) {
     return next(err);
   }

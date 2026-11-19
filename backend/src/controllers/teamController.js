@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { viewerFrom, toVisibleUser } from '../utils/visibility.js';
 const prisma = new PrismaClient();
 
 // ── Create new team ──
@@ -187,17 +188,22 @@ export const getTeams = async (req, res, next) => {
     });
 
     // Flatten member names
+    // Members are other users: show them through the visibility rules (no email).
+    const viewer = viewerFrom(req);
     const result = teams.map((t) => ({
       ...t,
       members: t.members.map((m) => ({
         ...m,
-        user: {
-          ...m.user,
-          name:
-            m.user?.playerProfile?.name ||
-            m.user?.ownerProfile?.indoorName ||
-            'Unknown',
-        },
+        user: toVisibleUser(
+          {
+            ...m.user,
+            name:
+              m.user?.playerProfile?.name ||
+              m.user?.ownerProfile?.indoorName ||
+              'Unknown',
+          },
+          viewer
+        ),
       })),
     }));
 
@@ -236,17 +242,22 @@ export const getMyTeams = async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
     });
 
+    // Members are other users: show them through the visibility rules (no email).
+    const viewer = viewerFrom(req);
     const result = teams.map((t) => ({
       ...t,
       members: t.members.map((m) => ({
         ...m,
-        user: {
-          ...m.user,
-          name:
-            m.user?.playerProfile?.name ||
-            m.user?.ownerProfile?.indoorName ||
-            'Unknown',
-        },
+        user: toVisibleUser(
+          {
+            ...m.user,
+            name:
+              m.user?.playerProfile?.name ||
+              m.user?.ownerProfile?.indoorName ||
+              'Unknown',
+          },
+          viewer
+        ),
       })),
     }));
 

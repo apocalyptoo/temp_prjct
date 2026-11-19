@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { viewerFrom, toVisibleUser, toPlayerStats } from '../utils/visibility.js';
 const prisma = new PrismaClient();
 
 /*export const listPlayers = async (req, res, next) => {
@@ -33,13 +34,15 @@ export const listPlayers = async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    // flatten to match frontend expecting {id, name, email}
-    const result = players.map((p) => ({
-      id: p.id,
-      email: p.email,
-      createdAt: p.createdAt,
-      name: p.playerProfile?.name || 'Unknown',
-    }));
+    // flatten to match frontend expecting {id, name, email}; the visibility rules then
+    // drop the email for everyone except yourself (and the admin)
+    const viewer = viewerFrom(req);
+    const result = players.map((p) =>
+      toVisibleUser(
+        { id: p.id, email: p.email, createdAt: p.createdAt, name: p.playerProfile?.name || 'Unknown' },
+        viewer
+      )
+    );
 
     return res.json(result);
   } catch (err) {
@@ -78,7 +81,7 @@ export const getMyPlayerProfile = async (req, res, next) => {
       return res.status(404).json({ error: 'Player profile not found' });
     }
 
-    return res.json(user);
+    return res.json(toVisibleUser(user, viewerFrom(req)));
   } catch (err) {
     return next(err);
   }
@@ -104,7 +107,14 @@ export const getPendingInvites = async (req, res, next) => {
       },
       orderBy: { joinedAt: 'desc' }
     });
-    res.json(invites);
+    // The team creator is another user: show them through the visibility rules.
+    const viewer = viewerFrom(req);
+    res.json(
+      invites.map((invite) => ({
+        ...invite,
+        team: { ...invite.team, owner: toVisibleUser(invite.team.owner, viewer) },
+      }))
+    );
   } catch (err) {
     return next(err);
   }
@@ -116,11 +126,8 @@ export const getPlayerStats = async (req, res, next) => {
   try {
     const { id } = req.params;
     const totalTeams = await prisma.teamMember.count({ where: { userId: Number(id) } });
-    const user = await prisma.user.findUnique({ where: { id: Number(id) } });
-    res.json({
-      totalTeams,
-      joinedAt: user?.createdAt,
-    });
+    const user = await prisma.user.findUnique({ where: { id: Number(id) }, select: { createdAt: true } });
+    res.json(toPlayerStats({ totalTeams, user }));
   } catch (err) {
     return next(err);
   }

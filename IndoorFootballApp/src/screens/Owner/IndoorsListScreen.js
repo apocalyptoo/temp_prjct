@@ -43,7 +43,7 @@ export default function IndoorsListScreen() {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <Text style={styles.title}>{item.indoorName}</Text>
-              <Text style={styles.meta}>{item.email}</Text>
+              {!!item.email && <Text style={styles.meta}>{item.email}</Text>}
               <Text style={styles.meta}>{item.phone}</Text>
               <Text style={styles.meta}>{item.address}</Text>
 

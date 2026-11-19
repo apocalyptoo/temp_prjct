@@ -65,7 +65,7 @@ export default function PlayersListScreen() {
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{item.name}</Text>
-                  <Text style={styles.email}>{item.email}</Text>
+                  {!!item.email && <Text style={styles.email}>{item.email}</Text>}
                 </View>
               </LinearGradient>
             </Animated.View>

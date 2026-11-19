@@ -120,7 +120,7 @@ backend/
 │   │   ├── auth.js          login, admin and player-only checks
 │   │   ├── rateLimits.js    limits on repeated login, register and password-reset requests
 │   │   └── errorHandler.js  turns any unhandled error into a short generic reply
-│   └── utils/           shared helpers: the password rule, HTML escaping, token format, email templates
+│   └── utils/           shared helpers: the password rule, who may see what (visibility), HTML escaping, tokens, email templates
 ├── prisma/
 │   ├── schema.prisma    the database tables, described in code
 │   └── migrations/      the history of changes to the tables
@@ -175,6 +175,28 @@ There are four layers of checks:
 - **Everything else** is checked inside the controllers. For example, `/players/me` refuses non-players, and inviting, removing or deleting in a team is refused unless you created that team.
 
 Known security problems in these checks: see [ROADMAP.md](ROADMAP.md), Phase 1.
+
+### Who can see what (profile visibility)
+
+The backend decides which fields each person may see, following "Profile visibility" in [PRODUCT.md](PRODUCT.md). Hiding fields only in the app isn't enough, because anyone can read what the backend sends. The rules live in one file, `src/utils/visibility.js`, and every endpoint that returns user or profile data passes it through those helpers:
+
+| What | Who sees it |
+|---|---|
+| Everything about an account | The user themselves (e.g. `/players/me`, `/owners/me`, the login reply) and the admin (admin routes) |
+| A player's name, position, height and weight (only if set) | Any logged-in user |
+| A player's phone | Only accepted teammates: both are accepted members of at least one same team |
+| Email | Only the user themselves and the admin |
+| A player's address | Only the user themselves and the admin, for now. It's still a free-text field that may hold a home address, and becomes the public "Area" field in Phase 4 |
+| A venue listing (name, address, phone, website, description) | Any logged-in user: it's a business listing. The owner's login email stays hidden |
+| Password hashes, tokens and token expiry times | Nobody, ever |
+
+The main helpers:
+- `toVisibleUser(user, viewer)` gives you or the admin everything except secrets, and anyone else only the public fields.
+- `toPublicPlayer` and `toPublicVenue` apply the profile rules.
+- `withoutSecrets` strips passwords and tokens.
+- `findAcceptedTeammateIds` works out a viewer's teammates in one database query.
+
+Today no endpoint returns another player's phone, so teammates don't see it anywhere yet. That arrives with the Player detail screen in Phase 4, using these same helpers. Responses keep their usual field names: hidden fields are simply left out, and the app's screens skip a field that's missing. **Any new endpoint that returns user data must go through these helpers.**
 
 ### Protection against abuse and leaks
 
@@ -312,7 +334,7 @@ The user's details (name, role) are kept only in memory, so closing the app logs
 2. The app sends `POST /auth/register` with email, password, role and the profile details.
 3. The backend checks that the email is text, then the role, password strength (at least 8 characters with upper case, lower case, a number and a symbol), that the email is new, and the profile fields (phone, height and weight ranges).
 4. It saves the User and their profile in a single step, with `verified` set to false. It also saves the hash of a new random verification token and an expiry 24 hours away.
-5. It emails a link containing the token itself to `BACKEND_PUBLIC_URL/auth/verify?token=…` through Gmail.
+5. It emails a link containing the token itself to `BACKEND_PUBLIC_URL/auth/verify?token=…` through Gmail. If sending fails, the account still exists, so the reply is still a success (201). It says "Account created, but we couldn't send the verification email. Use 'Resend verification email' on the login screen." The error is logged on the server.
 6. Clicking the link opens the backend in a browser. If the token isn't shaped like one the backend makes (64 lowercase hex characters), it shows an "Invalid or expired link" page without touching the database. It shows the same page if no user has that token's hash, or if the link is more than 24 hours old, with a hint to request a new email from the app's login screen. Otherwise it marks the user verified, clears the token and its expiry, and shows an "Email verified" page telling them they can now log in in the app.
 
 ### Resending the verification email
@@ -335,7 +357,7 @@ Known problems in this flow: see [ROADMAP.md](ROADMAP.md), Phases 1 and 2.
 1. The user enters their email on **Forgot Password**, or taps **Change Password** in Settings. The app sends `POST /auth/forgot`.
 2. A missing or non-text email is refused. If the email exists, the backend saves the hash of a new random reset token, which expires in 1 hour, and emails a link containing the token to `BACKEND_PUBLIC_URL/auth/reset-password-page?token=…`. If it already sent a reset email to that account in the last 5 minutes, it sends nothing new. The reply is the same in every case, whether or not the email exists.
 3. The link opens a small web form served by the backend. It only shows the form if the token looks like one the backend makes (64 lowercase hex characters); anything else gets an "Invalid or expired link" page. The form submits the new password to `POST /auth/reset`.
-4. The backend refuses a token that isn't plain text, and a new password that fails the same strength rule as registration. Otherwise it hashes the token, finds the user with that hash and an unexpired link, saves the new password hash, clears the token and its expiry, and marks the account verified.
+4. The backend refuses a token that isn't plain text, and a new password that fails the same strength rule as registration. Otherwise it hashes the token, finds the user with that hash and an unexpired link, saves the new password hash, clears the token and its expiry, and marks the account verified. The reset proves the email works, so it also clears any leftover verification link.
 5. Because the form is used in a browser, the replies are simple web pages, not raw JSON: "Password changed" on success; for a weak password, the rule plus a "Try again" link back to the form; for a bad or expired link, a message to request a new reset from the app. Requests sent as JSON still get JSON replies.
 
 Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
@@ -393,6 +415,7 @@ The mobile app has no config file. Its backend address lives in `IndoorFootballA
 | Security headers (helmet) or the trust proxy setting | `backend/src/server.js` |
 | Registration rules (phone, height, weight) | `backend/src/controllers/authController.js` (`register`), plus the register screens |
 | The password strength rule (registration, reset and the admin script) | `backend/src/utils/password.js` |
+| Who may see which user fields | `backend/src/utils/visibility.js` |
 | The text of the verification or reset emails | `backend/src/utils/emailTemplates.js` |
 | The database tables | `backend/prisma/schema.prisma`, then create a migration |
 | Environment variables | `backend/.env` (never commit it) |

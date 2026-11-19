@@ -91,7 +91,7 @@ export default function AddMemberScreen({ route, navigation }) {
                 />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.name}>{item.name}</Text>
-                  <Text style={styles.email}>{item.email}</Text>
+                  {!!item.email && <Text style={styles.email}>{item.email}</Text>}
                 </View>
                 <TouchableOpacity
                   style={[
