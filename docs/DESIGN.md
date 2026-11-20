@@ -75,6 +75,7 @@ IndoorFootballApp/src/
 | `avatarBg` | `#262C36` | Avatar circle background |
 | `avatarText` | `#C6F432` | Avatar initials |
 | `shadow` | `#000000` | Colour of the one `floating` shadow (section 5) |
+| `scrim` | `#0E1116` at 70% opacity (`#0E1116B3`) | The dimmed backdrop behind dialogs |
 
 **Readability rules (checked):**
 - Text on `bg` or `surface` uses `text` or `textMuted` only. Both pass the standard contrast check (4.5:1).
@@ -107,6 +108,7 @@ Two font families, both from Google Fonts (free to use in apps under the Open Fo
 | `tabLabelActive` | Inter 11, 600 | 16 | The active tab's label |
 | `button` | Inter 14, 700 | 20 | Primary button labels |
 | `buttonSecondary` | Inter 14, 600 | 20 | Secondary button labels |
+| `badge` | Inter 11, 700 | 16 | Badge counts |
 
 - **Line height:** 1.1 × size for headings and 1.45 × size for everything else, rounded to whole pixels (the values above).
 - **Letter spacing:** headings +2% of the size (size × 0.02, e.g. 0.68 for `display`); Inter 0.
@@ -130,9 +132,32 @@ Two font families, both from Google Fonts (free to use in apps under the Open Fo
 
 **Touch targets:** anything tappable is at least **44×44** (`touchTarget` token).
 
+**Sizes** (`sizes` tokens), used as minimums wherever something holds text, so it can grow with the phone's font size:
+- `field` 48: text field minimum height
+- `button` 46: button minimum height
+- `avatarSmall` 38 / `avatarLarge` 44: avatars in list rows / in team cards
+- `badge` 18: badge minimum width and height
+- `dot` 8: the small "waiting for you" dot
+- `border` 1: the 1px lines (card borders, dividers, outlined buttons, fields)
+- `dialogMaxWidth` 400: confirmation dialogs on wide screens
+
+**Opacity** (`opacity` tokens): `disabled` 0.45 for disabled controls (they also say so to screen readers), `pressed` 0.8 while a tappable card or button is held down.
+
+**Icon sizes** (`icon` tokens): `size` 24 by default, `sizeSmall` 16 for icons inside text lines (the error icon, the "Captain" crown). Stroke width `strokeWidth` 1.8.
+
 **Shadow** (`shadows` tokens): only `floating`, for dialogs and pop-ups, never cards: colour `shadow`, offset 0 × 4, opacity 0.3, radius 12, and Android `elevation` 8.
 
 ## 6. Components
+
+All shared components live in `IndoorFootballApp/src/components/ui/`, one file each, exported together from `index.js`. Screens are built from them. Rules for every component:
+- **Styles only from theme tokens** (through `useTheme()`): no raw colours, font names or loose sizes. A missing value becomes a new token, recorded here.
+- **Tappable things** are at least `touchTarget` (44) in both directions, with the right accessibility role, an accessibility label wherever there's no visible text, and accessibility state (disabled, busy).
+- **Text can grow** with the phone's font-size setting: things wrap rather than clip, and nothing that holds text has a fixed height, only a minimum.
+- **Small, plain props.** No component knows about the backend or navigation (BackLink only takes an `onPress`). Each component accepts an optional `style` for layout only (margins, flex, width), never colours or fonts.
+
+**Text.** Every piece of text uses it: `<Text variant="bodySmall" color="textMuted">`. `variant` is any typography token (default `body`), `color` is any colour meaning (default `text`). Screens never set fonts by hand.
+
+**Screen.** The standard screen container: `bg` background, `screenPadding` on the sides, keeps clear of the status bar and notches (the `edges` it protects; by default the top only, because a header or the tab bar covers the others). Optional `scroll` (content scrolls) and `keyboardAware` (form fields stay above the keyboard). The app is wrapped in one `SafeAreaProvider` for this.
 
 **Primary button.** `accent` background, `onAccent` text (Inter 14/700), radius 10, height at least 44–46. Optional leading icon. Use one per screen for the main action ("Create team", "Invite players").
 
@@ -163,6 +188,28 @@ Two font families, both from Google Fonts (free to use in apps under the Open Fo
 **Empty states.** Every list has one: a short line saying what's missing, plus the main action (e.g. "You're not in a team yet." + "Create team").
 
 **Confirmation dialogs.** Used for destructive or important actions (leave team, transfer captaincy, delete account). The title says exactly what will happen. The confirm button uses `danger` for destructive actions.
+
+**Text field.** There's no field in the mockups, so this is the agreed design:
+- Label above the field, in `bodySmall` / `textMuted`.
+- The field: `surface` background, 1px `border`, radius `button` (10), at least `sizes.field` (48) tall. Text in `body` / `text`, placeholder in `textMuted`, cursor and selection in `accent`.
+- Focused: the border turns `accent`.
+- Error: the border turns `danger`, and under the field a `warning` icon (`icon.sizeSmall`) plus the message in `meta` / `danger`. The icon and the words carry the meaning, never the colour alone.
+- Optional helper text under the field, in `meta` / `textMuted`. An error replaces it while shown.
+- Password fields have a show/hide button inside the field on the right: 44×44, icon `show` or `hide`, labelled "Show password" / "Hide password".
+- Disabled: `opacity.disabled` and not editable.
+- The field grows with the phone's font size (a minimum height only). Screen readers hear the label and the error with the field.
+
+**Section header.** A heading row inside a card: the title (`section`) on the left and an optional item on the right, such as a soft Pill ("2 new") or a TextLink ("See all 11").
+
+**Text link.** Tappable text in `accent`, `bodySmall` at semibold weight (`buttonSecondary` style), at least 44 tall to tap. For links inside cards ("See all 11"). The back link is the muted version of the same idea.
+
+**Notice line.** A line that something is waiting: a `sizes.dot` (8) dot in `badge`, strong text in `bodyStrong`, then muted text in `body` / `textMuted` ("● **2 join requests** waiting for you"). The words carry the meaning; the dot only draws the eye.
+
+**Divider.** A 1px `border` line across a card, between its parts and between list rows.
+
+**"Captain" label in a row.** Not its own component: a `captain` icon (`icon.sizeSmall`, `accent`) plus "Captain" in `accent`, passed as the list row's trailing item.
+
+**Built from these, not shared components:** two buttons side by side are a layout (each Button gets a `style` with flex). A team card belongs to the team feature and is built from Card, Avatar, Text, Pill, Divider and NoticeLine.
 
 ## 7. Icons
 
