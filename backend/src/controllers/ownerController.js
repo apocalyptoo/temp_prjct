@@ -39,9 +39,6 @@ export const getMyOwnerProfile = async (req, res, next) => {
 
 export const listIndoors = async (req, res, next) => {
   try {
-    // If you want ONLY owners to access this list, uncomment:
-    // if (req.user.role !== 'OWNER') return res.status(403).json({ error: 'Owners only' });
-
     const indoors = await prisma.ownerProfile.findMany({
       include: {
         user: { select: { id: true, email: true, createdAt: true } },

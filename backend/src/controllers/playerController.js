@@ -3,20 +3,6 @@ import { viewerFrom, toVisibleUser, toPlayerStats } from '../utils/visibility.js
 import { parseId } from '../utils/ids.js';
 const prisma = new PrismaClient();
 
-/*export const listPlayers = async (req, res, next) => {
-  try {
-    const players = await prisma.user.findMany({
-      where: { role: 'PLAYER' },
-      select: { id: true, name: true, email: true, createdAt: true }
-    });
-    res.json(players);
-  } catch (err) {
-    return next(err);
-  }
-};*/
-
-
-
 export const listPlayers = async (req, res, next) => {
   try {
     const players = await prisma.user.findMany({

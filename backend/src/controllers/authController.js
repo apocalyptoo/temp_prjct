@@ -375,7 +375,6 @@ export const requestPasswordReset = async (req, res, next) => {
         data: { resetToken: hashToken(token), resetTokenExpires: expires },
       });
         
-      //const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
       const resetLink = `${process.env.BACKEND_PUBLIC_URL}/auth/reset-password-page?token=${token}`;
       await sendMail({
         from: `"App Support" <${process.env.EMAIL_USER}>`,
