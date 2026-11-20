@@ -312,3 +312,21 @@ Bumping an account's `tokenVersion` cancels every login token it has, so every p
 Normal "Log out" only removes the token from that phone, as today. There's no "log out of all devices" button in v1.0.
 **Why:** a password reset or change often means the old password leaked, so any phone that was logged in with it must be logged out. A suspended user must lose access at once, not when their token expires up to 30 days later.
 **Alternatives considered:** a "log out of all devices" button (deferred: not needed for v1.0), logging out every device on normal logout too (rejected: logging out one phone shouldn't affect the others).
+
+### 2026-11-20: Phase 4 order
+Phase 4 is built in four steps, in this order:
+1. **Team data groundwork** (backend only):
+   - 4.1: the captain is stored only in `Team.captainId`.
+   - 4.2: membership data: `TeamMember` status as an enum; how each membership started (invite, join request, or the captain creating the team); a real accepted-at date; `onDelete: Cascade` as a safety net.
+2. **The new look's foundation** (app only): theme module, fonts, icons, shared components (including the Button loading state), and bottom-tab navigation per role. Existing screens keep working inside the new tabs.
+3. **Features, one at a time**, each with its backend and screens built together, and each with a short spec in `docs/features/` first: team membership features → profiles and registration (short sign-up, position list, Area, profile editing, change password) → venues (new fields, approval, search and filter) → account deletion → notifications → moderation → pagination.
+4. **Restyle** any old screens that no feature touched.
+
+Database changes come in several small migrations (captain, membership, profiles and venues, notifications, moderation), each needing the owner's approval, instead of one big Phase 4 migration.
+
+**Why:**
+- Groundwork first, because later features (transfer captaincy, account deletion, join requests) depend on it.
+- The new look before the features, so each screen is built once, already in the new design.
+- Small migrations are easier to review and to undo.
+
+**Consequence:** the player position enum moves out of the "schema enums" item and into the profiles and registration migration. The `TeamMember` status enum and `onDelete: Cascade` stay with the membership migration (4.2). This replaces the "one migration" part of the 2026-11-20 "Phase 3 roadmap reshuffle" for the position enum.

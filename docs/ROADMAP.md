@@ -84,30 +84,57 @@ Enums, `onDelete: Cascade`, pagination and website validation moved to Phase 4; 
 
 ## Phase 4: v1.0 features
 
-Several items need schema changes. Each needs my approval before the migration is created.
+Built in four steps, in order (DECISIONS.md 2026-11-20, "Phase 4 order"). Several items need schema changes. Database changes come in several small migrations (captain, membership, profiles and venues, notifications, moderation), each needing my approval before it's created.
 
-- [ ] Schema enums (TeamMember status, player position) and `onDelete: Cascade` where appropriate, in the same migration as the membership changes (invite vs request, accepted at). Needs approval. (DECISIONS.md 2026-11-20)
-- [ ] Store the captain only in Team.captainId: rename from ownerId and remove the captain member role, with tests. Touches about 16 places in the backend and the app. Do this before transfer captaincy and account deletion. (PRODUCT.md, "Team membership")
-- [ ] Profile editing (players and venue owners)
-- [ ] Change password while logged in. It logs the account out on every other device: increase `tokenVersion` and reply with a fresh token, so the phone that made the change stays logged in (DECISIONS.md 2026-11-20, "Which events log out every device").
-- [ ] Join request flow: captains see, approve and reject requests. The join endpoint was removed in Phase 1 (item 3) and needs to be rebuilt, recording that the row is a join request, not an invite.
-- [ ] Venue discovery polish
-- [ ] Team membership: record invite vs join request, accepted at date (same migration as invite/request), cancel requests and invites, leave a team, transfer captaincy, 15-member limit, "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership")
-- [ ] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion")
-- [ ] Rename the player address field to "Area" (keep existing values) (PRODUCT.md, "Profile visibility")
-- [ ] Venue listing: add area, opening hours and pricing info fields; admin approval ("Pending review"), only when address, area and phone are filled in (enforced by the backend); missing-fields checklist on My Venue; venue search by name and filter by area (PRODUCT.md, "Venue owners")
-- [ ] Shorter registration and position list, built together with profile editing: short player and owner sign-up forms (DECISIONS.md 2026-11-20), position picker, owner phone and address optional, position enum with mapping of existing values (PRODUCT.md, "Registration")
-- [ ] Pagination on list endpoints (with the Explore lists)
-- [ ] Validate owner website URLs (http/https only) on the backend and before `Linking.openURL`
-- [ ] Notifications screen ("Needs your action" + "Updates"), badge, read/unread (PRODUCT.md, "Notifications")
-- [ ] Moderation: Report button and admin Reports screen; Block and unblock (Settings → Blocked players); suspend and unsuspend users (suspending increases `tokenVersion`, so the user is logged out on every device at once); Terms of Use and Privacy Policy checkbox at registration (PRODUCT.md, "Administration and moderation")
+### Step 1: Team data groundwork (backend only)
+
+- [ ] 4.1 Store the captain only in Team.captainId: rename from ownerId and remove the captain member role, with tests. Touches about 16 places in the backend and the app. Do this before transfer captaincy and account deletion. (PRODUCT.md, "Team membership")
+- [ ] 4.2 Membership data, in one migration: TeamMember status as an enum; record how each membership started (invite, join request, or the captain creating the team); a real accepted-at date; `onDelete: Cascade` where appropriate, as a safety net. Needs approval. (DECISIONS.md 2026-11-20; split from the old "Schema enums" item, whose position enum moved to the registration item in Step 3)
+
+### Step 2: The new look's foundation (app only)
+
+Existing screens keep working inside the new tabs.
+
 - [x] Write `docs/DESIGN.md` (colors, fonts, spacing, components, screen list) before UI work
 - [ ] Theme module and shared components, following the folder structure in DESIGN.md section 2: `src/theme/` (palette, colors, typography, spacing, radius, shadows, index, ThemeProvider with `useTheme()`) and shared components in `src/components/ui/`. Status bar always light content (fix App.js following the phone's theme). The shared Button has a loading state (spinner, taps blocked while a request runs). Every button that sends a request uses it. Today the register, forgot-password and resend buttons give no feedback, and a second tap on Register gets 'Email already registered'.
 - [ ] Add Barlow Condensed and Inter font files
 - [ ] Install lucide-react-native and react-native-svg (check version compatibility first, tell me the versions), build the Icon component, then remove react-native-vector-icons and its fonts and config once unused
 - [ ] Rebuild navigation as bottom tabs per role, as described in PRODUCT.md
-- [ ] Restyle all screens using the theme module, one screen at a time, without changing behaviour (this also clears the remaining ESLint inline-style warnings, 46 as of 2026-11-20)
-- [ ] Write a short spec in `docs/features/` before building each feature above
+
+### Step 3: Features, one at a time
+
+Rule: write a short spec in `docs/features/` before building each feature below. Each feature is built backend and screens together, in the order listed.
+
+**Team membership features**
+- [ ] Join request flow: captains see, approve and reject requests. The join endpoint was removed in Phase 1 (item 3) and needs to be rebuilt, recording that the row is a join request, not an invite.
+- [ ] Team membership: record invite vs join request, accepted at date (same migration as invite/request), cancel requests and invites, leave a team, transfer captaincy, 15-member limit, "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership")
+
+**Profiles and registration**
+- [ ] Shorter registration and position list, built together with profile editing: short player and owner sign-up forms (DECISIONS.md 2026-11-20), position picker, owner phone and address optional, position enum with mapping of existing values (PRODUCT.md, "Registration"). The position enum is part of this item's migration (DECISIONS.md 2026-11-20, "Phase 4 order").
+- [ ] Rename the player address field to "Area" (keep existing values) (PRODUCT.md, "Profile visibility")
+- [ ] Profile editing (players and venue owners)
+- [ ] Change password while logged in. It logs the account out on every other device: increase `tokenVersion` and reply with a fresh token, so the phone that made the change stays logged in (DECISIONS.md 2026-11-20, "Which events log out every device").
+
+**Venues**
+- [ ] Venue listing: add area, opening hours and pricing info fields; admin approval ("Pending review"), only when address, area and phone are filled in (enforced by the backend); missing-fields checklist on My Venue; venue search by name and filter by area (PRODUCT.md, "Venue owners")
+- [ ] Validate owner website URLs (http/https only) on the backend and before `Linking.openURL`
+- [ ] Venue discovery polish
+
+**Account deletion**
+- [ ] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion")
+
+**Notifications**
+- [ ] Notifications screen ("Needs your action" + "Updates"), badge, read/unread (PRODUCT.md, "Notifications")
+
+**Moderation**
+- [ ] Moderation: Report button and admin Reports screen; Block and unblock (Settings → Blocked players); suspend and unsuspend users (suspending increases `tokenVersion`, so the user is logged out on every device at once); Terms of Use and Privacy Policy checkbox at registration (PRODUCT.md, "Administration and moderation")
+
+**Pagination**
+- [ ] Pagination on list endpoints (with the Explore lists)
+
+### Step 4: Restyle the rest
+
+- [ ] Restyle all screens using the theme module, one screen at a time, without changing behaviour (this also clears the remaining ESLint inline-style warnings, 46 as of 2026-11-20). By this point only old screens that no Step 3 feature touched should be left.
 
 ## Phase 5: Deployment readiness
 
