@@ -79,7 +79,7 @@ Enums, `onDelete: Cascade`, pagination and website validation moved to Phase 4; 
 - [x] Indexes on token columns. (done 2026-11-19)
 - [x] Wrap multi-step deletes in transactions. (`src/utils/deletion.js`; no other multi-step deletes exist)
 - [ ] 30-day login with token revocation (`tokenVersion`). (3.3)
-- [ ] Backend tests for auth and teams. (`tests/` covers auth and most team endpoints, checked 2026-11-20. Still missing: removing a player from a team, `DELETE /teams/:teamId/members/:userId`, is only tested with bad ids. It needs tests for a successful removal, a non-captain (403), the captain removing themselves (400), and a non-member or unknown team (404).)
+- [x] Backend tests for auth and teams. (`tests/` covers auth and every team endpoint; removing a player, including cancelling a pending invite, is in `tests/remove-player.test.js`, added 2026-11-20)
 
 ## Phase 4: v1.0 features
 
