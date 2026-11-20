@@ -75,9 +75,11 @@ Enums, `onDelete: Cascade`, pagination and website validation moved to Phase 4; 
 
 - [x] Use a single shared Prisma client. (3.1) (`src/db.js`)
 - [x] Validate environment variables at startup (fail fast). (3.1) (`src/config.js`, `src/config/loadConfig.js`)
-- [x] zod validation on every endpoint, and `express.urlencoded({ extended: false })`. This closes the whole injection class of bugs. (3.2) (`src/validation/`, `src/middleware/validate.js`)- [x] Indexes on token columns. (done 2026-11-19)
+- [x] zod validation on every endpoint, and `express.urlencoded({ extended: false })`. This closes the whole injection class of bugs. (3.2) (`src/validation/`, `src/middleware/validate.js`)
+- [x] Indexes on token columns. (done 2026-11-19)
 - [x] Wrap multi-step deletes in transactions. (`src/utils/deletion.js`; no other multi-step deletes exist)
 - [ ] 30-day login with token revocation (`tokenVersion`). (3.3)
+- [ ] Upgrade nodemailer 7 → 10 (major). Version 7 gets no security fixes; several open advisories are in address parsing. Own small task after 3.3, with tests for verification, reset and resend emails.
 - [x] Backend tests for auth and teams. (`tests/` covers auth and every team endpoint; removing a player, including cancelling a pending invite, is in `tests/remove-player.test.js`, added 2026-11-20)
 
 ## Phase 4: v1.0 features
@@ -118,6 +120,7 @@ Several items need schema changes. Each needs my approval before the migration i
 - [ ] Purge secrets and the DB dump from git history (see Phase 0).
 - [ ] Clean up the confusing migration history (before the first production database)
 - [ ] CI on GitHub Actions (I set up the remote side)
+- [ ] Decide on Prisma 7 (major upgrade; fixes the remaining audit warnings in Prisma's command-line tooling, which only runs during development). Includes moving to Prisma 6.19.x first if useful.
 - [ ] Web page or link for account deletion requests (Google Play requirement)
 - [ ] Write the Terms of Use and Privacy Policy (including backup retention period)
 - [ ] Create a dedicated support email and show it in Settings and the suspension message
