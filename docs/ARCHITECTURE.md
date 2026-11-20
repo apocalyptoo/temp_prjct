@@ -323,11 +323,11 @@ IndoorFootballApp/
 ├── assets/fonts/        Barlow Condensed and Inter font files, with their licenses
 ├── src/
 │   ├── api/api.js       shared helper for talking to the backend
-│   ├── components/ui/   shared building blocks; so far Icon.js (see "Icons" below)
+│   ├── components/ui/   shared building blocks screens are made from (see "Shared components" below)
 │   ├── contexts/        AuthContext.js: who is logged in
 │   ├── navigation/      which screens exist for each role
 │   ├── screens/         one file per screen, grouped by area
-│   │   (Auth, Player, Owner, Team, Admin)
+│   │   (Auth, Player, Owner, Team, Admin; Dev holds the developer-only UI gallery)
 │   ├── theme/           the look: colours, fonts, sizes (see "The theme" below)
 │   └── utils/storage.js saves and reads the login token
 ├── android/             the native Android project
@@ -348,6 +348,21 @@ The fonts are files in `assets/fonts/`. For Android they're also copied by hand 
 The status bar always shows white icons on the dark background, whatever the phone's light or dark setting. Android's own window behind the app is dark too, so no white flash shows while the app starts. That colour is set on the Android side (`android/app/src/main/res/values/colors.xml`), because native files can't read the JavaScript tokens, so it has to be kept the same as `bg` by hand. React Navigation also gets a theme built from the tokens, so its screen background and headers are dark instead of white.
 
 **Today the existing screens still use their old, hand-written light styles.** They're restyled one at a time later. The only change made to screens for the theme: the two registration screens had no background of their own and used to show React Navigation's light grey, so that grey is now set on them directly until registration is rebuilt.
+
+### Shared components
+
+Screens are built from ready-made pieces in `src/components/ui/`, so each piece looks the same everywhere and is styled in one place. A screen imports them from one place: `import { Screen, Text, Button } from '../../components/ui';`.
+
+- **Layout and text:** `Screen` (the dark background, side padding, room for the status bar, optional scrolling), `Text` (every piece of text, with a style name such as `body` or `display`), `ScreenHeader`, `SectionHeader`, `Divider`.
+- **Actions:** `Button` (main, secondary or danger; with a `loading` state that shows a spinner and ignores taps while a request runs), `IconButton` (approve, reject or plain), `TextLink`, `BackLink`.
+- **Content:** `Card`, `ListRow`, `Avatar` (initials in a circle), `Pill`, `Badge`, `NoticeLine` ("● 2 join requests waiting for you"), `EmptyState`, `Icon`.
+- **Forms and questions:** `TextField` (label, error message, password show/hide), `ConfirmDialog` ("Delete this team?" with Cancel and Confirm).
+
+They take their colours, fonts and sizes only from the theme. A test reads every file in the folder and fails if one contains a colour code or a font name, so that rule can't slip.
+
+**UI gallery (development only).** In a development build, the Login screen has a small "UI gallery" link that opens a screen showing every component in its states, plus two small copies of the design mockups built from the components. Release builds don't have the link, the screen, or even its code: the screen is only loaded inside a development-only check, which a release build removes before packaging.
+
+Existing screens still use their old hand-written styles until each is restyled.
 
 ### Icons
 

@@ -124,6 +124,17 @@ export default function LoginScreen({ navigation }) {
             </Text>
           </TouchableOpacity>
         )}
+
+        {/* Development builds only (the screen isn't registered in release builds). */}
+        {__DEV__ ? (
+          <TouchableOpacity
+            onPress={() => navigation.navigate('UIGallery')}
+            style={styles.forgotContainer}
+            accessibilityRole="link"
+          >
+            <Text style={styles.forgotText}>UI gallery</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </View>
   );
