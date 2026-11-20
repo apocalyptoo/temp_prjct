@@ -152,6 +152,7 @@ Rule: write a short spec in `docs/features/` before building each feature below.
 - [ ] Clean up the confusing migration history (before the first production database)
 - [ ] CI on GitHub Actions (I set up the remote side)
 - [ ] Decide on Prisma 7 (major upgrade; fixes the remaining audit warnings in Prisma's command-line tooling, which only runs during development). Includes moving to Prisma 6.19.x first if useful.
+- [ ] Clear the mobile app's remaining npm audit warnings (development tooling only; the 2026-11-21 review fixed axios, React Navigation and the rest). `image-size` (high) comes from Metro 0.83, which React Native 0.82 uses; it's only fixed by a React Native upgrade that brings a newer Metro. `minimatch` (moderate, through ESLint's `@typescript-eslint` packages) is fixed in `@typescript-eslint` 8.73.0, which turns two weeks old on 2026-11-30. Both only read our own project files.
 - [ ] Web page or link for account deletion requests (Google Play requirement)
 - [ ] Write the Terms of Use and Privacy Policy (including backup retention period)
 - [ ] Create a dedicated support email and show it in Settings and the suspension message
