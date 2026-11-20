@@ -2,6 +2,7 @@
 // Ids in the URL (:teamId, :userId) are checked with parseId in the controllers, not here.
 import { z } from 'zod';
 import { charCount } from './common.js';
+import { MAX_DB_INT } from '../utils/ids.js';
 
 export const TEAM_NAME = { min: 2, max: 40 };
 export const TEAM_DESCRIPTION_MAX = 200;
@@ -39,12 +40,13 @@ export const createTeamSchema = z.object(
 
 // ── POST /teams/:teamId/invite ──
 // userId must be a real positive whole number: not text (so "5" is refused), not an
-// object, not a decimal.
+// object, not a decimal, and no bigger than the database's Int column holds (the same
+// limit as parseId), so Prisma never gets a number it can't store.
 export const inviteSchema = z.object(
   {
     userId: z
       .number({ error: 'userId must be a positive integer' })
-      .refine((n) => Number.isInteger(n) && n > 0, { error: 'userId must be a positive integer' }),
+      .refine((n) => Number.isInteger(n) && n > 0 && n <= MAX_DB_INT, { error: 'userId must be a positive integer' }),
   },
   { error: 'userId must be a positive integer' }
 );

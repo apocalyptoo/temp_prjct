@@ -75,9 +75,7 @@ Enums, `onDelete: Cascade`, pagination and website validation moved to Phase 4; 
 
 - [x] Use a single shared Prisma client. (3.1) (`src/db.js`)
 - [x] Validate environment variables at startup (fail fast). (3.1) (`src/config.js`, `src/config/loadConfig.js`)
-- [x] zod validation on every endpoint, and `express.urlencoded({ extended: false })`. This closes the whole injection class of bugs. (3.2) (`src/validation/`, `src/middleware/validate.js`)
-- [ ] Invite: a `userId` above the database's Int range (2,147,483,647) gets a 500 instead of a 400. Cap it like `parseId` does. (found 2026-11-20)
-- [x] Indexes on token columns. (done 2026-11-19)
+- [x] zod validation on every endpoint, and `express.urlencoded({ extended: false })`. This closes the whole injection class of bugs. (3.2) (`src/validation/`, `src/middleware/validate.js`)- [x] Indexes on token columns. (done 2026-11-19)
 - [x] Wrap multi-step deletes in transactions. (`src/utils/deletion.js`; no other multi-step deletes exist)
 - [ ] 30-day login with token revocation (`tokenVersion`). (3.3)
 - [x] Backend tests for auth and teams. (`tests/` covers auth and every team endpoint; removing a player, including cancelling a pending invite, is in `tests/remove-player.test.js`, added 2026-11-20)

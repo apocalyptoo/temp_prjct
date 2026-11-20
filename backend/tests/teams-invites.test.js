@@ -74,6 +74,22 @@ describe('Invite input checks', () => {
     const pending = await prisma.teamMember.count({ where: { teamId: team.id, status: 'pending' } });
     assert.equal(pending, 0, 'no invites should have been created');
   });
+
+  test('userId has the same upper limit as ids in URLs (the database Int range)', async (t) => {
+    const { captain, team } = await setUpTeamAndOutsider(t);
+
+    // The largest id the database can hold: checked, then simply not found.
+    const largest = await postJson(`/teams/${team.id}/invite`, { userId: 2147483647 }, captain.jwt);
+    assert.equal(largest.status, 404);
+    assert.deepEqual(await largest.json(), { error: 'Player not found' });
+
+    // One more, or far more, is refused before it reaches the database (it used to give 500).
+    for (const userId of [2147483648, 99999999999, Number.MAX_SAFE_INTEGER]) {
+      const res = await postJson(`/teams/${team.id}/invite`, { userId }, captain.jwt);
+      assert.equal(res.status, 400, `expected 400 for userId ${userId}`);
+      assert.deepEqual(await res.json(), { error: 'userId must be a positive integer' });
+    }
+  });
 });
 
 describe('Normal invite flow still works', () => {
