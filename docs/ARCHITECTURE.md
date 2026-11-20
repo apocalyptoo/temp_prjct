@@ -343,7 +343,7 @@ The app's look lives in one folder, `src/theme/`, as named values called **token
 
 The fonts are files in `assets/fonts/`. For Android they're also copied by hand into `android/app/src/main/assets/fonts/`, which is where Android loads them from (a rebuild with `npm run android` is needed after adding fonts).
 
-The status bar always shows white icons on the dark background, whatever the phone's light or dark setting. React Navigation also gets a theme built from the tokens, so its screen background and headers are dark instead of white.
+The status bar always shows white icons on the dark background, whatever the phone's light or dark setting. Android's own window behind the app is dark too, so no white flash shows while the app starts. That colour is set on the Android side (`android/app/src/main/res/values/colors.xml`), because native files can't read the JavaScript tokens, so it has to be kept the same as `bg` by hand. React Navigation also gets a theme built from the tokens, so its screen background and headers are dark instead of white.
 
 **Today the existing screens still use their old, hand-written light styles.** They're restyled one at a time later. The only change made to screens for the theme: the two registration screens had no background of their own and used to show React Navigation's light grey, so that grey is now set on them directly until registration is rebuilt.
 
@@ -391,7 +391,7 @@ The user's details (name, role) are kept in memory, and the token stays saved un
 4. If it replies 401, the token is no good: it's removed and the login screen shows (with the "session expired" message below).
 5. Any other failure (no connection, the ngrok tunnel down, a server error, the time limit) keeps the token and shows **"Can't reach the server"** with a **Retry** button, which runs the check again. Being offline never logs you out by itself, but a small **Log out** link under Retry removes the saved token and shows the login screen (no server call needed).
 
-The loading and "Can't reach the server" views are in `src/screens/Auth/StartupScreen.js`. They use React Native's built-in spinner, text and button with no colours of their own, until they're restyled with the theme.
+The loading and "Can't reach the server" views are in `src/screens/Auth/StartupScreen.js`. They paint the theme's dark background and light text themselves, because they show before the navigator (straight on the Android window). They still use React Native's built-in spinner and button.
 
 ### Expired or invalid login while using the app
 

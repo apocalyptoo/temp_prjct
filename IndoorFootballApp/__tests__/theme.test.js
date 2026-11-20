@@ -212,3 +212,17 @@ describe('useTheme()', () => {
     spy.mockRestore();
   });
 });
+
+describe('Android window colour', () => {
+  test('app_background in colors.xml is the same as colors.bg', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const xml = fs.readFileSync(
+      path.join(__dirname, '../android/app/src/main/res/values/colors.xml'),
+      'utf8',
+    );
+    const match = xml.match(/<color name="app_background">(#[0-9A-Fa-f]{6})</);
+    expect(match).not.toBeNull();
+    expect(match[1].toUpperCase()).toBe(colors.bg);
+  });
+});

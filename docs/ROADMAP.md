@@ -99,7 +99,7 @@ Existing screens keep working inside the new tabs.
 - [x] 4.3 Theme module, following the folder structure in DESIGN.md section 2: `src/theme/` (palette, colors, typography, spacing, radius, shadows, index, ThemeProvider with `useTheme()`). Status bar always light content (fix App.js following the phone's theme). (done 2026-11-20: `__tests__/theme.test.js` checks the tokens and contrast; React Navigation also gets a token theme)
 - [ ] 4.4 Shared components in `src/components/ui/` (DESIGN.md sections 2 and 6). The shared Button has a loading state (spinner, taps blocked while a request runs). Every button that sends a request uses it. Today the register, forgot-password and resend buttons give no feedback, and a second tap on Register gets 'Email already registered'.
 - [x] Add Barlow Condensed and Inter font files (done 2026-11-20 with 4.3: static .ttf files from Google Fonts in `IndoorFootballApp/assets/fonts/`, copied by hand into the Android assets)
-- [ ] The Android window theme (`AppTheme`, DayNight) follows the phone's setting, so a white window can show at launch before the first screen. Make it dark (found in 4.3; not fixed there).
+- [x] The Android window theme (`AppTheme`, DayNight) follows the phone's setting, so a white window can show at launch before the first screen. Make it dark (found in 4.3; not fixed there). (done 2026-11-21: `windowBackground` and `statusBarColor` are `@color/app_background`, the same as `bg`; the parent stays DayNight, see the item at the end of Step 4; the start-up views now paint the theme background)
 - [ ] 4.5 Install lucide-react-native and react-native-svg (check version compatibility first, tell me the versions), build the Icon component, then remove react-native-vector-icons and its fonts and config once unused
 - [ ] Rebuild navigation as bottom tabs per role, as described in PRODUCT.md
 
@@ -137,6 +137,7 @@ Rule: write a short spec in `docs/features/` before building each feature below.
 ### Step 4: Restyle the rest
 
 - [ ] Restyle all screens using the theme module, one screen at a time, without changing behaviour (this also clears the remaining ESLint inline-style warnings, 46 as of 2026-11-20). By this point only old screens that no Step 3 feature touched should be left.
+- [ ] Switch the Android `AppTheme` parent from `Theme.AppCompat.DayNight.NoActionBar` to an always-dark one, once no screen relies on Android's default text, input or alert colours (today the register screens do). Alerts then turn dark on every phone. (found in 4.4)
 
 ## Phase 5: Deployment readiness
 

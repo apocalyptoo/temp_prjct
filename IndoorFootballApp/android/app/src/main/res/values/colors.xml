@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app's dark background, used for the window before React Native draws the first
+         screen. Native files can't read our JS tokens, so this MUST stay the same as `bg`
+         in src/theme/colors.js (palette.nearBlack in src/theme/palette.js). -->
+    <color name="app_background">#0E1116</color>
+</resources>

@@ -3,6 +3,8 @@
 // through useTheme(). Changing the look means pointing colors.js at other palette
 // colours, or swapping these values.
 export const palette = {
+  // nearBlack is also the Android window background before the first screen draws:
+  // keep `app_background` in android/app/src/main/res/values/colors.xml the same.
   nearBlack: '#0E1116',
   slate950: '#12161C',
   slate900: '#171B22',

@@ -1,9 +1,19 @@
 <resources>
 
     <!-- Base application theme. -->
+    <!-- Still DayNight on purpose: the parent also sets Android's default text, input and
+         alert colours, and some old screens rely on today's defaults (light-mode phones get
+         dark text). Switch to an always-dark parent once those screens are restyled
+         (docs/ROADMAP.md). -->
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <!-- Always dark behind the app, whatever the phone's setting, so no white window
+             shows before the first screen. App.js sets the same status bar once React
+             Native starts (light icons on the theme's bg). -->
+        <item name="android:windowBackground">@color/app_background</item>
+        <item name="android:statusBarColor">@color/app_background</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
 </resources>
