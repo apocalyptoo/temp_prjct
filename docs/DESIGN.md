@@ -119,6 +119,8 @@ Line height: about 1.1 for headings, 1.45 for paragraphs.
 
 **Danger action.** `danger` text, on `surface` or as a text button. Never lime. Always asks for confirmation first.
 
+**Loading state (every button that sends a request).** While the request runs, a small spinner in the label's colour replaces the label, the button keeps its size, and further taps are ignored until the request finishes.
+
 **Icon button.** 44×44, radius 10. Approve = `accent` with a check icon. Reject = outlined with `border` and an X icon in `textMuted`. Always has an accessibility label ("Approve Nayeem Islam").
 
 **Card.** `surface` background, 1px `border`, radius 14, padding 16. A whole card can be tappable (team cards open Team detail).

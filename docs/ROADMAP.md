@@ -102,7 +102,7 @@ Several items need schema changes. Each needs my approval before the migration i
 - [ ] Notifications screen ("Needs your action" + "Updates"), badge, read/unread (PRODUCT.md, "Notifications")
 - [ ] Moderation: Report button and admin Reports screen; Block and unblock (Settings → Blocked players); suspend and unsuspend users (suspending increases `tokenVersion`, so the user is logged out on every device at once); Terms of Use and Privacy Policy checkbox at registration (PRODUCT.md, "Administration and moderation")
 - [x] Write `docs/DESIGN.md` (colors, fonts, spacing, components, screen list) before UI work
-- [ ] Theme module and shared components, following the folder structure in DESIGN.md section 2: `src/theme/` (palette, colors, typography, spacing, radius, shadows, index, ThemeProvider with `useTheme()`) and shared components in `src/components/ui/`. Status bar always light content (fix App.js following the phone's theme).
+- [ ] Theme module and shared components, following the folder structure in DESIGN.md section 2: `src/theme/` (palette, colors, typography, spacing, radius, shadows, index, ThemeProvider with `useTheme()`) and shared components in `src/components/ui/`. Status bar always light content (fix App.js following the phone's theme). The shared Button has a loading state (spinner, taps blocked while a request runs). Every button that sends a request uses it. Today the register, forgot-password and resend buttons give no feedback, and a second tap on Register gets 'Email already registered'.
 - [ ] Add Barlow Condensed and Inter font files
 - [ ] Install lucide-react-native and react-native-svg (check version compatibility first, tell me the versions), build the Icon component, then remove react-native-vector-icons and its fonts and config once unused
 - [ ] Rebuild navigation as bottom tabs per role, as described in PRODUCT.md
@@ -113,7 +113,7 @@ Several items need schema changes. Each needs my approval before the migration i
 
 - [ ] Choose hosting for the backend and a managed Postgres database (decision pending).
 - [ ] Make the API URL configurable per build (dev/prod) instead of a hardcoded ngrok URL. Add request timeouts.
-- [ ] Choose a transactional email provider instead of personal Gmail SMTP.
+- [ ] Choose a transactional email provider instead of personal Gmail SMTP. Register waits for Gmail to accept the verification email before replying (by design, so a failed send is reported). This takes a few seconds; a proper email provider should shorten it. Measure before and after.
 - [ ] Deep links for verify and reset (or keep the web pages, served from the real domain).
 - [ ] Release keystore and ProGuard/R8 for the Android release build.
 - [ ] Seed data for dev/staging. Never use real dumps.
