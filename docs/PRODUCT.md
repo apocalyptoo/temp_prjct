@@ -23,7 +23,7 @@ A football community app for indoor football (futsal) players in Bangladesh. Pla
 
 What exists today, made secure and polished, plus:
 
-- Player registration, email verification, login, persistent login
+- Player and venue owner registration with a short sign-up form (see "Registration"), email verification, login, persistent login
 - Profile editing (players and venue owners)
 - Change password while logged in
 - Account deletion inside the app, plus a web page for deletion requests (both required by Google Play)
@@ -93,6 +93,32 @@ The current app puts only Profile and Settings in the bottom bar, and hides ever
 **Visual design:** the "Floodlight" look (dark, with a neon-lime accent). The full design system is in `docs/DESIGN.md`. All visual values live in theme tokens, so the look can change later without touching screens.
 
 ## Business rules (approved)
+
+### Registration (v1.0)
+
+Sign-up asks only for what the core flows need. Everything else is filled in later.
+
+**Player sign-up**
+- Fields: **name, email, phone, position, password, confirm password**, and the **Terms checkbox**.
+- **Height, weight and Area aren't asked at sign-up.** They're optional and filled in later on **Profile → Edit**.
+- **Phone and position stay required.** They can be changed on Edit profile but never left blank. Teammates coordinate by phone (there's no chat in v1.0), and captains decide who to invite by position.
+- The **Area** field (on Edit profile) tells players not to enter a full address (see "Profile visibility").
+
+**Position**
+- A fixed list: **Goalkeeper, Defender, Midfielder, Forward, Any**. "Any" is for players who play anywhere.
+- One position per player, picked from the list at sign-up and on Edit profile. No free text.
+
+**Venue owner sign-up**
+- Fields: **venue name, email, password, confirm password**, and the **Terms checkbox**.
+- The rest of the listing (address, area, phone, website, description, opening hours, pricing info) is filled in on **My Venue**. A venue can't be approved until its address, area and phone are filled in (see "Venue owners" → "Admin review").
+
+**Terms checkbox**
+- Required on both forms, with links to the Terms of Use and Privacy Policy (see "Administration and moderation" → "Terms of Use").
+
+_Implementation notes:_
+- `OwnerProfile.phone` and `OwnerProfile.address` become **optional**. Player phone and position stay required.
+- Position becomes an **enum**. Existing free-text values are mapped: obvious matches (case-insensitive, for example "GK" or "goalkeeper" → Goalkeeper, "striker" → Forward) map to their value, everything else to Any. The full mapping is shown to the owner before the migration runs.
+- Both are schema changes in the Phase 4 migration and need approval.
 
 ### Team membership (v1.0)
 
@@ -174,7 +200,7 @@ _Implementation note:_ deletion involves several steps, so they must all succeed
 | Phone | Only **accepted teammates** (people in at least one team with them, both accepted), plus the admin |
 | Email | Only the player themselves and the admin |
 
-- The player address field becomes **"Area"** (for example "Dhanmondi" or "Mirpur"). The edit and register screens tell players not to enter a full address.
+- The player address field becomes **"Area"** (for example "Dhanmondi" or "Mirpur"). It isn't asked at sign-up (see "Registration"). The Edit profile screen tells players not to enter a full address.
 
 **Venue listings**
 - Everything on an approved venue listing (see "Venue owners" below) is visible to **any logged-in user**. It's a business listing, so the venue phone and address are meant to be public.
@@ -197,6 +223,9 @@ _Implementation note:_ renaming the player address field to "Area" is a schema c
 - A new venue starts as **"Pending review"** and doesn't appear in venue discovery until an admin approves it.
 - While pending, the owner can still log in and edit the listing. Their profile shows that it's waiting for review.
 - The admin sees pending venues and can approve them. A bad listing is handled through the admin's normal user deletion.
+- **A venue can be approved only when its listing is complete:** address, area and phone must be filled in. The backend refuses the approval otherwise, not just the app.
+- While a venue is pending, **My Venue shows a checklist** of what's still missing.
+- Once approved, the owner can change the address, area and phone, but **can't clear them**.
 
 **What owners can and can't do**
 - Owners can see the same public information players see: teams, venues and public player profiles. All of it is read-only.

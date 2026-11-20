@@ -71,20 +71,21 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 
 ## Phase 3: Foundations
 
-- [ ] Use a single shared Prisma client.
-- [ ] Validate environment variables at startup (fail fast).
-- [ ] Add a request validation library (e.g. zod) on every endpoint. This closes the whole injection class of bugs.
-- [ ] Schema: enums for status and role, `onDelete: Cascade` where appropriate, indexes on token columns. Clean up the confusing migration history.
+Enums, `onDelete: Cascade`, pagination and website validation moved to Phase 4; migration-history cleanup and CI moved to Phase 5 (DECISIONS.md 2026-11-20).
+
+- [ ] Use a single shared Prisma client. (3.1)
+- [ ] Validate environment variables at startup (fail fast). (3.1)
+- [ ] zod validation on every endpoint, and `express.urlencoded({ extended: false })`. This closes the whole injection class of bugs. (3.2)
+- [x] Indexes on token columns. (done 2026-11-19)
 - [x] Wrap multi-step deletes in transactions. (`src/utils/deletion.js`; no other multi-step deletes exist)
-- [ ] Shorter JWT lifetime plus a way to revoke tokens (e.g. a token version on User, or refresh tokens).
-- [ ] Backend tests (auth and teams first), plus CI on GitHub Actions.
-- [ ] Pagination on list endpoints.
-- [ ] Validate owner website URLs (http/https only) before `Linking.openURL`.
+- [ ] 30-day login with token revocation (`tokenVersion`). (3.3)
+- [ ] Backend tests for auth and teams. (`tests/` covers auth and most team endpoints, checked 2026-11-20. Still missing: removing a player from a team, `DELETE /teams/:teamId/members/:userId`, is only tested with bad ids. It needs tests for a successful removal, a non-captain (403), the captain removing themselves (400), and a non-member or unknown team (404).)
 
 ## Phase 4: v1.0 features
 
 Several items need schema changes. Each needs my approval before the migration is created.
 
+- [ ] Schema enums (TeamMember status, player position) and `onDelete: Cascade` where appropriate, in the same migration as the membership changes (invite vs request, accepted at). Needs approval. (DECISIONS.md 2026-11-20)
 - [ ] Store the captain only in Team.captainId: rename from ownerId and remove the captain member role, with tests. Touches about 16 places in the backend and the app. Do this before transfer captaincy and account deletion. (PRODUCT.md, "Team membership")
 - [ ] Profile editing (players and venue owners)
 - [ ] Change password while logged in
@@ -93,7 +94,10 @@ Several items need schema changes. Each needs my approval before the migration i
 - [ ] Team membership: record invite vs join request, accepted at date (same migration as invite/request), cancel requests and invites, leave a team, transfer captaincy, 15-member limit, "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership")
 - [ ] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion")
 - [ ] Rename the player address field to "Area" (keep existing values) (PRODUCT.md, "Profile visibility")
-- [ ] Venue listing: add area, opening hours and pricing info fields; admin approval ("Pending review"); venue search by name and filter by area (PRODUCT.md, "Venue owners")
+- [ ] Venue listing: add area, opening hours and pricing info fields; admin approval ("Pending review"), only when address, area and phone are filled in (enforced by the backend); missing-fields checklist on My Venue; venue search by name and filter by area (PRODUCT.md, "Venue owners")
+- [ ] Shorter registration and position list, built together with profile editing: short player and owner sign-up forms (DECISIONS.md 2026-11-20), position picker, owner phone and address optional, position enum with mapping of existing values (PRODUCT.md, "Registration")
+- [ ] Pagination on list endpoints (with the Explore lists)
+- [ ] Validate owner website URLs (http/https only) on the backend and before `Linking.openURL`
 - [ ] Notifications screen ("Needs your action" + "Updates"), badge, read/unread (PRODUCT.md, "Notifications")
 - [ ] Moderation: Report button and admin Reports screen; Block and unblock (Settings → Blocked players); suspend and unsuspend users; Terms of Use and Privacy Policy checkbox at registration (PRODUCT.md, "Administration and moderation")
 - [x] Write `docs/DESIGN.md` (colors, fonts, spacing, components, screen list) before UI work
@@ -113,6 +117,8 @@ Several items need schema changes. Each needs my approval before the migration i
 - [ ] Release keystore and ProGuard/R8 for the Android release build.
 - [ ] Seed data for dev/staging. Never use real dumps.
 - [ ] Purge secrets and the DB dump from git history (see Phase 0).
+- [ ] Clean up the confusing migration history (before the first production database)
+- [ ] CI on GitHub Actions (I set up the remote side)
 - [ ] Web page or link for account deletion requests (Google Play requirement)
 - [ ] Write the Terms of Use and Privacy Policy (including backup retention period)
 - [ ] Create a dedicated support email and show it in Settings and the suspension message

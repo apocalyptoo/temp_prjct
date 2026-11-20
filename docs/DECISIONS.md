@@ -253,3 +253,40 @@ The email link carries a random token; the database stores only its SHA-256 hash
 - The cooldown caps how many emails one inbox can receive, however many addresses an attacker uses, without locking anyone out (the user still has the earlier email).
 - SHA-256 rather than bcrypt: the tokens are long and random, so a fast hash is safe and allows direct lookup.
 **Consequence:** one additive schema change (verifyTokenExpires, token indexes), approved by the owner. Existing tokens were converted in place, so existing links keep working.
+
+### 2026-11-20: zod is approved for request validation
+Installed in Task 3.2, after a version-compatibility check.
+**Why:** one schema per endpoint checks types, required fields and lengths in one place, and closes the whole "objects in Prisma `where` clauses" class of bugs. zod is the widely used standard.
+**Alternatives considered:** keeping hand-written checks (inconsistent and easy to forget), joi or express-validator (fine, but zod is the more common choice today).
+**Consequence:** one new backend dependency, approved by the owner.
+
+### 2026-11-20: Login lasts 30 days, with token revocation
+Built in Task 3.3. Each login token carries the user's token version (a new `tokenVersion` number on User). Bumping that number logs the account out on every device. Exactly which events bump it is decided in Task 3.3.
+**Why:** phone users shouldn't be logged out every week. Revocation makes a longer token safe, because a stolen or old token can be cancelled.
+**Alternatives considered:** refresh tokens (rejected for now: two tokens, rotation and storage are more moving parts than v1.0 needs), 7 days with no revocation (the current state: a stolen token can't be cancelled).
+**Consequence:** an additive schema change (needs approval in Task 3.3), and `verifyToken` does one database lookup per request.
+
+### 2026-11-20: Phase 3 roadmap reshuffle
+- Schema enums and `onDelete: Cascade` move to the start of Phase 4, in the same migration as the membership changes. **Why:** they touch the same tables, so it's one migration instead of two.
+- Migration-history cleanup and CI (GitHub Actions) move to Phase 5. **Why:** the history is best cleaned up just before the first real production database exists. CI needs remote setup that the owner does, and the tests currently need a running local server and database.
+- Pagination and owner website-link validation move to Phase 4. **Why:** pagination belongs with the new Explore lists, and website validation with the Edit My Venue screen.
+
+### 2026-11-20: Shorter registration
+Built in Phase 4, together with profile editing. Full rules are in `docs/PRODUCT.md` under "Registration".
+- Player sign-up: name, email, phone, position, password, confirm password, Terms checkbox. Height, weight and Area are no longer asked at sign-up. They're filled in later on Profile → Edit. Phone and position can be changed there but not left blank.
+- Owner sign-up: venue name, email, password, confirm password, Terms checkbox. The rest of the listing (address, area, phone, website, description, opening hours, pricing info) is filled in on My Venue.
+
+**Why:** fewer fields means more people finish signing up. Phone and position stay because the core flows need them: teammates coordinate by phone (there's no chat in v1.0), and captains decide who to invite by position. Keeping them required means there's never a player with no phone, so no "complete your profile" prompts and no special rules for players without a phone.
+**Alternatives considered:** name, email and password only for players (rejected: needs completion prompts, plus rules for joining a team without a phone), keeping the long forms (rejected).
+**Consequence:** `OwnerProfile.phone` and `OwnerProfile.address` become optional. That's a schema change in the Phase 4 migration and needs approval. Player phone and position stay required.
+
+### 2026-11-20: Position is a fixed list
+Goalkeeper, Defender, Midfielder, Forward, Any. One per player, picked from a list at sign-up and in Edit profile.
+**Why:** consistent data, and it makes a position filter possible later. "Any" covers players who play anywhere.
+**Alternatives considered:** futsal terms (Fixo, Ala, Pivot) (rejected: less familiar to casual players), free text (rejected: messy, can't be filtered).
+**Consequence:** stored as an enum (Phase 4 migration, needs approval). Existing free-text values are mapped: obvious matches (case-insensitive, e.g. "GK" or "goalkeeper" → Goalkeeper, "striker" → Forward) map to their value, everything else to Any. The full mapping is shown to the owner before the migration runs.
+
+### 2026-11-20: A venue can be approved only when its listing is complete
+The admin can approve a venue only once its address, area and phone are filled in. The backend enforces this (it refuses the approval), not just the app. While a venue is "Pending review", My Venue shows a checklist of what's still missing. Once approved, editing can change these three fields but can't clear them.
+**Why:** with the shorter owner sign-up, a new venue starts as little more than a name. Approval must never put an empty listing into discovery.
+**Alternatives considered:** letting the admin judge by eye (rejected: an incomplete venue could go live), also requiring opening hours and pricing (rejected: they stay optional).
