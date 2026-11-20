@@ -39,7 +39,7 @@ Indoor football (futsal) management app with three user roles: **PLAYER**, **OWN
 
 The repository root has no `package.json`: install dependencies and run `npm` inside each subproject. `README.md` (root) is the setup guide for a new PC, and `backend/.env.example` lists every backend variable with fake values; keep both in sync with the code.
 
-**Line endings:** the root `.gitattributes` stores and checks out text files with LF (overriding `core.autocrlf`), keeps `*.bat`/`*.cmd` CRLF, keeps `gradlew` and `*.sh` LF, and marks images, fonts, jars and keystores binary. Prettier 2.x expects LF. The root `.gitignore` ignores `node_modules/`, `.env` and `.env.*` (except `.env.example`) in every folder.
+**Line endings:** the root `.gitattributes` stores and checks out text files with LF (overriding `core.autocrlf`), keeps `*.bat`/`*.cmd` CRLF, keeps `gradlew` and `*.sh` LF, and marks images, fonts, jars and keystores binary. Prettier 2.x expects LF. The root `.gitignore` ignores `node_modules/`, `.env` and `.env.*` (except `.env.example`), and database dumps (`backup/`, `*.backup`, `*.dump`, `*.bak`, `*.sql.gz`, `*.sql.zip`) in every folder. Plain `*.sql` is deliberately not ignored, so `backend/prisma/migrations/**/migration.sql` stays tracked. Never commit a database dump; `backup/app_db.backup` was untracked on 2026-11-20 but is still in git history until the Phase 0 purge.
 
 ## Commands
 

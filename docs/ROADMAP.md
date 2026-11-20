@@ -26,7 +26,7 @@ v1.1 decisions (challenges, match scheduling, cancellation, results) wait until 
 
 - [x] Change the admin password. The old one is committed in the history of `scripts/createAdmin.js`. To change it, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `backend/.env`, then run `node scripts/createAdmin.js`.
 - [x] Confirm the GitHub repo is **private**.
-- [ ] Plan to purge `backup/app_db.backup` and the plaintext admin password from git history (git filter-repo). Deleting the files alone leaves them in history. Do this after the Phase 1 fixes and before the repo is ever made public.
+- [ ] Purge `backup/app_db.backup` and the plaintext admin password from git history. Since 2026-11-20 the dump is no longer tracked (removed from git's index, and `backup/` and dump files are in `.gitignore`), but it's still in the history of earlier commits. Still to do, before the repo is ever shared or made public: rewrite the history with git filter-repo, then a force push (done by the owner).
 
 ## Phase 1: Security fixes (small, high-value)
 
@@ -101,7 +101,7 @@ Several items need schema changes. Each needs my approval before the migration i
 - [ ] Add Barlow Condensed and Inter font files
 - [ ] Install lucide-react-native and react-native-svg (check version compatibility first, tell me the versions), build the Icon component, then remove react-native-vector-icons and its fonts and config once unused
 - [ ] Rebuild navigation as bottom tabs per role, as described in PRODUCT.md
-- [ ] Restyle all screens using the theme module, one screen at a time, without changing behaviour
+- [ ] Restyle all screens using the theme module, one screen at a time, without changing behaviour (this also clears the remaining ESLint inline-style warnings, 46 as of 2026-11-20)
 - [ ] Write a short spec in `docs/features/` before building each feature above
 
 ## Phase 5: Deployment readiness

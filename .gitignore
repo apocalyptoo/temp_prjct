@@ -5,3 +5,12 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# Database dumps and backups, in any folder. Never commit these: they contain real data.
+# (Plain *.sql isn't ignored, so Prisma migrations and any future seed files stay tracked.)
+backup/
+*.backup
+*.dump
+*.bak
+*.sql.gz
+*.sql.zip
