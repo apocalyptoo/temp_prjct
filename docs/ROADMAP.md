@@ -78,7 +78,7 @@ Enums, `onDelete: Cascade`, pagination and website validation moved to Phase 4; 
 - [x] zod validation on every endpoint, and `express.urlencoded({ extended: false })`. This closes the whole injection class of bugs. (3.2) (`src/validation/`, `src/middleware/validate.js`)
 - [x] Indexes on token columns. (done 2026-11-19)
 - [x] Wrap multi-step deletes in transactions. (`src/utils/deletion.js`; no other multi-step deletes exist)
-- [ ] 30-day login with token revocation (`tokenVersion`). (3.3)
+- [x] 30-day login with token revocation (`tokenVersion`). (3.3) (`src/middleware/auth.js`; a password reset logs out every device)
 - [ ] Upgrade nodemailer 7 → 10 (major). Version 7 gets no security fixes; several open advisories are in address parsing. Own small task after 3.3, with tests for verification, reset and resend emails.
 - [x] Backend tests for auth and teams. (`tests/` covers auth and every team endpoint; removing a player, including cancelling a pending invite, is in `tests/remove-player.test.js`, added 2026-11-20)
 

@@ -50,10 +50,11 @@ describe('GET /auth/me', () => {
 
   test('with a bad or expired token gets 401', async (t) => {
     const { user } = await createLoggedInUser(t, { role: 'PLAYER' });
-    const expired = jwt.sign({ id: user.id, userId: user.id, role: 'PLAYER' }, process.env.JWT_SECRET, {
-      expiresIn: -10,
-    });
-    const wrongSecret = jwt.sign({ id: user.id, userId: user.id, role: 'PLAYER' }, 'not-the-real-secret');
+    // Everything else about these tokens is right (including the current tokenVersion
+    // as `tv`), so each one fails only for the reason in its name.
+    const claims = { id: user.id, userId: user.id, role: 'PLAYER', tv: user.tokenVersion };
+    const expired = jwt.sign(claims, process.env.JWT_SECRET, { expiresIn: -10 });
+    const wrongSecret = jwt.sign(claims, 'not-the-real-secret');
 
     for (const token of ['not-a-jwt', expired, wrongSecret]) {
       assert.equal((await getMe(bearer(token))).status, 401, `token ${token.slice(0, 12)}…`);

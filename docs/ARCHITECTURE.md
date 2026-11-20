@@ -166,12 +166,18 @@ The backend uses a **JWT** (JSON Web Token): a signed piece of text that proves 
 
 1. The app sends email and password to `POST /auth/login`.
 2. The controller looks up the user and compares the password with the stored **hash** using **bcrypt**. A hash is a scrambled one-way version of the password, so the real password is never stored. bcrypt is the library that creates and checks these hashes. If the email doesn't exist, it still compares against a fixed dummy hash, so an unknown email takes as long as a wrong password and the timing gives nothing away. Only after the password matches does it check that the account is verified.
-3. If everything matches, the server creates a JWT containing the user's id, role and email, signed with the secret `JWT_SECRET`. It's valid for 7 days.
+3. If everything matches, the server creates a JWT containing the user's id, role, email and the account's current **token version** (`tv`), signed with the secret `JWT_SECRET`. It's valid for **30 days**, so people on phones don't have to log in every week.
 4. The reply contains the token plus basic user info (id, name, email, role).
 
-From then on, the app sends the token with every request, and `verifyToken` checks it.
+From then on, the app sends the token with every request, in the header `Authorization: Bearer <token>`, and `verifyToken` (`src/middleware/auth.js`) checks it:
 
-`GET /auth/me` returns the logged-in user's own details (id, name, email, role, verified) through the visibility rules. The app calls it at start-up to restore the login from the saved token (see section 6). A missing, bad or expired token gets 401, and so does a valid token for an account that has since been deleted.
+- The header must have exactly that shape, and the token must be genuine (signed with the secret, using the HS256 method), and not expired. Anything else gets 401.
+- It then looks the account up in the database. If the account is gone, or the token's version number doesn't match the account's current `tokenVersion`, the token gets 401.
+- The role and email it passes on come from the database, not from the token, so a change takes effect at once.
+
+**Logging out every phone at once.** A token is like a wristband with a number written on it. The account keeps the current number. When the password is reset (the "Forgot password" email), the number goes up by one, in the same database update as the new password. Every wristband with the old number stops working, so every phone that was logged in is logged out, including one that might belong to whoever learned the old password. Logging in again gives a token with the new number. Later, a password change while logged in and a suspension by the admin will do the same (DECISIONS.md, "Which events log out every device"). Normal **Log out** only deletes the token on that one phone.
+
+`GET /auth/me` returns the logged-in user's own details (id, name, email, role, verified) through the visibility rules. The app calls it at start-up to restore the login from the saved token (see section 6). A missing, bad or expired token gets 401, and so does a token for an account that has since been deleted, or one cancelled by a password reset.
 
 ### How permissions work
 
@@ -365,7 +371,7 @@ The loading and "Can't reach the server" views are in `src/screens/Auth/StartupS
 
 ### Expired or invalid login while using the app
 
-When any request that carried the token gets a 401 (for example the token's 7 days are up), the response interceptor in `api.js` tells `AuthContext`. It removes the saved token, clears `user` (so the app swaps to the login screen) and shows an alert: "Your session has expired. Please log in again." If several requests fail at once, the alert shows only once. **Log out** in Settings or on the admin dashboard also removes the saved token.
+When any request that carried the token gets a 401 (for example the token's 30 days are up, or the password was reset on another phone, which logs out every phone), the response interceptor in `api.js` tells `AuthContext`. It removes the saved token, clears `user` (so the app swaps to the login screen) and shows an alert: "Your session has expired. Please log in again." If several requests fail at once, the alert shows only once. **Log out** in Settings or on the admin dashboard also removes the saved token.
 
 ---
 

@@ -9,6 +9,7 @@ import {
   hashToken,
   isWellFormedToken,
   sentRecently,
+  LOGIN_TOKEN_LIFETIME_SECONDS,
   RESET_LINK_LIFETIME_MS,
   VERIFY_LINK_LIFETIME_MS,
 } from '../utils/tokens.js';
@@ -222,10 +223,12 @@ export const login = async (req, res, next) => {
     // Only someone who knows the password learns that the account isn't verified yet.
     if (!user.verified) return res.status(403).json({ error: 'Please verify your email before logging in.' });
 
+    // Valid for 30 days. `tv` is the account's current tokenVersion: verifyToken refuses
+    // the token once that number has been increased (for example by a password reset).
     const token = jwt.sign(
-      { id: user.id, userId: user.id, role: user.role, email: user.email },
+      { id: user.id, userId: user.id, role: user.role, email: user.email, tv: user.tokenVersion },
       config.jwtSecret,
-      { expiresIn: '7d' }
+      { algorithm: 'HS256', expiresIn: LOGIN_TOKEN_LIFETIME_SECONDS }
     );
 
     const displayName =
@@ -248,8 +251,9 @@ export const login = async (req, res, next) => {
 
 // CURRENT USER (GET /auth/me, logged-in users only)
 // The app calls this at start-up with its saved token to find out who is logged in.
-// Same details as the login reply, plus `verified`. A valid token for an account that
-// no longer exists gets 401, like a bad token, so the app logs out.
+// Same details as the login reply, plus `verified`. verifyToken has already refused a
+// token for an account that no longer exists (401, so the app logs out). The check below
+// only covers an account deleted between that lookup and this one.
 export const getMe = async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({
@@ -366,6 +370,9 @@ export const resetPassword = async (req, res, next) => {
         verified: true,
         verifyToken: null,
         verifyTokenExpires: null,
+        // Logs the account out on every device, in the same update as the new password:
+        // a reset often means the old password leaked (DECISIONS.md 2026-11-20).
+        tokenVersion: { increment: 1 },
       },
     });
 

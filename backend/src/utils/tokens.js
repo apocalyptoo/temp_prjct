@@ -23,6 +23,11 @@ export const RESET_LINK_LIFETIME_MS = 60 * MINUTE;
 // How long an email verification link works after it's sent.
 export const VERIFY_LINK_LIFETIME_MS = 24 * 60 * MINUTE;
 
+// How long a login token (JWT) is valid after login: 30 days, in seconds (the unit
+// jsonwebtoken's expiresIn takes). Logins can still be cancelled earlier by increasing
+// the account's tokenVersion (see src/middleware/auth.js).
+export const LOGIN_TOKEN_LIFETIME_SECONDS = 30 * 24 * 60 * 60;
+
 // Minimum time between two account emails of the same kind to the same account.
 export const EMAIL_COOLDOWN_MS = 5 * MINUTE;
 
