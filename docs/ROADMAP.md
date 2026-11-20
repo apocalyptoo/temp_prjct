@@ -79,7 +79,7 @@ Enums, `onDelete: Cascade`, pagination and website validation moved to Phase 4; 
 - [x] Indexes on token columns. (done 2026-11-19)
 - [x] Wrap multi-step deletes in transactions. (`src/utils/deletion.js`; no other multi-step deletes exist)
 - [x] 30-day login with token revocation (`tokenVersion`). (3.3) (`src/middleware/auth.js`; a password reset logs out every device)
-- [ ] Upgrade nodemailer 7 → 10 (major). Version 7 gets no security fixes; several open advisories are in address parsing. Own small task after 3.3, with tests for verification, reset and resend emails.
+- [x] Upgrade nodemailer 7 → 10 (major). (done 2026-11-20: 10.4.1; email sending moved to `src/utils/mailer.js`, tested in `tests/mailer.test.js`) Version 7 gets no security fixes; several open advisories are in address parsing. Own small task after 3.3, with tests for verification, reset and resend emails.
 - [x] Backend tests for auth and teams. (`tests/` covers auth and every team endpoint; removing a player, including cancelling a pending invite, is in `tests/remove-player.test.js`, added 2026-11-20)
 
 ## Phase 4: v1.0 features

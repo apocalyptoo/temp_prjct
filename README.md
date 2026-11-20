@@ -11,7 +11,7 @@ Each has its own `package.json`. Always run `npm` commands inside one of these f
 
 ## Prerequisites
 
-- **Node.js 20 or newer** (developed with Node 24) and **npm 11 or newer**
+- **Node.js 20 or newer** (developed with Node 24) and **npm 11 or newer**. The backend needs Node 20 because its email library (nodemailer 10) does; `backend/package.json` says so in `"engines"`, and npm warns during `npm install` if your Node is older.
 - **PostgreSQL** running locally, with an empty database for the app
 - **Android Studio** with the Android SDK (API 36) and an emulator, or an Android phone with USB debugging
 - **JDK 17** (the version React Native recommends; set `JAVA_HOME` to it)

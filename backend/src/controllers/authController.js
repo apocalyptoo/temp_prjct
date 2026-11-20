@@ -1,6 +1,5 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer';
 import { config } from '../config.js';
 import { prisma } from '../db.js';
 import { INVALID_LOGIN, INVALID_RESET_LINK } from '../validation/authSchemas.js';
@@ -13,43 +12,15 @@ import {
   RESET_LINK_LIFETIME_MS,
   VERIFY_LINK_LIFETIME_MS,
 } from '../utils/tokens.js';
-import { verifyEmailHtml, resetEmailHtml } from '../utils/emailTemplates.js';
+import { mailer, checkMailConnection } from '../utils/mailer.js';
 import { isFormRequest, messagePage } from '../utils/pages.js';
 import { toVisibleUser } from '../utils/visibility.js';
-import { normalizeEmail } from '../utils/email.js';
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: config.emailUser,
-    pass: config.emailPass,
-  },
-});
-
-// Sends an email, except to @example.com addresses. example.com is reserved and can
-// never receive mail, so those are skipped (the tests use it for throwaway users).
-// The log line shows only the recipient and subject, never tokens or links.
-const sendMail = (options) => {
-  const to = normalizeEmail(options.to) ?? '';
-  if (to.endsWith('@example.com')) {
-    console.log(`Email skipped (example.com): to=${options.to} subject="${options.subject}"`);
-    return Promise.resolve();
-  }
-  // .invalid is a reserved top-level domain that can never receive mail, so fail at once
-  // instead of handing it to Gmail. (The tests use it to make sending fail on purpose.)
-  if (to.endsWith('.invalid')) {
-    return Promise.reject(new Error(`Can't send email to a .invalid address (to=${options.to})`));
-  }
-  return transporter.sendMail(options);
-};
-
-transporter.verify(function (error, success) {
-  if (error) {
-    console.error("SMTP Connection Error:", error);
-  } else {
-    console.log("SMTP Server is ready to take messages!");
-  }
-});
+// Account emails go through src/utils/mailer.js (Gmail SMTP; @example.com skipped,
+// .invalid refused). This file loads when the server starts, so this checks the Gmail
+// login once at startup and logs the result.
+const { sendVerificationEmail, sendResetEmail } = mailer;
+checkMailConnection();
 
 // Every request body and query is checked by its schema in src/validation/authSchemas.js
 // before these handlers run (see authRoutes.js). The handlers read only req.valid.
@@ -61,19 +32,6 @@ transporter.verify(function (error, success) {
 // takes as long as a wrong password (bcrypt is deliberately slow). Same cost (10) as
 // real password hashes. Nothing can log in with it: there's no user to log in as.
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('no-such-user-timing-placeholder', 10);
-
-// The verification email. `token` is the plain token: it goes only into the link,
-// never into the database.
-const sendVerificationEmail = ({ email, displayName, token }) =>
-  sendMail({
-    from: `"App Support" <${config.emailUser}>`,
-    to: email,
-    subject: 'Verify your email address',
-    html: verifyEmailHtml({
-      displayName,
-      verifyLink: `${config.backendPublicUrl}/auth/verify?token=${token}`,
-    }),
-  });
 
 // REGISTER
 export const register = async (req, res, next) => {
@@ -307,13 +265,7 @@ export const requestPasswordReset = async (req, res, next) => {
         data: { resetToken: hashToken(token), resetTokenExpires: expires },
       });
         
-      const resetLink = `${config.backendPublicUrl}/auth/reset-password-page?token=${token}`;
-      await sendMail({
-        from: `"App Support" <${config.emailUser}>`,
-        to: email,
-        subject: 'Password reset request',
-        html: resetEmailHtml({ resetLink }),
-      }).catch(err => console.error('Reset email failed:', err));
+      await sendResetEmail({ email, token }).catch((err) => console.error('Reset email failed:', err));
 
     return res.json({ message: 'If that email exists, a reset link was sent.' });
   } catch (err) {

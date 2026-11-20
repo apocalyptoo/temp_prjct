@@ -69,7 +69,7 @@ Some terms from the diagram:
 - **Backend** (or server) is a program that runs on a computer, receives requests from the app and sends back answers.
 - **ngrok** is a tool that gives a program on your own computer a public web address, so a phone anywhere can reach it.
 - **PostgreSQL** is the database: the program that stores all the data in tables.
-- **SMTP** is the standard way programs send email. The backend logs in to a Gmail account to send mail. Mail to `@example.com` addresses is never sent, only logged. That domain is reserved and can't receive mail, and the automated tests use it for their throwaway users.
+- **SMTP** is the standard way programs send email. The backend logs in to a Gmail account to send mail, using the **nodemailer** library (version 10, which needs Node.js 20 or newer), all from one file, `src/utils/mailer.js`. Mail to `@example.com` addresses is never sent, only logged. That domain is reserved and can't receive mail, and the automated tests use it for their throwaway users.
 
 Right now the backend and database run on the developer's own computer. Phones reach them only through the ngrok address.
 
@@ -129,7 +129,7 @@ backend/
 │   │   ├── validate.js      checks a request against its rules before the controller runs
 │   │   └── errorHandler.js  turns any unhandled error into a short generic reply
 │   ├── validation/      the rules for each request (zod schemas), one file per router, plus shared helpers
-│   └── utils/           shared helpers: the password rule, who may see what (visibility), email normalising, deleting users and teams, checking ids from URLs, HTML escaping, tokens, email templates
+│   └── utils/           shared helpers: the password rule, who may see what (visibility), email normalising, deleting users and teams, checking ids from URLs, HTML escaping, tokens, email templates, sending email (mailer.js)
 ├── prisma/
 │   ├── schema.prisma    the database tables, described in code
 │   └── migrations/      the history of changes to the tables
@@ -493,6 +493,7 @@ The mobile app has no config file. Its backend address lives in `IndoorFootballA
 | How a request is checked before its controller runs | `backend/src/middleware/validate.js` |
 | Who may see which user fields | `backend/src/utils/visibility.js` |
 | The text of the verification or reset emails | `backend/src/utils/emailTemplates.js` |
+| How emails are sent (Gmail, the sender, which addresses are skipped) | `backend/src/utils/mailer.js` |
 | The database tables | `backend/prisma/schema.prisma`, then create a migration |
 | Environment variables | `backend/.env` (never commit it) |
 | The rules a setting must follow at startup | `backend/src/config/loadConfig.js` |
