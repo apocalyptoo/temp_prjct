@@ -95,7 +95,7 @@ Here's what happens, step by step, when a player creates a team.
 6. `backend/src/routes/teamRoutes.js` matches `POST /create` and runs four functions in order: `verifyToken`, `playersOnly`, `validate(...)`, then `createTeam`.
 7. `backend/src/middleware/auth.js`: `verifyToken` checks the token is genuine and not expired. If it's fine, the user's id and role go into `req.user`. If not, the request stops with a 401 ("not logged in") error. `playersOnly` then stops venue owner and admin accounts with a 403.
 8. `backend/src/middleware/validate.js` checks the request body against `createTeamSchema` (in `backend/src/validation/teamSchemas.js`; see "How requests are checked" below). The name is required, must be text, and must be 2 to 40 characters once spaces at the ends are trimmed. The description is optional, but if given it must be text and at most 200 characters after trimming (an empty description is saved as none). Team names don't have to be unique. If a check fails, it replies 400 with a clear message, such as "Team name must be between 2 and 40 characters", and `createTeam` never runs.
-9. `backend/src/controllers/teamController.js`: `createTeam` takes the checked, trimmed values from `req.valid.body` and uses Prisma to save them. In one step it creates the `Team` row, with the creator as its captain (`captainId`), and a `TeamMember` row with `status: 'accepted'`, so the captain is also a member.
+9. `backend/src/controllers/teamController.js`: `createTeam` takes the checked, trimmed values from `req.valid.body` and uses Prisma to save them. In one step it creates the `Team` row, with the creator as its captain (`captainId`), and a `TeamMember` row with `status: 'accepted'`, `origin: 'creator'` and `acceptedAt` set to now, so the captain is also a member.
 10. Prisma turns that into SQL and PostgreSQL stores both rows.
 
 **Back to the phone**
@@ -266,7 +266,12 @@ The tables are described in `backend/prisma/schema.prisma`. Changes to that file
 - **PlayerProfile:** extra details for a player: name, phone, playing position, and optional height, weight and address. Each player has exactly one.
 - **OwnerProfile:** extra details for a venue owner: indoor (venue) name, phone, address, and optional description and website. Each owner has exactly one.
 - **Team:** a team's name, optional description, its captain (`captainId`), and when it was created. The creator becomes the captain. `captainId` is the only place the captain is recorded, so a team can never have two captains or none. It has an index, so finding a player's teams stays fast.
-- **TeamMember:** links a user to a team. It has a `status`: `pending` means invited but not yet in, and `accepted` means in the team. A user can appear only once per team. The captain also has an `accepted` row, like any member; nothing on the row marks them as captain (that's `Team.captainId`). Only `accepted` rows count as membership: member lists, member counts and a player's number of teams all leave out `pending` rows.
+- **TeamMember:** links a user to a team. It has a `status`, which can only be `pending` (invited but not yet in) or `accepted` (in the team); the database refuses any other value. It also records:
+  - **`origin`:** how the membership started: `invite` (the captain invited the player), `request` (the player asked to join; used once join requests are rebuilt) or `creator` (the captain's own row, made with the team).
+  - **`createdAt`:** when the invite, request or team was created (this used to be called `joinedAt`, a misleading name).
+  - **`acceptedAt`:** when the player actually became a member; empty while pending. The **longest-standing member** is the one with the earliest `acceptedAt` (ties go to the lower row id). It decides who becomes captain when a captain deletes their account.
+
+  These three aren't in the API replies yet, except `createdAt`; the team membership feature decides what the app needs. A user can appear only once per team. An index on (user, status) keeps "my teams" and "my invites" fast. The captain also has an `accepted` row, like any member; nothing on the row marks them as captain (that's `Team.captainId`). Only `accepted` rows count as membership: member lists, member counts and a player's number of teams all leave out `pending` rows.
 
 Admins have a User row but no profile.
 
@@ -289,7 +294,7 @@ PlayerProfile        │        │         OwnerProfile
 - A user can captain many teams (`Team.captainId`, the `captain` relation; `captainedTeams` on User).
 - A team has many TeamMember rows, and a user can be a member of many teams.
 
-The database doesn't delete linked rows automatically. When the code deletes a team or a user, it first deletes the linked rows by hand (members, then teams, then profiles, then the user). All those steps run inside one **transaction**: the database either does every step or, if one fails, undoes the ones already done, so nothing is ever left half-deleted. This logic lives in one shared file, `src/utils/deletion.js` (`deleteUserAndData` and `deleteTeamAndMembers`), used by both the admin screens and a captain deleting their team.
+The database has delete rules as a safety net: deleting a user also deletes their profile and their membership rows, and deleting a team also deletes its membership rows (this is called **cascade**). But it **refuses** to delete a user who is still captain of a team, so a team can never be left without a captain; the team must first be handed over or deleted. The code doesn't rely on cascade yet: when it deletes a team or a user, it still deletes the linked rows itself, in order (members, then teams, then profiles, then the user). All those steps run inside one **transaction**: the database either does every step or, if one fails, undoes the ones already done, so nothing is ever left half-deleted. This logic lives in one shared file, `src/utils/deletion.js` (`deleteUserAndData` and `deleteTeamAndMembers`), used by both the admin screens and a captain deleting their team.
 
 ### Two meanings of "owner"
 
@@ -421,9 +426,9 @@ Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 ### Team invites
 
 1. A captain opens their team (**My Teams** → team → **Add Member**) and picks a player (`AddMemberScreen.js`). The list leaves out the captain, the team's members and anyone who already has a pending invite to it (worked out from the captain's `GET /teams/me` reply).
-2. The app sends `POST /teams/:teamId/invite`. The backend checks that the sender is a player account, that the player id is a positive whole number, that the sender is the team's captain (`Team.captainId`), that the invited person exists and is a player (otherwise 404 "Player not found"), and that they aren't already listed. It then adds a `TeamMember` row with status `pending`.
+2. The app sends `POST /teams/:teamId/invite`. The backend checks that the sender is a player account, that the player id is a positive whole number, that the sender is the team's captain (`Team.captainId`), that the invited person exists and is a player (otherwise 404 "Player not found"), and that they aren't already listed. It then adds a `TeamMember` row with status `pending` and origin `invite`.
 3. The invited player sees it in **Invites** (`InvitesScreen.js`, which calls `GET /players/invites`) as "Invited by <captain name> to <team name>". The reply gives each invite's `team.captain` as `{ id, name }`, alongside `team.captainId`: the captain's player name, through the visibility rules (never their email).
-4. **Accept** (`POST /teams/:teamId/accept`) changes the status to `accepted`. **Reject** (`POST /teams/:teamId/reject`) deletes the row. Both only work on a `pending` row. If there's no pending invite for that player and team, they reply 404 "Invite not found".
+4. **Accept** (`POST /teams/:teamId/accept`) changes the status to `accepted` and records the time in `acceptedAt`. **Reject** (`POST /teams/:teamId/reject`) deletes the row. Both only work on a `pending` row. If there's no pending invite for that player and team, they reply 404 "Invite not found".
 
 The captain can also remove a member (`DELETE /teams/:teamId/members/:userId`) or delete the whole team (`DELETE /teams/:teamId`).
 

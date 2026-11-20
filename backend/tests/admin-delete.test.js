@@ -35,8 +35,8 @@ async function setUpPlayerWithTeams(t) {
       captainId: player.id,
       members: {
         create: [
-          { userId: player.id, status: 'accepted' },
-          { userId: teammate.id, status: 'accepted' },
+          { userId: player.id, status: 'accepted', origin: 'creator', acceptedAt: new Date() },
+          { userId: teammate.id, status: 'accepted', origin: 'invite', acceptedAt: new Date() },
         ],
       },
     },
@@ -47,8 +47,8 @@ async function setUpPlayerWithTeams(t) {
       captainId: otherCaptain.id,
       members: {
         create: [
-          { userId: otherCaptain.id, status: 'accepted' },
-          { userId: player.id, status: 'accepted' },
+          { userId: otherCaptain.id, status: 'accepted', origin: 'creator', acceptedAt: new Date() },
+          { userId: player.id, status: 'accepted', origin: 'invite', acceptedAt: new Date() },
         ],
       },
     },

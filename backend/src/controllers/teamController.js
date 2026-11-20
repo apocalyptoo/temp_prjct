@@ -2,6 +2,7 @@ import { prisma } from '../db.js';
 import { viewerFrom, toVisibleUser } from '../utils/visibility.js';
 import { deleteTeamAndMembers } from '../utils/deletion.js';
 import { parseId } from '../utils/ids.js';
+import { MEMBERSHIP_FIELDS_NOT_IN_REPLIES } from '../utils/membership.js';
 
 // Request bodies are checked by the schemas in src/validation/teamSchemas.js before
 // these handlers run (see teamRoutes.js). The handlers read them from req.valid.body.
@@ -14,7 +15,7 @@ export const createTeam = async (req, res, next) => {
     const captainId = req.user.id;
 
     // The creator becomes the captain (stored only in captainId) and is also an
-    // accepted member of the team.
+    // accepted member of the team (origin 'creator', accepted straight away).
     const team = await prisma.team.create({
       data: {
         name,
@@ -24,6 +25,8 @@ export const createTeam = async (req, res, next) => {
           create: {
             userId: captainId,
             status: 'accepted',
+            origin: 'creator',
+            acceptedAt: new Date(),
           },
         },
       },
@@ -62,7 +65,8 @@ export const invitePlayer = async (req, res, next) => {
     if (existing) return res.status(400).json({ error: 'Player is already invited or in the team.' });
 
     const invite = await prisma.teamMember.create({
-      data: { teamId, userId, status: 'pending' },
+      data: { teamId, userId, status: 'pending', origin: 'invite' },
+      omit: MEMBERSHIP_FIELDS_NOT_IN_REPLIES,
     });
 
     res.status(201).json(invite);
@@ -143,7 +147,7 @@ export const acceptInvite = async (req, res, next) => {
     // invites and join requests apart).
     const { count } = await prisma.teamMember.updateMany({
       where: { teamId, userId, status: 'pending' },
-      data: { status: 'accepted' },
+      data: { status: 'accepted', acceptedAt: new Date() },
     });
     if (count === 0) return res.status(404).json({ error: 'Invite not found' });
 
@@ -176,6 +180,7 @@ export const rejectInvite = async (req, res, next) => {
 // Team lists load every membership row (accepted and pending) with the member's name.
 const MEMBERS_WITH_NAMES = {
   members: {
+    omit: MEMBERSHIP_FIELDS_NOT_IN_REPLIES,
     include: {
       user: {
         select: {

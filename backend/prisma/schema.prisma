@@ -46,7 +46,7 @@ model PlayerProfile {
   weight   Float?
   address  String?
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model OwnerProfile {
@@ -58,7 +58,7 @@ model OwnerProfile {
   description String?
   website     String?
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Team {
@@ -67,22 +67,45 @@ model Team {
   description String?
   captainId   Int
   createdAt   DateTime     @default(now())
-  captain     User         @relation("CaptainedTeams", fields: [captainId], references: [id])
+  // Restrict: a user who still captains a team can't be deleted until the team is
+  // handed over or deleted (the account deletion feature does that handover).
+  captain     User         @relation("CaptainedTeams", fields: [captainId], references: [id], onDelete: Restrict)
   members     TeamMember[]
 
   @@index([captainId])
 }
 
 model TeamMember {
-  id       Int      @id @default(autoincrement())
-  teamId   Int
-  userId   Int
-  status   String   @default("pending")
-  joinedAt DateTime @default(now())
-  team     Team     @relation(fields: [teamId], references: [id])
-  user     User     @relation(fields: [userId], references: [id])
+  id         Int              @id @default(autoincrement())
+  teamId     Int
+  userId     Int
+  status     MembershipStatus @default(pending)
+  // How the membership started: the captain's invite, the player's join request, or
+  // the captain's own row, created with the team.
+  origin     MembershipOrigin
+  // When the invite, request or team was created (not when the player joined).
+  createdAt  DateTime         @default(now())
+  // When the membership became accepted; null while pending. "Longest-standing member"
+  // is the earliest acceptedAt, ties to the lower id (DECISIONS.md 2026-11-18).
+  acceptedAt DateTime?
+  team       Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, userId])
+  @@index([userId, status])
+}
+
+// Lowercase on purpose: the old text values convert directly, and API replies and the
+// app keep showing the same status text.
+enum MembershipStatus {
+  pending
+  accepted
+}
+
+enum MembershipOrigin {
+  invite
+  request
+  creator
 }
 
 enum Role {

@@ -53,8 +53,10 @@ async function teamWithMembers(t) {
   const teammate = await playerWithProfile(t);
   const pending = await playerWithProfile(t);
   const team = await (await postJson('/teams/create', { name: 'Test Team' }, captain.jwt)).json();
-  await prisma.teamMember.create({ data: { teamId: team.id, userId: teammate.user.id, status: 'accepted' } });
-  await prisma.teamMember.create({ data: { teamId: team.id, userId: pending.user.id, status: 'pending' } });
+  await prisma.teamMember.create({
+    data: { teamId: team.id, userId: teammate.user.id, status: 'accepted', origin: 'invite', acceptedAt: new Date() },
+  });
+  await prisma.teamMember.create({ data: { teamId: team.id, userId: pending.user.id, status: 'pending', origin: 'invite' } });
   return { captain, teammate, pending, team };
 }
 

@@ -1,6 +1,7 @@
 import { prisma } from '../db.js';
 import { viewerFrom, toVisibleUser, toPlayerStats } from '../utils/visibility.js';
 import { parseId } from '../utils/ids.js';
+import { MEMBERSHIP_FIELDS_NOT_IN_REPLIES } from '../utils/membership.js';
 
 export const listPlayers = async (req, res, next) => {
   try {
@@ -78,6 +79,7 @@ export const getPendingInvites = async (req, res, next) => {
     const userId = req.user.id;
     const invites = await prisma.teamMember.findMany({
       where: { userId, status: "pending" },
+      omit: MEMBERSHIP_FIELDS_NOT_IN_REPLIES,
       include: {
         team: {
           include: {
@@ -92,7 +94,7 @@ export const getPendingInvites = async (req, res, next) => {
           }
         }
       },
-      orderBy: { joinedAt: 'desc' }
+      orderBy: { createdAt: 'desc' }
     });
     // The captain is another user: show them through the visibility rules ({ id, name }).
     const viewer = viewerFrom(req);

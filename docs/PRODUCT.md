@@ -161,10 +161,9 @@ _Implementation note:_ each login token carries the account's token version (`Us
 - Pending invites and requests don't count toward the limit.
 
 _Implementation notes:_
-- Invites and join requests are currently stored the same way (`status: pending`). The data needs to record who started each one (invite vs request).
-- **"Longest-standing member"** means the member with the **earliest accepted date**. Memberships need a new **accepted at** date, because the current `joinedAt` records when the invite or request was created, not when it was accepted. For existing accepted members, fill accepted at with `joinedAt` (the best value available). If two dates are equal, the lower membership id wins.
+- Each membership records how it started: a captain's invite, a player's join request, or the captain's own membership created with the team (`TeamMember.origin`).
+- **"Longest-standing member"** means the member with the **earliest accepted date** (`TeamMember.acceptedAt`, set when a membership becomes accepted; `createdAt` is when the invite or request was made). Existing accepted members got their old created date as the accepted date (the best value available). If two dates are equal, the lower membership id wins.
 - **The captain is stored in one place only:** `Team.captainId`. There's no "captain" member role, so the captain can't be recorded in two places that might disagree. The captain is still an accepted member of the team. A captaincy transfer is a single update of `captainId`.
-- These are schema changes and need approval. The invite/request field and accepted at should go in the same migration (Task 4.2). The `captainId` change was its own migration (Task 4.1).
 
 ### Account deletion (v1.0)
 
