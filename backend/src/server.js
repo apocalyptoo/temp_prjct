@@ -1,6 +1,10 @@
+// Must stay the first import. With ES modules every import runs before the code
+// below it, and some modules read settings while they load (authController builds
+// its email sender). config.js loads backend/.env and checks every setting first,
+// and stops the server with a clear message if one is missing or invalid.
+import { config } from './config.js';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import helmet from 'helmet';
 import adminRoutes from './routes/adminRoutes.js';
 import authRoutes from './routes/authRoutes.js';
@@ -10,7 +14,6 @@ import ownerRoutes from './routes/ownerRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 
-dotenv.config();
 const app = express();
 
 // The backend is reached through exactly one proxy: ngrok. ngrok adds the visitor's
@@ -38,7 +41,7 @@ app.get('/', (req, res) => res.send('API running ✅'));
 // Must stay last: turns any unhandled error into a generic reply.
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 4000;
+const PORT = config.port;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 

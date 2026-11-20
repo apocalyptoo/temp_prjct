@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
+import { config } from '../config.js';
 import { prisma } from '../db.js';
 import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '../utils/password.js';
 import {
@@ -19,8 +20,8 @@ import { normalizeEmail } from '../utils/email.js';
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: config.emailUser,
+    pass: config.emailPass,
   },
 });
 
@@ -64,12 +65,12 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync('no-such-user-timing-placeholder', 1
 // never into the database.
 const sendVerificationEmail = ({ email, displayName, token }) =>
   sendMail({
-    from: `"App Support" <${process.env.EMAIL_USER}>`,
+    from: `"App Support" <${config.emailUser}>`,
     to: email,
     subject: 'Verify your email address',
     html: verifyEmailHtml({
       displayName,
-      verifyLink: `${process.env.BACKEND_PUBLIC_URL}/auth/verify?token=${token}`,
+      verifyLink: `${config.backendPublicUrl}/auth/verify?token=${token}`,
     }),
   });
 
@@ -293,7 +294,7 @@ export const login = async (req, res, next) => {
 
     const token = jwt.sign(
       { id: user.id, userId: user.id, role: user.role, email: user.email },
-      process.env.JWT_SECRET,
+      config.jwtSecret,
       { expiresIn: '7d' }
     );
 
@@ -374,9 +375,9 @@ export const requestPasswordReset = async (req, res, next) => {
         data: { resetToken: hashToken(token), resetTokenExpires: expires },
       });
         
-      const resetLink = `${process.env.BACKEND_PUBLIC_URL}/auth/reset-password-page?token=${token}`;
+      const resetLink = `${config.backendPublicUrl}/auth/reset-password-page?token=${token}`;
       await sendMail({
-        from: `"App Support" <${process.env.EMAIL_USER}>`,
+        from: `"App Support" <${config.emailUser}>`,
         to: email,
         subject: 'Password reset request',
         html: resetEmailHtml({ resetLink }),

@@ -116,6 +116,9 @@ The backend is an **Express** app. Express is a small Node.js library for buildi
 backend/
 ├── src/
 │   ├── server.js        starts the server and connects the routers
+│   ├── config.js        loads backend/.env, checks the settings, stops the server if one is wrong
+│   ├── config/
+│   │   └── loadConfig.js    the rules each setting must follow (tested on its own)
 │   ├── db.js            the one shared Prisma client (database connection) for the whole server
 │   ├── routes/          which address goes to which function
 │   ├── controllers/     the functions that do the work
@@ -401,18 +404,32 @@ There's currently no way to ask to join a team. The old `POST /teams/:teamId/joi
 
 ## 8. Configuration
 
-The backend reads its settings from **environment variables**: named values set outside the code, so secrets aren't written into the source. They go in a file called `backend/.env`, which git ignores. The `dotenv` library loads that file at startup. `backend/.env.example` lists every variable with a comment and a fake value: copy it to `.env` and fill it in.
+The backend reads its settings from **environment variables**: named values set outside the code, so secrets aren't written into the source. They go in a file called `backend/.env`, which git ignores. `backend/.env.example` lists every variable with a comment and a fake value: copy it to `.env` and fill it in.
 
-| Variable | What it's for |
-|---|---|
-| `DATABASE_URL` | Where the PostgreSQL database is and how to log in to it (used by Prisma) |
-| `JWT_SECRET` | The secret used to sign and check login tokens |
-| `EMAIL_USER` | The Gmail address the backend sends email from |
-| `EMAIL_PASS` | The password for that Gmail account |
-| `BACKEND_PUBLIC_URL` | The backend's public address (the ngrok URL), used to build links in emails |
-| `PORT` | Optional. The port the server listens on (4000 if not set) |
-| `ADMIN_EMAIL` | Only used by `scripts/createAdmin.js`: the admin account's email |
-| `ADMIN_PASSWORD` | Only used by `scripts/createAdmin.js`: the admin account's password |
+| Variable | What it's for | Rule checked at startup |
+|---|---|---|
+| `DATABASE_URL` | Where the PostgreSQL database is and how to log in to it (used by Prisma) | Required, starts with `postgresql://` or `postgres://` |
+| `JWT_SECRET` | The secret used to sign and check login tokens | Required, at least 32 characters |
+| `EMAIL_USER` | The Gmail address the backend sends email from | Required, contains "@" |
+| `EMAIL_PASS` | The password for that Gmail account | Required |
+| `BACKEND_PUBLIC_URL` | The backend's public address (the ngrok URL), used to build links in emails | Required, an `http://` or `https://` address (a slash at the end is removed) |
+| `PORT` | Optional. The port the server listens on | A whole number from 1 to 65535, 4000 if not set |
+| `ADMIN_EMAIL` | Only used by `scripts/createAdmin.js`: the admin account's email | Not checked by the server |
+| `ADMIN_PASSWORD` | Only used by `scripts/createAdmin.js`: the admin account's password | Not checked by the server |
+| `TEST_BASE_URL` | Optional, tests only: the server the tests talk to | Not checked by the server |
+
+**The server checks its settings when it starts ("fail fast").** The very first thing `server.js` loads is `src/config.js`. It loads `backend/.env` (with the `dotenv` library) and checks every setting against the rules above. A blank value counts as missing. If anything is wrong, the server refuses to start and prints one clear message listing every problem, for example:
+
+```
+Server can't start: these settings in backend/.env are missing or invalid:
+  - JWT_SECRET: must be at least 32 characters
+  - EMAIL_USER: missing
+See backend/.env.example.
+```
+
+It names the setting and the reason but never prints the value, because several settings are secrets. Without this check, a missing setting would only show up later, for example as a crash the first time an email is sent. The rules themselves live in `src/config/loadConfig.js`, a function that only checks values and returns the result, so `tests/config.test.js` can test it without starting the server. The rest of the backend reads settings from the checked `config` object, never straight from the environment.
+
+It has to be the first import because of how modern JavaScript modules load: every `import` runs before the code below it, and some files read settings while they load (the email sender in `authController.js` is set up immediately). Before this check existed, the settings were actually loaded by accident: Prisma 6 reads `.env` by itself when it's imported.
 
 The admin account comes from `node scripts/createAdmin.js`, run in `backend/`. It reads `ADMIN_EMAIL` (lowercased and trimmed, like every email) and `ADMIN_PASSWORD`, refuses to run if either is missing or the password fails the registration strength rule, and never prints the password. If an admin with that email exists, it changes that account's password, which is how you change the admin password. Otherwise it creates the admin. It won't turn an existing player or owner account into an admin, and it won't create a second admin, because the app has one admin account.
 
@@ -444,3 +461,4 @@ The mobile app has no config file. Its backend address lives in `IndoorFootballA
 | The text of the verification or reset emails | `backend/src/utils/emailTemplates.js` |
 | The database tables | `backend/prisma/schema.prisma`, then create a migration |
 | Environment variables | `backend/.env` (never commit it) |
+| The rules a setting must follow at startup | `backend/src/config/loadConfig.js` |

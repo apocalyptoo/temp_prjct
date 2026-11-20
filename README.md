@@ -24,7 +24,7 @@ React Native's [environment setup guide](https://reactnative.dev/docs/set-up-you
 
 From `backend/`:
 
-1. Copy `.env.example` to `.env` and fill in every value (the comments in the file explain each one). Never commit `.env`.
+1. Copy `.env.example` to `.env` and fill in every value (the comments in the file explain each one). `JWT_SECRET` must be at least 32 characters; the file shows a command that makes one. Never commit `.env`.
 2. Install dependencies:
    ```bash
    npm install
@@ -43,6 +43,7 @@ From `backend/`:
    ```bash
    npm run dev
    ```
+   If it stops at once with "Server can't start: these settings in backend/.env are missing or invalid", fix the settings it lists in `.env` (see `.env.example` for the rules), then start it again. It restarts on code changes but not on `.env` changes, so restart it yourself after editing `.env`.
 
 ## Connecting the app to the backend (ngrok)
 
