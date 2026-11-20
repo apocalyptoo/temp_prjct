@@ -1,7 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db.js';
 import { viewerFrom, toVisibleUser, toPlayerStats } from '../utils/visibility.js';
 import { parseId } from '../utils/ids.js';
-const prisma = new PrismaClient();
 
 export const listPlayers = async (req, res, next) => {
   try {

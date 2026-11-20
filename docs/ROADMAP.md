@@ -73,7 +73,7 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 
 Enums, `onDelete: Cascade`, pagination and website validation moved to Phase 4; migration-history cleanup and CI moved to Phase 5 (DECISIONS.md 2026-11-20).
 
-- [ ] Use a single shared Prisma client. (3.1)
+- [x] Use a single shared Prisma client. (3.1) (`src/db.js`)
 - [ ] Validate environment variables at startup (fail fast). (3.1)
 - [ ] zod validation on every endpoint, and `express.urlencoded({ extended: false })`. This closes the whole injection class of bugs. (3.2)
 - [x] Indexes on token columns. (done 2026-11-19)

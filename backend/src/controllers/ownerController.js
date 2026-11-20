@@ -1,6 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db.js';
 import { viewerFrom, seesEverything, toVisibleUser, toPublicVenue } from '../utils/visibility.js';
-const prisma = new PrismaClient();
 
 export const getMyOwnerProfile = async (req, res, next) => {
   try {

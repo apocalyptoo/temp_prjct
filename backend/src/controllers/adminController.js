@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db.js';
 import { withoutSecrets } from '../utils/visibility.js';
 import { deleteUserAndData, deleteTeamAndMembers } from '../utils/deletion.js';
 import { parseId } from '../utils/ids.js';
-const prisma = new PrismaClient();
 
 // ── Get all users ──
 export const getAllUsers = async (req, res, next) => {

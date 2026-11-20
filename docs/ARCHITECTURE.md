@@ -116,6 +116,7 @@ The backend is an **Express** app. Express is a small Node.js library for buildi
 backend/
 ├── src/
 │   ├── server.js        starts the server and connects the routers
+│   ├── db.js            the one shared Prisma client (database connection) for the whole server
 │   ├── routes/          which address goes to which function
 │   ├── controllers/     the functions that do the work
 │   ├── middleware/
@@ -225,6 +226,8 @@ Today no endpoint returns another player's phone, so teammates don't see it anyw
 ## 5. Database
 
 The data lives in PostgreSQL. The backend talks to it through **Prisma**, an **ORM** (Object-Relational Mapper): a library that lets you read and write database rows with JavaScript code instead of writing SQL by hand.
+
+The server uses **one** Prisma client, created in `backend/src/db.js` and imported by every controller. Each client keeps its own pool of open database connections, so one client per file would multiply the connections the server holds, and hosted databases limit how many you get. The admin script (`scripts/createAdmin.js`) and the tests (`tests/helpers.js`) are separate programs, so each has its own client.
 
 The tables are described in `backend/prisma/schema.prisma`. Changes to that file reach the real database through **migrations**: small saved SQL scripts, one per change, applied in order so every copy of the database ends up with the same tables. They live in `backend/prisma/migrations/`.
 

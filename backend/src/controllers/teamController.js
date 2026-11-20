@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db.js';
 import { viewerFrom, toVisibleUser } from '../utils/visibility.js';
 import { deleteTeamAndMembers } from '../utils/deletion.js';
 import { parseId } from '../utils/ids.js';
-const prisma = new PrismaClient();
 
 const TEAM_NAME_MIN = 2;
 const TEAM_NAME_MAX = 40;

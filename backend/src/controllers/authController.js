@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db.js';
 import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '../utils/password.js';
 import {
   generateToken,
@@ -15,7 +15,6 @@ import { verifyEmailHtml, resetEmailHtml } from '../utils/emailTemplates.js';
 import { isFormRequest, messagePage } from '../utils/pages.js';
 import { toVisibleUser } from '../utils/visibility.js';
 import { normalizeEmail } from '../utils/email.js';
-const prisma = new PrismaClient();
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
