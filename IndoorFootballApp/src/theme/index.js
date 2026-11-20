@@ -6,6 +6,7 @@ import { fonts, typography } from './typography';
 import { spacing, touchTarget } from './spacing';
 import { radius } from './radius';
 import { shadows } from './shadows';
+import { icon } from './icons';
 
 export const theme = {
   dark: true,
@@ -16,4 +17,5 @@ export const theme = {
   radius,
   shadows,
   touchTarget,
+  icon,
 };

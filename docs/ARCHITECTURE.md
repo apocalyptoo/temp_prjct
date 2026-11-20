@@ -317,11 +317,13 @@ IndoorFootballApp/
 │                        and sets the status bar (always white icons)
 ├── index.js             registers the app with React Native
 ├── __tests__/           Jest tests: renders the whole app once; checks the theme tokens
+│                        and the Icon component
 ├── jest.config.js       Jest settings; jest.setup.js swaps native modules for mocks
 ├── react-native.config.js  lists the font folders the app ships
 ├── assets/fonts/        Barlow Condensed and Inter font files, with their licenses
 ├── src/
 │   ├── api/api.js       shared helper for talking to the backend
+│   ├── components/ui/   shared building blocks; so far Icon.js (see "Icons" below)
 │   ├── contexts/        AuthContext.js: who is logged in
 │   ├── navigation/      which screens exist for each role
 │   ├── screens/         one file per screen, grouped by area
@@ -346,6 +348,12 @@ The fonts are files in `assets/fonts/`. For Android they're also copied by hand 
 The status bar always shows white icons on the dark background, whatever the phone's light or dark setting. Android's own window behind the app is dark too, so no white flash shows while the app starts. That colour is set on the Android side (`android/app/src/main/res/values/colors.xml`), because native files can't read the JavaScript tokens, so it has to be kept the same as `bg` by hand. React Navigation also gets a theme built from the tokens, so its screen background and headers are dark instead of white.
 
 **Today the existing screens still use their old, hand-written light styles.** They're restyled one at a time later. The only change made to screens for the theme: the two registration screens had no background of their own and used to show React Navigation's light grey, so that grey is now set on them directly until registration is rebuilt.
+
+### Icons
+
+Icons come from **Lucide**, a free set of line icons, drawn on screen by **react-native-svg** (a library that draws vector shapes). Screens never use Lucide directly. They use our own `Icon` component with our own names, for example `<Icon name="teams" />`, and `src/components/ui/Icon.js` is the one file that knows which Lucide icon each name means. If the icon set ever changes, only that file changes. The list of names is in [DESIGN.md](DESIGN.md) section 7.
+
+An icon takes the text colour by default. When an icon means something on its own (an icon-only button), it gets an `accessibilityLabel` so screen readers can announce it; otherwise screen readers skip it. Existing screens still use the old icon library (Ionicons) until each one is restyled.
 
 ### How navigation switches by role
 

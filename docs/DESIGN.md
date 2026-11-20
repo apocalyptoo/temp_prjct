@@ -173,6 +173,18 @@ Two font families, both from Google Fonts (free to use in apps under the Open Fo
 - Screens never import Lucide directly. They use the shared `Icon` component with our own names (see section 2).
 - The old `react-native-vector-icons` (Ionicons) is **replaced**. Remove it once no screen uses it, including its font files and config entries.
 
+**Our icon names** (`src/components/ui/Icon.js`, which maps them to Lucide). `<Icon name="…" />` takes `size` (default `icon.size`, 24), `color` (default `colors.text`) and an optional `accessibilityLabel`: with a label the icon is announced as an image; without one it's decorative and hidden from screen readers. The stroke width comes from the `icon.strokeWidth` token (1.8). An unknown name shows nothing (and warns in development).
+
+| Group | Our name → Lucide icon |
+|---|---|
+| Navigation | `teams` Users · `explore` Compass · `notifications` Bell · `profile` User · `settings` Settings · `dashboard` LayoutDashboard · `reports` ShieldAlert · `venues` Building2 · `users` IdCard |
+| Movement | `back` ChevronLeft · `forward` ChevronRight |
+| Actions | `add` Plus · `approve` Check · `reject` X · `search` Search · `filter` Funnel · `edit` Pencil · `delete` Trash2 · `invite` UserPlus · `remove` UserMinus · `leave` DoorOpen · `logout` LogOut · `transfer` ArrowRightLeft |
+| Things | `captain` Crown · `area` MapPin · `venue` Building2 · `phone` Phone · `email` Mail · `website` Globe · `password` Lock · `report` Flag · `block` Ban · `time` Clock |
+| States | `success` CircleCheck · `warning` TriangleAlert |
+
+To add an icon: import it in `Icon.js` from its own file (`lucide-react-native/icons/<name>`) and add one line to the map. Importing from `lucide-react-native` itself would put every Lucide icon in the app.
+
 ## 8. Accessibility checklist (every screen)
 
 - Contrast follows section 3.
@@ -185,7 +197,7 @@ Two font families, both from Google Fonts (free to use in apps under the Open Fo
 
 - **Theme module first:** create the theme folder and the shared components (section 2) before restyling screens. Then restyle screens one by one.
 - **Fonts:** Barlow Condensed and Inter are font files in `IndoorFootballApp/assets/fonts/` (from Google Fonts, with their OFL licenses), listed in `react-native.config.js` and copied by hand into `android/app/src/main/assets/fonts/`. iOS isn't linked yet.
-- **Icons:** install `lucide-react-native` and `react-native-svg`. This is approved in DECISIONS.md, but still check that the versions work with the app's React Native version before installing, and tell me which versions you chose. Then remove `react-native-vector-icons` once nothing uses it.
+- **Icons:** `lucide-react-native` 1.70.0 and `react-native-svg` 15.16.1 are installed (Task 4.4; react-native-svg 15.16+ is required for React Native 0.80+). Before upgrading either, check the versions work with the app's React Native version and tell me which versions you chose. Remove `react-native-vector-icons` once nothing uses it (the last item of ROADMAP Step 4).
 - **Status bar:** always light content (white icons) on `bg`, whatever the phone's light/dark setting (set in `App.js`). React Navigation gets a theme built from the tokens too, so its backgrounds and headers are dark.
 - **Dark only in v1.0.** Don't build theme switching yet. Just keep every value in tokens and use `useTheme()`.
 - **The existing UI code isn't a constraint.** It was written as a university project. Replace screens, styles and components properly wherever they conflict with this design. Don't patch around them.

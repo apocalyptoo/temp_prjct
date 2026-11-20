@@ -7,4 +7,11 @@ module.exports = {
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@react-navigation|react-native-.*)/)',
   ],
+  // Lucide icons are imported one file at a time (src/components/ui/Icon.js). For the
+  // app, Lucide hands out modern .mjs files, which Jest can't run; point Jest at
+  // Lucide's own CommonJS copy of the same icon instead.
+  moduleNameMapper: {
+    '^lucide-react-native/icons/(.*)$':
+      '<rootDir>/node_modules/lucide-react-native/dist/cjs/icons/$1.js',
+  },
 };
