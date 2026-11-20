@@ -290,3 +290,15 @@ Goalkeeper, Defender, Midfielder, Forward, Any. One per player, picked from a li
 The admin can approve a venue only once its address, area and phone are filled in. The backend enforces this (it refuses the approval), not just the app. While a venue is "Pending review", My Venue shows a checklist of what's still missing. Once approved, editing can change these three fields but can't clear them.
 **Why:** with the shorter owner sign-up, a new venue starts as little more than a name. Approval must never put an empty listing into discovery.
 **Alternatives considered:** letting the admin judge by eye (rejected: an incomplete venue could go live), also requiring opening hours and pricing (rejected: they stay optional).
+
+### 2026-11-20: Input validation conventions and limits
+Every endpoint that reads a request body or query checks it with a zod schema (in `backend/src/validation/`) before the controller runs. The conventions:
+- **Unknown fields are ignored** (dropped), not rejected. The app sends a few extra fields (`profileData.name` for players, a top-level `name` for owners), and older app versions must keep working.
+- **One error message per reply:** 400 with `{ "error": "<message>" }`, the first problem found. The app shows `error` in an alert, so messages are short and human. Existing messages are kept word for word.
+- **Login stays generic:** any badly shaped login request gets the same "Invalid email or password" as a wrong password. Forgot-password and resend-verification keep "Email is required" and their generic replies, with no email-format check.
+- **Ids in URLs** keep using `parseId`, not the schemas.
+- **New limits at registration:** email must look like an email address, at most 254 characters. Password at most 72 bytes (counted in bytes, also at reset). Player name 2–50 characters, position at most 30, address at most 100, height and weight numbers only. Venue name 2–60 characters, address at most 200, description at most 500, website at most 200. Empty optional fields are stored as null. Character limits count code points, so Bangla text isn't over-counted.
+
+**Why:** the limits protect the database and the screens from huge or malformed values (a 10,000-character name breaks every list it appears in). Checking types closes the whole class of bugs where objects or lists reach Prisma and act as query operators or cause 500s. 72 bytes is where bcrypt stops reading a password, so anything longer gives a false sense of security. Ignoring unknown fields keeps the app working as fields come and go.
+**Alternatives considered:** rejecting unknown fields (rejected: breaks the current app, which sends extras), listing every problem in one reply (rejected: the app shows a single alert), detailed login errors (rejected: they reveal which emails have accounts).
+**Consequence:** request checks live in one place per router, and controllers read only the checked values (`req.valid`). The register screens still repeat some checks; they need the new limits when they're rebuilt in Phase 4.

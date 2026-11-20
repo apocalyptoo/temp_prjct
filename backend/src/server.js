@@ -13,7 +13,6 @@ import playerRoutes from './routes/playerRoutes.js';
 import ownerRoutes from './routes/ownerRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
-
 const app = express();
 
 // The backend is reached through exactly one proxy: ngrok. ngrok adds the visitor's
@@ -29,7 +28,10 @@ app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Form posts (the reset-password page). extended: false reads every value as plain text
+// (or a list of texts when a field repeats), never as a nested object, so a field like
+// token[not]=x can't turn into a query operator.
+app.use(express.urlencoded({ extended: false }));
 
 app.use('/admin', adminRoutes);
 app.use('/auth', authRoutes);
@@ -43,8 +45,3 @@ app.use(errorHandler);
 
 const PORT = config.port;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-
-
-//GET http://localhost:4000/players/invites
-

@@ -92,15 +92,16 @@ Here's what happens, step by step, when a player creates a team.
 **On the server**
 
 5. `backend/src/server.js` receives it. `express.json()` turns the JSON body into a JavaScript object. The `/teams` prefix sends it to the teams router.
-6. `backend/src/routes/teamRoutes.js` matches `POST /create` and runs two functions in order: `verifyToken`, then `createTeam`.
-7. `backend/src/middleware/auth.js`: `verifyToken` checks the token is genuine and not expired. If it's fine, the user's id and role go into `req.user`. If not, the request stops with a 401 ("not logged in") error.
-8. `backend/src/controllers/teamController.js`: `createTeam` first checks the input. The name is required, must be text, and must be 2 to 40 characters once spaces at the ends are trimmed. The description is optional, but if given it must be text and at most 200 characters after trimming (an empty description is saved as none). Team names don't have to be unique. If a check fails, it replies 400 with a clear message, such as "Team name must be between 2 and 40 characters". Then it uses Prisma to save the trimmed values. In one step it creates the `Team` row and a `TeamMember` row that makes the creator the team's captain (`role: 'captain'`, `status: 'accepted'`).
-9. Prisma turns that into SQL and PostgreSQL stores both rows.
+6. `backend/src/routes/teamRoutes.js` matches `POST /create` and runs four functions in order: `verifyToken`, `playersOnly`, `validate(...)`, then `createTeam`.
+7. `backend/src/middleware/auth.js`: `verifyToken` checks the token is genuine and not expired. If it's fine, the user's id and role go into `req.user`. If not, the request stops with a 401 ("not logged in") error. `playersOnly` then stops venue owner and admin accounts with a 403.
+8. `backend/src/middleware/validate.js` checks the request body against `createTeamSchema` (in `backend/src/validation/teamSchemas.js`; see "How requests are checked" below). The name is required, must be text, and must be 2 to 40 characters once spaces at the ends are trimmed. The description is optional, but if given it must be text and at most 200 characters after trimming (an empty description is saved as none). Team names don't have to be unique. If a check fails, it replies 400 with a clear message, such as "Team name must be between 2 and 40 characters", and `createTeam` never runs.
+9. `backend/src/controllers/teamController.js`: `createTeam` takes the checked, trimmed values from `req.valid.body` and uses Prisma to save them. In one step it creates the `Team` row and a `TeamMember` row that makes the creator the team's captain (`role: 'captain'`, `status: 'accepted'`).
+10. Prisma turns that into SQL and PostgreSQL stores both rows.
 
 **Back to the phone**
 
-10. The server replies with status 201 ("created") and the new team as JSON.
-11. `CreateTeamScreen` shows a "Team Created" alert and goes back. All Teams reloads its list every time it comes back into view, so the new team appears.
+11. The server replies with status 201 ("created") and the new team as JSON.
+12. `CreateTeamScreen` shows a "Team Created" alert and goes back. All Teams reloads its list every time it comes back into view, so the new team appears.
 
 If anything fails, the server replies with an error message and the screen shows it in an alert.
 
@@ -125,7 +126,9 @@ backend/
 │   ├── middleware/
 │   │   ├── auth.js          login, admin and player-only checks
 │   │   ├── rateLimits.js    limits on repeated login, register and password-reset requests
+│   │   ├── validate.js      checks a request against its rules before the controller runs
 │   │   └── errorHandler.js  turns any unhandled error into a short generic reply
+│   ├── validation/      the rules for each request (zod schemas), one file per router, plus shared helpers
 │   └── utils/           shared helpers: the password rule, who may see what (visibility), email normalising, deleting users and teams, checking ids from URLs, HTML escaping, tokens, email templates
 ├── prisma/
 │   ├── schema.prisma    the database tables, described in code
@@ -202,6 +205,23 @@ The main helpers:
 - `findAcceptedTeammateIds` works out a viewer's teammates in one database query.
 
 Today no endpoint returns another player's phone, so teammates don't see it anywhere yet. That arrives with the Player detail screen in Phase 4, using these same helpers. Responses keep their usual field names: hidden fields are simply left out, and the app's screens skip a field that's missing. **Any new endpoint that returns user data must go through these helpers.**
+
+### How requests are checked (validation)
+
+Anyone can send the backend anything, not only the app: a missing field, a number where text belongs, a list, an object, or text thousands of characters long. Two things go wrong if that reaches the database unchecked. An object like `{"not": ""}` in a lookup is read by Prisma as a *query instruction* ("any token that isn't empty") instead of a value, which once allowed an account takeover. And a wrong type, like a phone number sent as a list, makes Prisma fail, which shows up as a 500 "Something went wrong".
+
+So every request that sends data is checked **before** its controller runs:
+
+- The rules are written as **schemas** with the **zod** library, in `src/validation/`: one file per router (`authSchemas.js`, `teamSchemas.js`), plus small shared helpers in `common.js`. A schema says, field by field, what's allowed: "name: text, trimmed, 2 to 50 characters", "height: a number from 100 to 250, or nothing".
+- Each route lists its schema, for example `validate({ body: registerSchema })`. The checker in `src/middleware/validate.js` runs after the rate limits and login checks, and before the controller.
+- If something is wrong, the reply is 400 with **one** short message, the first problem found, such as `{ "error": "Phone number must be exactly 11 digits" }`. The app shows it in an alert.
+- If everything is fine, the checked and cleaned values (trimmed, emails lowercased, empty optional fields turned into "nothing") go on `req.valid`. Controllers read only from there, never straight from the request.
+- **Fields the rules don't mention are ignored**, not refused. The app sends a few extras, and they're simply dropped.
+- **Login is the exception to "one clear message":** any badly shaped login gets the same "Invalid email or password" as a wrong password, so login never reveals anything.
+- Ids in the address (like the `5` in `/teams/5/invite`) aren't part of the schemas. They're checked with `parseId` (see below).
+- Text limits count characters the way people see them, so a Bangla name isn't counted as longer than it looks. Passwords are limited to 72 bytes, because the password scrambler (bcrypt) ignores anything after that.
+
+The limits and conventions are recorded in DECISIONS.md ("Input validation conventions and limits").
 
 ### Protection against abuse and leaks
 
@@ -355,7 +375,14 @@ When any request that carried the token gets a 401 (for example the token's 7 da
 
 1. On the Login screen, the user taps **Signup**, picks Player or Owner, and fills in the form (`PlayerRegisterScreen.js` or `OwnerRegisterScreen.js`). The screen checks required fields, an 11-digit phone number, height and weight ranges (players only) and that the two passwords match. It doesn't check password strength; the backend does that.
 2. The app sends `POST /auth/register` with email, password, role and the profile details.
-3. The backend lowercases the email and trims spaces from its ends (`normalizeEmail` in `src/utils/email.js`), so `Test@Example.com ` and `test@example.com` are the same account. Login, forgot password, resend verification and the admin script do the same before looking an email up. It then checks that the email isn't empty, then the role, password strength (at least 8 characters with upper case, lower case, a number and a symbol), that the email is new, and the profile fields (phone, height and weight ranges).
+3. Before the controller runs, `registerSchema` (`src/validation/authSchemas.js`) checks the request (see "How requests are checked"). Every field must be the right type, and the checks run in this order, so a request with several problems gets the first one's message:
+   - email, password, role and profile details are all there ("Email, password, role, and profileData are required")
+   - the role is PLAYER or OWNER
+   - the email is lowercased and trimmed (`normalizeEmail` in `src/utils/email.js`, so `Test@Example.com ` and `test@example.com` are the same account; login, forgot password, resend verification and the admin script do the same), looks like an email address, and is at most 254 characters
+   - the password passes the strength rule (at least 8 characters with upper case, lower case, a number and a symbol) and is at most 72 bytes
+   - the profile: for a player, a name of 2–50 characters, an 11-digit phone, a position of at most 30 characters, height 100–250 cm and weight 30–200 kg (numbers, optional), and an address of at most 100 characters (optional). For a venue owner, a venue name of 2–60 characters, an 11-digit phone, an address of at most 200 characters, and optional description (at most 500) and website (at most 200). Names and position are trimmed; an empty optional field is saved as nothing.
+
+   Then the controller checks that the email is new ("Email already registered").
 4. It saves the User and their profile in a single step, with `verified` set to false. It also saves the hash of a new random verification token and an expiry 24 hours away.
 5. It emails a link containing the token itself to `BACKEND_PUBLIC_URL/auth/verify?token=…` through Gmail. If sending fails, the account still exists, so the reply is still a success (201). It says "Account created, but we couldn't send the verification email. Use 'Resend verification email' on the login screen." The error is logged on the server.
 6. Clicking the link opens the backend in a browser. If the token isn't shaped like one the backend makes (64 lowercase hex characters), it shows an "Invalid or expired link" page without touching the database. It shows the same page if no user has that token's hash, or if the link is more than 24 hours old, with a hint to request a new email from the app's login screen. Otherwise it marks the user verified, clears the token and its expiry, and shows an "Email verified" page telling them they can now log in in the app.
@@ -452,11 +479,12 @@ The mobile app has no config file. Its backend address lives in `IndoorFootballA
 | The rate limits (how many tries, how long) | `backend/src/middleware/rateLimits.js` |
 | What clients see when something goes wrong | `backend/src/middleware/errorHandler.js` |
 | Security headers (helmet) or the trust proxy setting | `backend/src/server.js` |
-| Registration rules (phone, height, weight) | `backend/src/controllers/authController.js` (`register`), plus the register screens |
+| Registration rules (required fields, lengths, phone, height, weight) | `backend/src/validation/authSchemas.js` (`registerSchema`), plus the register screens |
 | The password strength rule (registration, reset and the admin script) | `backend/src/utils/password.js` |
 | How emails are lowercased and trimmed | `backend/src/utils/email.js` |
 | What deleting a user or a team removes | `backend/src/utils/deletion.js` |
-| Team name and description rules | `backend/src/controllers/teamController.js` (`createTeam`) |
+| Team name and description rules | `backend/src/validation/teamSchemas.js` (`createTeamSchema`) |
+| How a request is checked before its controller runs | `backend/src/middleware/validate.js` |
 | Who may see which user fields | `backend/src/utils/visibility.js` |
 | The text of the verification or reset emails | `backend/src/utils/emailTemplates.js` |
 | The database tables | `backend/prisma/schema.prisma`, then create a migration |

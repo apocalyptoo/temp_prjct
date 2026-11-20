@@ -10,11 +10,14 @@ import {
   deleteTeam,
 } from '../controllers/teamController.js';
 import { verifyToken, playersOnly } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { createTeamSchema, inviteSchema } from '../validation/teamSchemas.js';
 
 const router = express.Router();
 
-router.post('/create', verifyToken, playersOnly, createTeam);
-router.post('/:teamId/invite', verifyToken, playersOnly, invitePlayer);
+// Only these two read a request body; ids in the URL are checked with parseId in the controller.
+router.post('/create', verifyToken, playersOnly, validate({ body: createTeamSchema }), createTeam);
+router.post('/:teamId/invite', verifyToken, playersOnly, validate({ body: inviteSchema }), invitePlayer);
 router.post('/:teamId/accept', verifyToken, playersOnly, acceptInvite);
 router.post('/:teamId/reject', verifyToken, playersOnly, rejectInvite);
 router.delete('/:teamId/members/:userId', verifyToken, removePlayer); 

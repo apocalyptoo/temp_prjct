@@ -3,45 +3,14 @@ import { viewerFrom, toVisibleUser } from '../utils/visibility.js';
 import { deleteTeamAndMembers } from '../utils/deletion.js';
 import { parseId } from '../utils/ids.js';
 
-const TEAM_NAME_MIN = 2;
-const TEAM_NAME_MAX = 40;
-const TEAM_DESCRIPTION_MAX = 200;
-
-// Counts characters as people see them (so a Bangla name or an emoji isn't counted
-// as several characters).
-const charCount = (text) => [...text].length;
-
-// Checks the team name and description. Returns { error } or the cleaned { name,
-// description } (trimmed; an empty or missing description becomes null).
-// Team names don't have to be unique.
-function checkTeamInput(body) {
-  const { name: rawName, description: rawDescription } = body ?? {};
-
-  if (rawName === undefined || rawName === null) return { error: 'Team name is required' };
-  if (typeof rawName !== 'string') return { error: 'Team name must be text' };
-  const name = rawName.trim();
-  if (name === '') return { error: 'Team name is required' };
-  if (charCount(name) < TEAM_NAME_MIN || charCount(name) > TEAM_NAME_MAX) {
-    return { error: `Team name must be between ${TEAM_NAME_MIN} and ${TEAM_NAME_MAX} characters` };
-  }
-
-  let description = null;
-  if (rawDescription !== undefined && rawDescription !== null) {
-    if (typeof rawDescription !== 'string') return { error: 'Description must be text' };
-    description = rawDescription.trim() || null;
-    if (description && charCount(description) > TEAM_DESCRIPTION_MAX) {
-      return { error: `Description must be at most ${TEAM_DESCRIPTION_MAX} characters` };
-    }
-  }
-
-  return { name, description };
-}
+// Request bodies are checked by the schemas in src/validation/teamSchemas.js before
+// these handlers run (see teamRoutes.js). The handlers read them from req.valid.body.
 
 // ── Create new team ──
 export const createTeam = async (req, res, next) => {
   try {
-    const { error, name, description } = checkTeamInput(req.body);
-    if (error) return res.status(400).json({ error });
+    // Trimmed, 2–40 characters; description trimmed, at most 200, or null (createTeamSchema).
+    const { name, description } = req.valid.body;
     const ownerId = req.user.id;
 
     const team = await prisma.team.create({
@@ -70,14 +39,9 @@ export const invitePlayer = async (req, res, next) => {
   try {
     const teamId = parseId(req.params.teamId);
     if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
-    const { userId } = req.body;
+    // A real positive whole number, not a string, an object or a decimal (inviteSchema).
+    const { userId } = req.valid.body;
     const inviterId = req.user.id;
-
-    // userId goes into a Prisma query, so it must be a real positive whole number
-    // (not a string, an object or a decimal).
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return res.status(400).json({ error: 'userId must be a positive integer' });
-    }
 
     const team = await prisma.team.findUnique({ where: { id: teamId } });
     if (!team) return res.status(404).json({ error: 'Team not found' });
