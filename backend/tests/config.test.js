@@ -3,7 +3,9 @@
 // error messages never repeat a value.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadConfig, ConfigError } from '../src/config/loadConfig.js';
+import fs from 'node:fs';
+import dotenv from 'dotenv';
+import { loadConfig, ConfigError, EXAMPLE_JWT_SECRET } from '../src/config/loadConfig.js';
 
 const validEnv = () => ({
   DATABASE_URL: 'postgresql://fakeuser:FAKEDBPASS-zq1@localhost:5432/fakedb',
@@ -105,6 +107,21 @@ describe('Invalid values', () => {
     const err = configError({ ...validEnv(), JWT_SECRET: 'a'.repeat(31) });
     assert.deepEqual(err.problems, [{ name: 'JWT_SECRET', reason: 'must be at least 32 characters' }]);
     assert.equal(loadConfig({ ...validEnv(), JWT_SECRET: 'a'.repeat(32) }).jwtSecret, 'a'.repeat(32));
+  });
+
+  test('JWT_SECRET equal to the .env.example placeholder is refused, without printing it', () => {
+    for (const value of [EXAMPLE_JWT_SECRET, `  ${EXAMPLE_JWT_SECRET} `]) {
+      const err = configError({ ...validEnv(), JWT_SECRET: value });
+      assert.deepEqual(err.problems, [
+        { name: 'JWT_SECRET', reason: 'still the example placeholder from .env.example, generate a real secret' },
+      ]);
+      assert.ok(!err.message.includes(EXAMPLE_JWT_SECRET), 'the placeholder itself is not printed');
+    }
+  });
+
+  test('the placeholder loadConfig refuses is the one actually in backend/.env.example', () => {
+    const example = dotenv.parse(fs.readFileSync(new URL('../.env.example', import.meta.url)));
+    assert.equal(example.JWT_SECRET, EXAMPLE_JWT_SECRET);
   });
 
   test('EMAIL_USER must contain "@"', () => {

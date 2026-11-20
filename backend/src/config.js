@@ -3,8 +3,15 @@
 // instead of failing later (for example the first time an email is sent).
 // server.js imports this file first, so the settings exist before any other code runs.
 // This is the only file in src/ that reads process.env.
-import 'dotenv/config';
+import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
 import { loadConfig, ConfigError } from './config/loadConfig.js';
+
+// backend/.env, found from this file's own location, so it works whichever folder
+// the server is started from. A missing file isn't an error by itself: real hosting
+// supplies the settings directly, and loadConfig reports anything that's missing.
+// Settings already in the environment win over the file (dotenv never overwrites them).
+dotenv.config({ path: fileURLToPath(new URL('../.env', import.meta.url)) });
 
 function loadOrExit() {
   try {

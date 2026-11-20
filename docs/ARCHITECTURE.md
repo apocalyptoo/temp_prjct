@@ -409,7 +409,7 @@ The backend reads its settings from **environment variables**: named values set 
 | Variable | What it's for | Rule checked at startup |
 |---|---|---|
 | `DATABASE_URL` | Where the PostgreSQL database is and how to log in to it (used by Prisma) | Required, starts with `postgresql://` or `postgres://` |
-| `JWT_SECRET` | The secret used to sign and check login tokens | Required, at least 32 characters |
+| `JWT_SECRET` | The secret used to sign and check login tokens | Required, at least 32 characters, and not the placeholder from `.env.example` |
 | `EMAIL_USER` | The Gmail address the backend sends email from | Required, contains "@" |
 | `EMAIL_PASS` | The password for that Gmail account | Required |
 | `BACKEND_PUBLIC_URL` | The backend's public address (the ngrok URL), used to build links in emails | Required, an `http://` or `https://` address (a slash at the end is removed) |
@@ -418,7 +418,7 @@ The backend reads its settings from **environment variables**: named values set 
 | `ADMIN_PASSWORD` | Only used by `scripts/createAdmin.js`: the admin account's password | Not checked by the server |
 | `TEST_BASE_URL` | Optional, tests only: the server the tests talk to | Not checked by the server |
 
-**The server checks its settings when it starts ("fail fast").** The very first thing `server.js` loads is `src/config.js`. It loads `backend/.env` (with the `dotenv` library) and checks every setting against the rules above. A blank value counts as missing. If anything is wrong, the server refuses to start and prints one clear message listing every problem, for example:
+**The server checks its settings when it starts ("fail fast").** The very first thing `server.js` loads is `src/config.js`. It loads `backend/.env` (with the `dotenv` library) and checks every setting against the rules above. Spaces at the start and end of a value are removed first, and a blank value counts as missing. `config.js` finds `backend/.env` from its own location, so it works whichever folder the server is started from. If there's no `.env` file at all, that's fine as long as the settings come from somewhere else: real hosting usually supplies them directly, and settings supplied that way win over the file. If anything is wrong, the server refuses to start and prints one clear message listing every problem, for example:
 
 ```
 Server can't start: these settings in backend/.env are missing or invalid:
@@ -427,7 +427,7 @@ Server can't start: these settings in backend/.env are missing or invalid:
 See backend/.env.example.
 ```
 
-It names the setting and the reason but never prints the value, because several settings are secrets. Without this check, a missing setting would only show up later, for example as a crash the first time an email is sent. The rules themselves live in `src/config/loadConfig.js`, a function that only checks values and returns the result, so `tests/config.test.js` can test it without starting the server. The rest of the backend reads settings from the checked `config` object, never straight from the environment.
+It names the setting and the reason but never prints the value, because several settings are secrets. Without this check, a missing setting would only show up later, for example as a crash the first time an email is sent. The rules themselves live in `src/config/loadConfig.js`, a function that only checks values and returns the result, so `tests/config.test.js` can test it without starting the server. `tests/config-env-file.test.js` checks where `.env` is found. The rest of the backend reads settings from the checked `config` object, never straight from the environment.
 
 It has to be the first import because of how modern JavaScript modules load: every `import` runs before the code below it, and some files read settings while they load (the email sender in `authController.js` is set up immediately). Before this check existed, the settings were actually loaded by accident: Prisma 6 reads `.env` by itself when it's imported.
 

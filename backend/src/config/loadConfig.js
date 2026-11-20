@@ -7,6 +7,9 @@
 
 export const DEFAULT_PORT = 4000;
 export const MIN_JWT_SECRET_LENGTH = 32;
+// The fake JWT_SECRET in backend/.env.example. It's public, so it must never be used.
+// Keep it in sync with that file (tests/config.test.js checks they match).
+export const EXAMPLE_JWT_SECRET = 'replace-with-a-long-random-string-of-at-least-32-characters';
 
 export class ConfigError extends Error {
   constructor(problems) {
@@ -38,7 +41,9 @@ export function loadConfig(env) {
 
   const jwtSecret = read(env, 'JWT_SECRET');
   if (jwtSecret === null) problem('JWT_SECRET', 'missing');
-  else if (jwtSecret.length < MIN_JWT_SECRET_LENGTH) {
+  else if (jwtSecret === EXAMPLE_JWT_SECRET) {
+    problem('JWT_SECRET', 'still the example placeholder from .env.example, generate a real secret');
+  } else if (jwtSecret.length < MIN_JWT_SECRET_LENGTH) {
     problem('JWT_SECRET', `must be at least ${MIN_JWT_SECRET_LENGTH} characters`);
   }
 
