@@ -330,3 +330,9 @@ Database changes come in several small migrations (captain, membership, profiles
 - Small migrations are easier to review and to undo.
 
 **Consequence:** the player position enum moves out of the "schema enums" item and into the profiles and registration migration. The `TeamMember` status enum and `onDelete: Cascade` stay with the membership migration (4.2). This replaces the "one migration" part of the 2026-11-20 "Phase 3 roadmap reshuffle" for the position enum.
+
+### 2026-11-20: The local database is test data
+The local development database holds only the owner's own test data. Claude Code may read it and delete or change any rows or accounts whenever a task needs it, without asking first, and always says what it looked at, deleted or changed. Schema changes, migrations and a full reset (`prisma migrate reset`) still need approval: migrations shape the real database later, and a reset also removes the admin account (re-created with `scripts/createAdmin.js`).
+This applies only to the local development database. Once real users exist, a production database is never treated this way.
+**Why:** the data was created only for development, so there's nothing real to protect. Schema changes, migrations and resets stay gated because they shape the real database later, or remove the admin account.
+**Consequence:** the 2026-11-17 rule ("no database resets, destructive migrations or new dependencies without explicit approval") still holds. What changes is that ordinary rows in the local database no longer need approval. Tests still create their own throwaway users and never change existing ones, so they stay independent of the data that happens to be there.
