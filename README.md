@@ -44,6 +44,7 @@ From `backend/`:
    npm run dev
    ```
    If it stops at once with "Server can't start: these settings in backend/.env are missing or invalid", fix the settings it lists in `.env` (see `.env.example` for the rules), then start it again. It restarts on code changes but not on `.env` changes, so restart it yourself after editing `.env`.
+   If it says "Port 4000 is already in use. Is another server running?", another copy of the backend (or another program) already has that port. Stop it (Ctrl+C in its terminal), or set a different `PORT` in `.env`.
 
 ## Connecting the app to the backend (ngrok)
 

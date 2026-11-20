@@ -48,7 +48,7 @@ Backend (run from `backend/`):
 npm install
 npx prisma generate          # after any schema.prisma change
 npx prisma migrate deploy    # apply migrations; use `npx prisma migrate dev --name <name>` to create one
-npm run dev                  # nodemon on src/server.js, port 4000 by default; ignores tests/ (nodemonConfig in package.json)
+npm run dev                  # nodemon on src/server.js, port 4000 by default; ignores tests/ (nodemonConfig in package.json); a taken port prints "Port 4000 is already in use…" and exits 1
 node scripts/createAdmin.js  # create the ADMIN user, or change its password (reads ADMIN_EMAIL, ADMIN_PASSWORD)
 npm test                     # node:test suite in tests/ (needs `npm run dev` running and the local DB)
 node --test tests/auth-tokens.test.js   # single test file

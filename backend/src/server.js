@@ -44,4 +44,16 @@ app.get('/', (req, res) => res.send('API running ✅'));
 app.use(errorHandler);
 
 const PORT = config.port;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Express 5 passes a startup error (like the port being taken) to this callback.
+// Without the check, it would print "Server running" and then quietly exit.
+app.listen(PORT, (error) => {
+  if (error) {
+    console.error(
+      error.code === 'EADDRINUSE'
+        ? `Port ${PORT} is already in use. Is another server running?`
+        : `Server can't start on port ${PORT}: ${error.code ?? error.message}`
+    );
+    process.exit(1);
+  }
+  console.log(`Server running on port ${PORT}`);
+});
