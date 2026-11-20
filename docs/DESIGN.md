@@ -226,7 +226,7 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 |---|---|
 | Navigation | `teams` Users · `explore` Compass · `notifications` Bell · `profile` User · `settings` Settings · `dashboard` LayoutDashboard · `reports` ShieldAlert · `venues` Building2 · `users` IdCard |
 | Movement | `back` ChevronLeft · `forward` ChevronRight |
-| Actions | `add` Plus · `approve` Check · `reject` X · `search` Search · `filter` Funnel · `edit` Pencil · `delete` Trash2 · `invite` UserPlus · `remove` UserMinus · `leave` DoorOpen · `logout` LogOut · `transfer` ArrowRightLeft |
+| Actions | `add` Plus · `approve` Check · `reject` X · `search` Search · `filter` Funnel · `edit` Pencil · `delete` Trash2 · `invite` UserPlus · `remove` UserMinus · `leave` DoorOpen · `logout` LogOut · `transfer` ArrowRightLeft · `show` Eye · `hide` EyeOff (show or hide a password) |
 | Things | `captain` Crown · `area` MapPin · `venue` Building2 · `phone` Phone · `email` Mail · `website` Globe · `password` Lock · `report` Flag · `block` Ban · `time` Clock |
 | States | `success` CircleCheck · `warning` TriangleAlert |
 

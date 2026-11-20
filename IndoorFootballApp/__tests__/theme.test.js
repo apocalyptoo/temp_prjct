@@ -9,6 +9,8 @@ import { fonts, typography } from '../src/theme/typography';
 import { spacing, touchTarget } from '../src/theme/spacing';
 import { radius } from '../src/theme/radius';
 import { shadows } from '../src/theme/shadows';
+import { sizes, opacity } from '../src/theme/sizes';
+import { icon } from '../src/theme/icons';
 import { theme } from '../src/theme';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
 
@@ -66,6 +68,8 @@ describe('colors.js', () => {
       onBadge: '#0E1116',
       avatarBg: '#262C36',
       avatarText: '#C6F432',
+      shadow: '#000000',
+      scrim: '#0E1116B3',
     });
   });
 
@@ -136,6 +140,7 @@ describe('typography.js', () => {
       tabLabelActive: [11, 'Inter-SemiBold'],
       button: [14, 'Inter-Bold'],
       buttonSecondary: [14, 'Inter-SemiBold'],
+      badge: [11, 'Inter-Bold'],
     };
     for (const [name, [size, family]] of Object.entries(expected)) {
       expect([
@@ -166,6 +171,19 @@ describe('spacing, radius, shadows and touch target', () => {
     });
     expect(radius).toEqual({ card: 14, button: 10, round: 999 });
     expect(touchTarget).toBe(44);
+    expect(sizes).toEqual({
+      field: 48,
+      button: 46,
+      avatarSmall: 38,
+      avatarLarge: 44,
+      badge: 18,
+      dot: 8,
+      border: 1,
+      dialogMaxWidth: 400,
+    });
+    expect(opacity).toEqual({ disabled: 0.45, pressed: 0.8 });
+    expect(icon).toEqual({ size: 24, sizeSmall: 16, strokeWidth: 1.8 });
+    expect(theme).toMatchObject({ sizes, opacity, icon });
   });
 
   test('the floating shadow has both the Android and the iOS properties', () => {

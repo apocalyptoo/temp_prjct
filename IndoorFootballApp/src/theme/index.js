@@ -7,6 +7,7 @@ import { spacing, touchTarget } from './spacing';
 import { radius } from './radius';
 import { shadows } from './shadows';
 import { icon } from './icons';
+import { sizes, opacity } from './sizes';
 
 export const theme = {
   dark: true,
@@ -17,5 +18,7 @@ export const theme = {
   radius,
   shadows,
   touchTarget,
+  sizes,
+  opacity,
   icon,
 };

@@ -50,4 +50,5 @@ export const typography = {
   tabLabelActive: text(fonts.semiBold, 11), // the active tab's label
   button: text(fonts.bold, 14), // primary button labels
   buttonSecondary: text(fonts.semiBold, 14), // secondary button labels
+  badge: text(fonts.bold, 11), // badge counts
 };

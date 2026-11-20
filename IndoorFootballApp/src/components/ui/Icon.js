@@ -20,6 +20,8 @@ import Clock from 'lucide-react-native/icons/clock';
 import Compass from 'lucide-react-native/icons/compass';
 import Crown from 'lucide-react-native/icons/crown';
 import DoorOpen from 'lucide-react-native/icons/door-open';
+import Eye from 'lucide-react-native/icons/eye';
+import EyeOff from 'lucide-react-native/icons/eye-off';
 import Flag from 'lucide-react-native/icons/flag';
 import Funnel from 'lucide-react-native/icons/funnel';
 import Globe from 'lucide-react-native/icons/globe';
@@ -71,6 +73,8 @@ const ICONS = {
   leave: DoorOpen,
   logout: LogOut,
   transfer: ArrowRightLeft,
+  show: Eye, // show a password
+  hide: EyeOff, // hide a password
   // things
   captain: Crown,
   area: MapPin,

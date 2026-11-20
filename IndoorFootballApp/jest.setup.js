@@ -8,3 +8,10 @@
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
+
+// Safe areas (how much room the status bar and notches take). The library's own mock
+// gives fixed sizes, so SafeAreaProvider and Screen render without a phone.
+jest.mock(
+  'react-native-safe-area-context',
+  () => require('react-native-safe-area-context/jest/mock').default,
+);

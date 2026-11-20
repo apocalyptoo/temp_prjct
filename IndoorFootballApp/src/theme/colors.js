@@ -20,4 +20,5 @@ export const colors = {
   avatarBg: palette.slate800, // avatar circle background
   avatarText: palette.lime, // avatar initials
   shadow: palette.black, // colour of the one floating shadow (shadows.js)
+  scrim: palette.nearBlack70, // dimmed backdrop behind dialogs
 };

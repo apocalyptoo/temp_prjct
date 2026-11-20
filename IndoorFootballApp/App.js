@@ -1,6 +1,7 @@
 // App.js
 import React from 'react';
 import { StatusBar } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/contexts/AuthContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
@@ -14,12 +15,16 @@ function ThemedStatusBar() {
 }
 
 export default function App() {
+  // SafeAreaProvider tells Screen (src/components/ui) how much room the status bar and
+  // notches take, so content keeps clear of them.
   return (
-    <ThemeProvider>
-      <ThemedStatusBar />
-      <AuthProvider>
-        <AppNavigator />
-      </AuthProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <ThemedStatusBar />
+        <AuthProvider>
+          <AppNavigator />
+        </AuthProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

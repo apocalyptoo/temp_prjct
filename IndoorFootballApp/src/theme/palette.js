@@ -6,6 +6,8 @@ export const palette = {
   // nearBlack is also the Android window background before the first screen draws:
   // keep `app_background` in android/app/src/main/res/values/colors.xml the same.
   nearBlack: '#0E1116',
+  // nearBlack at 70% opacity (0xB3 = 179 of 255)
+  nearBlack70: '#0E1116B3',
   slate950: '#12161C',
   slate900: '#171B22',
   slate800: '#262C36',
