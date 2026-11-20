@@ -2,7 +2,16 @@
 
 The visual design for v1.0. Every screen follows this file. What screens exist and how navigation works is in [PRODUCT.md](PRODUCT.md) under "App structure and navigation".
 
-Reference mockups (My Teams and Team detail): the "Connect Arena – Visual Directions" canvas, direction **A. Floodlight**.
+**Visual reference for components and screens** (the two approved Floodlight mockups):
+
+- [My Teams](design/floodlight-my-teams.png)
+- [Team detail, as captain](design/floodlight-team-detail-captain.png)
+
+Where the mockups differ from decisions made since (the decisions win):
+
+- Positions show futsal terms (Winger, Pivot). The real list is Goalkeeper, Defender, Midfielder, Forward, Any (PRODUCT.md, "Registration").
+- The members card shows a few members with "See all 11". That isn't decided in PRODUCT.md yet: decide it with the team membership feature.
+- The "Salam, Rahim" greeting wording is still to be confirmed.
 
 ---
 
@@ -65,6 +74,7 @@ IndoorFootballApp/src/
 | `onBadge` | `#0E1116` | Text on `badge` |
 | `avatarBg` | `#262C36` | Avatar circle background |
 | `avatarText` | `#C6F432` | Avatar initials |
+| `shadow` | `#000000` | Colour of the one `floating` shadow (section 5) |
 
 **Readability rules (checked):**
 - Text on `bg` or `surface` uses `text` or `textMuted` only. Both pass the standard contrast check (4.5:1).
@@ -80,36 +90,47 @@ Two font families, both from Google Fonts (free to use in apps under the Open Fo
 | Headings | **Barlow Condensed** | 700 (Bold) | Always UPPERCASE, letter spacing +2% |
 | Everything else | **Inter** | 400 / 500 / 600 / 700 | Body, labels, buttons |
 
-| Token | Font, size | Used for |
-|---|---|---|
-| `display` | Barlow Condensed 34 | Screen titles ("MY TEAMS") |
-| `title` | Barlow Condensed 36 | Detail page titles (team name) |
-| `cardTitle` | Barlow Condensed 19 | Team or venue names in cards |
-| `section` | Barlow Condensed 18 | Section headings inside cards ("JOIN REQUESTS") |
-| `body` | Inter 15, weight 600 for names | List item names |
-| `bodySmall` | Inter 14 | Descriptions, back links |
-| `meta` | Inter 13 | Member counts, positions, areas |
-| `pill` | Inter 12, weight 600–700 | Pills |
-| `tabLabel` | Inter 11, weight 500 (600 when active) | Tab labels |
-| `button` | Inter 14, weight 700 (600 for secondary) | Button labels |
+**Font files.** Each weight is its own static `.ttf` file, and the file name is the `fontFamily` used in code (`fonts` in `typography.js`): `BarlowCondensed-Bold`, `Inter-Regular` (400), `Inter-Medium` (500), `Inter-SemiBold` (600), `Inter-Bold` (700). On Android a custom font's weight comes from its file, so text styles set `fontFamily` per weight and never `fontWeight`.
 
-Line height: about 1.1 for headings, 1.45 for paragraphs.
+| Token | Font, size | Line height | Used for |
+|---|---|---|---|
+| `display` | Barlow Condensed 34 | 37 | Screen titles ("MY TEAMS") |
+| `title` | Barlow Condensed 36 | 40 | Detail page titles (team name) |
+| `cardTitle` | Barlow Condensed 19 | 21 | Team or venue names in cards |
+| `section` | Barlow Condensed 18 | 20 | Section headings inside cards ("JOIN REQUESTS") |
+| `body` | Inter 15, 400 | 22 | List item text |
+| `bodyStrong` | Inter 15, 600 | 22 | List item names |
+| `bodySmall` | Inter 14, 400 | 20 | Descriptions, back links |
+| `meta` | Inter 13, 400 | 19 | Member counts, positions, areas |
+| `pill` | Inter 12, 700 | 17 | Pills |
+| `tabLabel` | Inter 11, 500 | 16 | Tab labels |
+| `tabLabelActive` | Inter 11, 600 | 16 | The active tab's label |
+| `button` | Inter 14, 700 | 20 | Primary button labels |
+| `buttonSecondary` | Inter 14, 600 | 20 | Secondary button labels |
+
+- **Line height:** 1.1 × size for headings and 1.45 × size for everything else, rounded to whole pixels (the values above).
+- **Letter spacing:** headings +2% of the size (size × 0.02, e.g. 0.68 for `display`); Inter 0.
+- **Heading styles include the uppercase transform and the letter spacing**, so screens never set them by hand.
 
 ## 5. Spacing and shape
 
-**Spacing scale** (`spacing` tokens): 4 · 8 · 10 · 12 · 16 · 20 · 24 · 28.
-- Screen side padding: 20
-- Card padding: 16
-- Gap between cards: 20 on list screens, 18 on detail screens
-- Gap inside a card: 10–12
+**Spacing scale** (`spacing` tokens): `xxs` 4 · `xs` 8 · `sm` 10 · `md` 12 · `lg` 16 · `xl` 20 · `xxl` 24 · `xxxl` 28.
+
+**Layout tokens** (also in `spacing`). Screens should prefer these, and use the scale only for one-off gaps:
+- `screenPadding` 20: screen side padding
+- `cardPadding` 16: card padding
+- `listGap` 20: gap between cards on list screens
+- `detailGap` 18: gap between cards on detail screens (not on the scale, on purpose)
+- `cardGap` 12: gap inside a card (`sm` 10 where it needs to be tighter)
 
 **Corner radius** (`radius` tokens):
-- Cards and sections: 14
-- Buttons and icon buttons: 10
-- Pills and badges: fully round (999)
-- Avatars: circles
+- `card` 14: cards and sections
+- `button` 10: buttons and icon buttons
+- `round` 999: pills, badges and avatars (fully round)
 
-**Touch targets:** anything tappable is at least **44×44**.
+**Touch targets:** anything tappable is at least **44×44** (`touchTarget` token).
+
+**Shadow** (`shadows` tokens): only `floating`, for dialogs and pop-ups, never cards: colour `shadow`, offset 0 × 4, opacity 0.3, radius 12, and Android `elevation` 8.
 
 ## 6. Components
 
@@ -163,9 +184,9 @@ Line height: about 1.1 for headings, 1.45 for paragraphs.
 ## 9. Implementation notes (for Claude Code)
 
 - **Theme module first:** create the theme folder and the shared components (section 2) before restyling screens. Then restyle screens one by one.
-- **Fonts:** Barlow Condensed and Inter are added as font files, with their folder added to `react-native.config.js` (which currently links only the old icon fonts).
+- **Fonts:** Barlow Condensed and Inter are font files in `IndoorFootballApp/assets/fonts/` (from Google Fonts, with their OFL licenses), listed in `react-native.config.js` and copied by hand into `android/app/src/main/assets/fonts/`. iOS isn't linked yet.
 - **Icons:** install `lucide-react-native` and `react-native-svg`. This is approved in DECISIONS.md, but still check that the versions work with the app's React Native version before installing, and tell me which versions you chose. Then remove `react-native-vector-icons` once nothing uses it.
-- **Status bar:** always light content (white icons), whatever the phone's light/dark setting. Today `App.js` follows the phone's setting. That's a bug for a dark-only design.
+- **Status bar:** always light content (white icons) on `bg`, whatever the phone's light/dark setting (set in `App.js`). React Navigation gets a theme built from the tokens too, so its backgrounds and headers are dark.
 - **Dark only in v1.0.** Don't build theme switching yet. Just keep every value in tokens and use `useTheme()`.
 - **The existing UI code isn't a constraint.** It was written as a university project. Replace screens, styles and components properly wherever they conflict with this design. Don't patch around them.
 - **Restyling and behaviour changes are separate tasks.** A restyle commit changes how a screen looks, not what it does. Text or behaviour fixes (e.g. "Owner" → "Captain") get their own task.

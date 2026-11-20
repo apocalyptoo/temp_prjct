@@ -70,7 +70,7 @@ export default function OwnerRegisterScreen({ navigation }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       <Text style={styles.title}>Indoor Owner Registration</Text>
 
       <TextInput
@@ -141,6 +141,13 @@ export default function OwnerRegisterScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  // Temporary: this screen had no background of its own, so it showed React
+  // Navigation's light default. Now that the navigator is dark, that old light grey is
+  // pinned here so the screen looks exactly as before. Replaced when registration is
+  // rebuilt (Phase 4, Step 3).
+  screen: {
+    backgroundColor: '#F2F2F2',
+  },
   container: {
     padding: 24,
     justifyContent: 'center',

@@ -96,9 +96,11 @@ Built in four steps, in order (DECISIONS.md 2026-11-20, "Phase 4 order"). Severa
 Existing screens keep working inside the new tabs.
 
 - [x] Write `docs/DESIGN.md` (colors, fonts, spacing, components, screen list) before UI work
-- [ ] Theme module and shared components, following the folder structure in DESIGN.md section 2: `src/theme/` (palette, colors, typography, spacing, radius, shadows, index, ThemeProvider with `useTheme()`) and shared components in `src/components/ui/`. Status bar always light content (fix App.js following the phone's theme). The shared Button has a loading state (spinner, taps blocked while a request runs). Every button that sends a request uses it. Today the register, forgot-password and resend buttons give no feedback, and a second tap on Register gets 'Email already registered'.
-- [ ] Add Barlow Condensed and Inter font files
-- [ ] Install lucide-react-native and react-native-svg (check version compatibility first, tell me the versions), build the Icon component, then remove react-native-vector-icons and its fonts and config once unused
+- [x] 4.3 Theme module, following the folder structure in DESIGN.md section 2: `src/theme/` (palette, colors, typography, spacing, radius, shadows, index, ThemeProvider with `useTheme()`). Status bar always light content (fix App.js following the phone's theme). (done 2026-11-20: `__tests__/theme.test.js` checks the tokens and contrast; React Navigation also gets a token theme)
+- [ ] 4.4 Shared components in `src/components/ui/` (DESIGN.md sections 2 and 6). The shared Button has a loading state (spinner, taps blocked while a request runs). Every button that sends a request uses it. Today the register, forgot-password and resend buttons give no feedback, and a second tap on Register gets 'Email already registered'.
+- [x] Add Barlow Condensed and Inter font files (done 2026-11-20 with 4.3: static .ttf files from Google Fonts in `IndoorFootballApp/assets/fonts/`, copied by hand into the Android assets)
+- [ ] The Android window theme (`AppTheme`, DayNight) follows the phone's setting, so a white window can show at launch before the first screen. Make it dark (found in 4.3; not fixed there).
+- [ ] 4.5 Install lucide-react-native and react-native-svg (check version compatibility first, tell me the versions), build the Icon component, then remove react-native-vector-icons and its fonts and config once unused
 - [ ] Rebuild navigation as bottom tabs per role, as described in PRODUCT.md
 
 ### Step 3: Features, one at a time

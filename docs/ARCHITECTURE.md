@@ -313,20 +313,39 @@ When the code says "only the team captain can invite players", it means the team
 
 ```
 IndoorFootballApp/
-├── App.js               entry point: wraps everything in the login state
+├── App.js               entry point: wraps everything in the theme and the login state,
+│                        and sets the status bar (always white icons)
 ├── index.js             registers the app with React Native
-├── __tests__/           the Jest test (renders the whole app once)
+├── __tests__/           Jest tests: renders the whole app once; checks the theme tokens
 ├── jest.config.js       Jest settings; jest.setup.js swaps native modules for mocks
+├── react-native.config.js  lists the font folders the app ships
+├── assets/fonts/        Barlow Condensed and Inter font files, with their licenses
 ├── src/
 │   ├── api/api.js       shared helper for talking to the backend
 │   ├── contexts/        AuthContext.js: who is logged in
 │   ├── navigation/      which screens exist for each role
 │   ├── screens/         one file per screen, grouped by area
 │   │   (Auth, Player, Owner, Team, Admin)
+│   ├── theme/           the look: colours, fonts, sizes (see "The theme" below)
 │   └── utils/storage.js saves and reads the login token
 ├── android/             the native Android project
 └── ios/                 the native iOS project
 ```
+
+### The theme (colours, fonts and sizes in one place)
+
+The app's look lives in one folder, `src/theme/`, as named values called **tokens**: `colors.accent` is the lime green, `spacing.screenPadding` is the space at the sides of a screen, `typography.display` is the big screen-title text style. Screens are meant to use these names instead of writing colours or sizes themselves, so changing the look later means editing the theme folder, not every screen. The full design is in [DESIGN.md](DESIGN.md).
+
+- **Two colour layers.** `palette.js` holds the actual colours with plain names (`lime`, `nearBlack`). `colors.js` gives them meanings (`accent`, `bg`, `danger`). Screens only use the meanings.
+- **Text styles** (`typography.js`) bundle a font, size, line height and letter spacing. Headings are always uppercase, and that's built in. Each font weight is its own font file (`Inter-SemiBold`, `BarlowCondensed-Bold`), because Android picks a custom font's weight by file.
+- **`spacing.js`, `radius.js`, `shadows.js`** hold the spacing scale and layout spacings, corner roundness, and the one shadow for floating things like dialogs.
+- **`ThemeProvider.js`** makes the theme available everywhere. A screen reads it with `const { colors, spacing } = useTheme();`. There's only one theme (dark), but because screens ask for it this way, a light theme could be added later without editing them.
+
+The fonts are files in `assets/fonts/`. For Android they're also copied by hand into `android/app/src/main/assets/fonts/`, which is where Android loads them from (a rebuild with `npm run android` is needed after adding fonts).
+
+The status bar always shows white icons on the dark background, whatever the phone's light or dark setting. React Navigation also gets a theme built from the tokens, so its screen background and headers are dark instead of white.
+
+**Today the existing screens still use their old, hand-written light styles.** They're restyled one at a time later. The only change made to screens for the theme: the two registration screens had no background of their own and used to show React Navigation's light grey, so that grey is now set on them directly until registration is rebuilt.
 
 ### How navigation switches by role
 
@@ -372,7 +391,7 @@ The user's details (name, role) are kept in memory, and the token stays saved un
 4. If it replies 401, the token is no good: it's removed and the login screen shows (with the "session expired" message below).
 5. Any other failure (no connection, the ngrok tunnel down, a server error, the time limit) keeps the token and shows **"Can't reach the server"** with a **Retry** button, which runs the check again. Being offline never logs you out by itself, but a small **Log out** link under Retry removes the saved token and shows the login screen (no server call needed).
 
-The loading and "Can't reach the server" views are in `src/screens/Auth/StartupScreen.js`. They use React Native's built-in spinner, text and button with no colours of their own, until the theme module exists.
+The loading and "Can't reach the server" views are in `src/screens/Auth/StartupScreen.js`. They use React Native's built-in spinner, text and button with no colours of their own, until they're restyled with the theme.
 
 ### Expired or invalid login while using the app
 

@@ -86,7 +86,7 @@ export default function PlayerRegisterScreen({ navigation }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       <Text style={styles.title}>Player Registration</Text>
 
       <TextInput
@@ -167,6 +167,13 @@ export default function PlayerRegisterScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  // Temporary: this screen had no background of its own, so it showed React
+  // Navigation's light default. Now that the navigator is dark, that old light grey is
+  // pinned here so the screen looks exactly as before. Replaced when registration is
+  // rebuilt (Phase 4, Step 3).
+  screen: {
+    backgroundColor: '#F2F2F2',
+  },
   container: {
     padding: 24,
     justifyContent: 'center',
