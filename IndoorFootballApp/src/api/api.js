@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { getToken } from '../utils/storage';
 
-const API_URL = process.env.API_URL || 'https://demonstrational-nonfatal-judson.ngrok-free.dev';
+const API_URL =
+  process.env.API_URL ||
+  'https://demonstrational-nonfatal-judson.ngrok-free.dev';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -15,7 +17,7 @@ api.interceptors.request.use(
     if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
-  error => Promise.reject(error)
+  error => Promise.reject(error),
 );
 
 // What to do when the backend says the saved login is no longer valid. AuthContext sets
@@ -35,11 +37,16 @@ api.interceptors.response.use(
     const { config, response } = error;
     const sentToken = Boolean(config?.headers?.Authorization);
     const isLoginRequest = config?.url === '/auth/login';
-    if (response?.status === 401 && sentToken && !isLoginRequest && onSessionExpired) {
+    if (
+      response?.status === 401 &&
+      sentToken &&
+      !isLoginRequest &&
+      onSessionExpired
+    ) {
       onSessionExpired();
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

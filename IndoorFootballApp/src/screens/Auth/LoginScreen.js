@@ -24,7 +24,8 @@ export default function LoginScreen({ navigation }) {
     try {
       const res = await login(email.trim(), password);
       setNeedsVerification(Boolean(res.needsVerification));
-      if (!res.success) Alert.alert('Login failed', res.error || 'Check your credentials');
+      if (!res.success)
+        Alert.alert('Login failed', res.error || 'Check your credentials');
     } catch (err) {
       Alert.alert('Error', err.message || 'Login error');
     }
@@ -34,7 +35,10 @@ export default function LoginScreen({ navigation }) {
     setResending(true);
     const res = await resendVerification(email.trim());
     setResending(false);
-    Alert.alert(res.success ? 'Email sent' : 'Not sent', res.success ? res.message : res.error);
+    Alert.alert(
+      res.success ? 'Email sent' : 'Not sent',
+      res.success ? res.message : res.error,
+    );
   };
 
   const onChangeEmail = value => {
@@ -96,7 +100,10 @@ export default function LoginScreen({ navigation }) {
         </View>
 
         {/* Forgot Password Link */}
-        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotContainer}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('ForgotPassword')}
+          style={styles.forgotContainer}
+        >
           <Text style={styles.forgotText}>Forgot Password?</Text>
         </TouchableOpacity>
 

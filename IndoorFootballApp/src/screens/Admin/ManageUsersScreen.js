@@ -14,13 +14,13 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import api from '../../api/api';
 
-const roleIcon = (role) => {
+const roleIcon = role => {
   if (role === 'PLAYER') return 'person-outline';
   if (role === 'OWNER') return 'business-outline';
   return 'shield-outline';
 };
 
-const roleColor = (role) => {
+const roleColor = role => {
   if (role === 'PLAYER') return '#3B82F6';
   if (role === 'OWNER') return '#10B981';
   return '#F59E0B';
@@ -45,7 +45,9 @@ export default function ManageUsersScreen() {
     }
   };
 
-  useEffect(() => { loadUsers(); }, []);
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
   const deleteUser = (id, name) => {
     Alert.alert(
@@ -63,13 +65,16 @@ export default function ManageUsersScreen() {
               await loadUsers();
               Alert.alert('Deleted', 'User deleted successfully.');
             } catch (err) {
-              Alert.alert('Error', err.response?.data?.error || 'Failed to delete user.');
+              Alert.alert(
+                'Error',
+                err.response?.data?.error || 'Failed to delete user.',
+              );
             } finally {
               setDeletingId(null);
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -77,28 +82,47 @@ export default function ManageUsersScreen() {
     <View style={styles.container}>
       {/* Header */}
       <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <Animated.Text entering={FadeInDown.duration(500)} style={styles.headerTitle}>
+        <Animated.Text
+          entering={FadeInDown.duration(500)}
+          style={styles.headerTitle}
+        >
           Manage Users
         </Animated.Text>
         <Text style={styles.headerSub}>{users.length} registered users</Text>
       </LinearGradient>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#1E3A8A" style={{ marginTop: 40 }} />
+        <ActivityIndicator
+          size="large"
+          color="#1E3A8A"
+          style={{ marginTop: 40 }}
+        />
       ) : (
         <FlatList
           data={users}
-          keyExtractor={(i) => String(i.id)}
+          keyExtractor={i => String(i.id)}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => loadUsers(true)} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadUsers(true)}
+            />
           }
           renderItem={({ item, index }) => (
             <Animated.View entering={FadeInUp.delay(index * 60)}>
               <View style={styles.card}>
                 {/* Left icon */}
-                <View style={[styles.iconWrapper, { backgroundColor: roleColor(item.role) + '20' }]}>
-                  <Ionicons name={roleIcon(item.role)} size={22} color={roleColor(item.role)} />
+                <View
+                  style={[
+                    styles.iconWrapper,
+                    { backgroundColor: roleColor(item.role) + '20' },
+                  ]}
+                >
+                  <Ionicons
+                    name={roleIcon(item.role)}
+                    size={22}
+                    color={roleColor(item.role)}
+                  />
                 </View>
 
                 {/* Info */}
@@ -106,8 +130,18 @@ export default function ManageUsersScreen() {
                   <Text style={styles.name}>{item.name}</Text>
                   <Text style={styles.email}>{item.email}</Text>
                   <View style={styles.roleRow}>
-                    <View style={[styles.roleBadge, { backgroundColor: roleColor(item.role) + '20' }]}>
-                      <Text style={[styles.roleText, { color: roleColor(item.role) }]}>
+                    <View
+                      style={[
+                        styles.roleBadge,
+                        { backgroundColor: roleColor(item.role) + '20' },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.roleText,
+                          { color: roleColor(item.role) },
+                        ]}
+                      >
                         {item.role}
                       </Text>
                     </View>
@@ -121,21 +155,23 @@ export default function ManageUsersScreen() {
 
                 {/* Delete button */}
                 <TouchableOpacity
-                  style={[styles.deleteBtn, deletingId === item.id && styles.deleteBtnDisabled]}
+                  style={[
+                    styles.deleteBtn,
+                    deletingId === item.id && styles.deleteBtnDisabled,
+                  ]}
                   onPress={() => deleteUser(item.id, item.name)}
                   disabled={deletingId === item.id}
                 >
-                  {deletingId === item.id
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Ionicons name="trash-outline" size={18} color="#fff" />
-                  }
+                  {deletingId === item.id ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Ionicons name="trash-outline" size={18} color="#fff" />
+                  )}
                 </TouchableOpacity>
               </View>
             </Animated.View>
           )}
-          ListEmptyComponent={
-            <Text style={styles.empty}>No users found</Text>
-          }
+          ListEmptyComponent={<Text style={styles.empty}>No users found</Text>}
         />
       )}
     </View>

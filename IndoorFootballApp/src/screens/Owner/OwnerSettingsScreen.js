@@ -13,19 +13,35 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { AuthContext } from '../../contexts/AuthContext';
 import api from '../../api/api';
 
-const SettingsItem = ({ icon, label, sublabel, onPress, color = '#1E3A8A', danger = false, loading = false }) => (
-  <TouchableOpacity style={styles.item} onPress={onPress} activeOpacity={0.7} disabled={loading}>
+const SettingsItem = ({
+  icon,
+  label,
+  sublabel,
+  onPress,
+  color = '#1E3A8A',
+  danger = false,
+  loading = false,
+}) => (
+  <TouchableOpacity
+    style={styles.item}
+    onPress={onPress}
+    activeOpacity={0.7}
+    disabled={loading}
+  >
     <View style={[styles.itemIconWrapper, danger && styles.itemIconDanger]}>
       <Ionicons name={icon} size={20} color={danger ? '#EF4444' : color} />
     </View>
     <View style={{ flex: 1 }}>
-      <Text style={[styles.itemLabel, danger && { color: '#EF4444' }]}>{label}</Text>
+      <Text style={[styles.itemLabel, danger && { color: '#EF4444' }]}>
+        {label}
+      </Text>
       {!!sublabel && <Text style={styles.itemSublabel}>{sublabel}</Text>}
     </View>
-    {loading
-      ? <ActivityIndicator size="small" color="#1E3A8A" />
-      : <Ionicons name="chevron-forward" size={16} color="#ccc" />
-    }
+    {loading ? (
+      <ActivityIndicator size="small" color="#1E3A8A" />
+    ) : (
+      <Ionicons name="chevron-forward" size={16} color="#ccc" />
+    )}
   </TouchableOpacity>
 );
 
@@ -59,19 +75,20 @@ export default function OwnerSettingsScreen({ navigation }) {
                 'Email Sent ✅',
                 'A password reset link has been sent to ' +
                   user?.email +
-                  '.\n\nCheck your inbox and follow the link to set a new password.'
+                  '.\n\nCheck your inbox and follow the link to set a new password.',
               );
             } catch (err) {
               Alert.alert(
                 'Error',
-                err.response?.data?.error || 'Failed to send reset email. Try again.'
+                err.response?.data?.error ||
+                  'Failed to send reset email. Try again.',
               );
             } finally {
               setResetLoading(false);
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -115,7 +132,7 @@ export default function OwnerSettingsScreen({ navigation }) {
             onPress={() =>
               Alert.alert(
                 'ConnectArena',
-                'Version 1.0.0\nBuilt for indoor football communities.'
+                'Version 1.0.0\nBuilt for indoor football communities.',
               )
             }
           />

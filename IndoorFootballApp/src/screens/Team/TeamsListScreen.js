@@ -1,4 +1,3 @@
-
 // src/screens/Team/TeamsListScreen.js
 import React, { useContext, useEffect, useState } from 'react';
 import {
@@ -49,7 +48,10 @@ export default function TeamsListScreen({ navigation }) {
     <View style={styles.container}>
       {/* Header */}
       <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <Animated.Text entering={FadeInDown.duration(500)} style={styles.headerTitle}>
+        <Animated.Text
+          entering={FadeInDown.duration(500)}
+          style={styles.headerTitle}
+        >
           All Teams
         </Animated.Text>
 
@@ -65,11 +67,15 @@ export default function TeamsListScreen({ navigation }) {
 
       {/* Content */}
       {loading ? (
-        <ActivityIndicator size="large" color="#1E3A8A" style={{ marginTop: 30 }} />
+        <ActivityIndicator
+          size="large"
+          color="#1E3A8A"
+          style={{ marginTop: 30 }}
+        />
       ) : (
         <FlatList
           data={teams}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={item => String(item.id)}
           contentContainerStyle={styles.list}
           renderItem={({ item, index }) => (
             <Animated.View entering={FadeInUp.delay(index * 100)}>
@@ -83,19 +89,23 @@ export default function TeamsListScreen({ navigation }) {
                     style={styles.icon}
                   />
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.teamName, { color: '#1E3A8A' }]}>{item.name}</Text>
-                    <Text style={[styles.teamDescription, { color: '#333' }]}>{item.description}</Text>
+                    <Text style={[styles.teamName, { color: '#1E3A8A' }]}>
+                      {item.name}
+                    </Text>
+                    <Text style={[styles.teamDescription, { color: '#333' }]}>
+                      {item.description}
+                    </Text>
                   </View>
                 </View>
                 <Text style={[styles.meta, { color: '#555' }]}>
-                  Captain: {captainName(item)} | Members: {item.members?.length || 0}
+                  Captain: {captainName(item)} | Members:{' '}
+                  {item.members?.length || 0}
                 </Text>
               </LinearGradient>
             </Animated.View>
           )}
           ListEmptyComponent={<Text style={styles.empty}>No teams found</Text>}
         />
-
       )}
     </View>
   );

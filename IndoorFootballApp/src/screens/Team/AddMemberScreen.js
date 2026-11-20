@@ -34,7 +34,10 @@ export default function AddMemberScreen({ route, navigation }) {
     const loadPlayers = async () => {
       setLoading(true);
       try {
-        const [playersRes, myTeamsRes] = await Promise.all([api.get('/players'), api.get('/teams/me')]);
+        const [playersRes, myTeamsRes] = await Promise.all([
+          api.get('/players'),
+          api.get('/teams/me'),
+        ]);
         const team = myTeamsRes.data.find(t => t.id === teamId);
         const excluded = new Set([
           user.id,
@@ -57,7 +60,9 @@ export default function AddMemberScreen({ route, navigation }) {
     return (
       <View style={styles.centered}>
         <Ionicons name="lock-closed-outline" size={48} color="#9CA3AF" />
-        <Text style={styles.blockedText}>Only the team captain can add members.</Text>
+        <Text style={styles.blockedText}>
+          Only the team captain can add members.
+        </Text>
       </View>
     );
   }
@@ -70,7 +75,10 @@ export default function AddMemberScreen({ route, navigation }) {
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err) {
-      Alert.alert('Error', err?.response?.data?.error || 'Failed to invite player');
+      Alert.alert(
+        'Error',
+        err?.response?.data?.error || 'Failed to invite player',
+      );
     } finally {
       setInvitingId(null);
     }
@@ -79,22 +87,34 @@ export default function AddMemberScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <Animated.Text entering={FadeInDown.duration(500)} style={styles.headerTitle}>
+        <Animated.Text
+          entering={FadeInDown.duration(500)}
+          style={styles.headerTitle}
+        >
           Add Members
         </Animated.Text>
-        <Animated.Text entering={FadeInDown.delay(100)} style={styles.subHeader}>
+        <Animated.Text
+          entering={FadeInDown.delay(100)}
+          style={styles.subHeader}
+        >
           Select a player to invite
         </Animated.Text>
       </LinearGradient>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#1E3A8A" style={{ marginTop: 30 }} />
+        <ActivityIndicator
+          size="large"
+          color="#1E3A8A"
+          style={{ marginTop: 30 }}
+        />
       ) : (
         <FlatList
           data={players}
-          keyExtractor={(p) => String(p.id)}
+          keyExtractor={p => String(p.id)}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<Text style={styles.empty}>No players found.</Text>}
+          ListEmptyComponent={
+            <Text style={styles.empty}>No players found.</Text>
+          }
           renderItem={({ item, index }) => (
             <Animated.View entering={FadeInUp.delay(index * 80)}>
               <LinearGradient
@@ -107,7 +127,9 @@ export default function AddMemberScreen({ route, navigation }) {
                 />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.name}>{item.name}</Text>
-                  {!!item.email && <Text style={styles.email}>{item.email}</Text>}
+                  {!!item.email && (
+                    <Text style={styles.email}>{item.email}</Text>
+                  )}
                 </View>
                 <TouchableOpacity
                   style={[
@@ -117,10 +139,11 @@ export default function AddMemberScreen({ route, navigation }) {
                   onPress={() => invite(item.id, item.name)}
                   disabled={invitingId === item.id}
                 >
-                  {invitingId === item.id
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Text style={styles.inviteText}>Invite</Text>
-                  }
+                  {invitingId === item.id ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.inviteText}>Invite</Text>
+                  )}
                 </TouchableOpacity>
               </LinearGradient>
             </Animated.View>
@@ -133,7 +156,12 @@ export default function AddMemberScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F1F5F9' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
   blockedText: {
     marginTop: 16,
     fontSize: 16,

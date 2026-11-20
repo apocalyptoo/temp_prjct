@@ -36,7 +36,10 @@ export default function MyTeamsScreen({ navigation }) {
 
   // Reload whenever the screen comes into view (including the first time), so a team
   // deleted or changed in Team Detail is up to date when you come back.
-  useEffect(() => navigation.addListener('focus', loadMyTeams), [navigation, loadMyTeams]);
+  useEffect(
+    () => navigation.addListener('focus', loadMyTeams),
+    [navigation, loadMyTeams],
+  );
 
   const handleDelete = (teamId, teamName) => {
     Alert.alert(
@@ -54,31 +57,43 @@ export default function MyTeamsScreen({ navigation }) {
               await loadMyTeams();
               Alert.alert('Deleted', 'Team deleted successfully.');
             } catch (err) {
-              Alert.alert('Error', err.response?.data?.error || 'Failed to delete team.');
+              Alert.alert(
+                'Error',
+                err.response?.data?.error || 'Failed to delete team.',
+              );
             } finally {
               setDeletingId(null);
             }
           },
         },
-      ]
+      ],
     );
   };
 
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <Animated.Text entering={FadeInDown.duration(500)} style={styles.headerTitle}>
+        <Animated.Text
+          entering={FadeInDown.duration(500)}
+          style={styles.headerTitle}
+        >
           My Teams
         </Animated.Text>
       </LinearGradient>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#1E3A8A" style={{ marginTop: 30 }} />
+        <ActivityIndicator
+          size="large"
+          color="#1E3A8A"
+          style={{ marginTop: 30 }}
+        />
       ) : (
         <FlatList
           data={teams}
-          keyExtractor={(item) => String(item.id)}
-          refreshControl={<RefreshControl refreshing={loading} onRefresh={loadMyTeams} />}
+          keyExtractor={item => String(item.id)}
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={loadMyTeams} />
+          }
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <Text style={styles.empty}>You're not part of any team yet.</Text>
@@ -88,10 +103,15 @@ export default function MyTeamsScreen({ navigation }) {
             return (
               <Animated.View entering={FadeInUp.delay(index * 100)}>
                 <TouchableOpacity
-                  onPress={() => navigation.navigate('TeamDetail', { team: item })}
+                  onPress={() =>
+                    navigation.navigate('TeamDetail', { team: item })
+                  }
                   activeOpacity={0.85}
                 >
-                  <LinearGradient colors={['#FFFFFF', '#a1d3f5ff']} style={styles.card}>
+                  <LinearGradient
+                    colors={['#FFFFFF', '#a1d3f5ff']}
+                    style={styles.card}
+                  >
                     <View style={styles.cardTop}>
                       <Image
                         source={require('../../../assets/icons/mtm.png')}
@@ -125,13 +145,20 @@ export default function MyTeamsScreen({ navigation }) {
                         onPress={() => handleDelete(item.id, item.name)}
                         disabled={deletingId === item.id}
                       >
-                        {deletingId === item.id
-                          ? <ActivityIndicator size="small" color="#fff" />
-                          : <>
-                              <Ionicons name="trash-outline" size={14} color="#fff" />
-                              <Text style={styles.deleteBtnText}>Delete Team</Text>
-                            </>
-                        }
+                        {deletingId === item.id ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <>
+                            <Ionicons
+                              name="trash-outline"
+                              size={14}
+                              color="#fff"
+                            />
+                            <Text style={styles.deleteBtnText}>
+                              Delete Team
+                            </Text>
+                          </>
+                        )}
                       </TouchableOpacity>
                     )}
                   </LinearGradient>
@@ -193,6 +220,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   deleteBtnDisabled: { backgroundColor: '#9CA3AF' },
-  deleteBtnText: { color: '#fff', fontWeight: '700', fontSize: 13, marginLeft: 4 },
+  deleteBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
+    marginLeft: 4,
+  },
   empty: { textAlign: 'center', color: '#777', marginTop: 30 },
 });

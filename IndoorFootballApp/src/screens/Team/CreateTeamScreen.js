@@ -25,10 +25,16 @@ export default function CreateTeamScreen({ navigation }) {
     }
     try {
       const res = await api.post('/teams/create', { name, description });
-      Alert.alert('Team Created', `Team "${res.data.name}" created successfully.`);
+      Alert.alert(
+        'Team Created',
+        `Team "${res.data.name}" created successfully.`,
+      );
       navigation.goBack();
     } catch (err) {
-      Alert.alert('Error', err?.response?.data?.error || 'Failed to create team');
+      Alert.alert(
+        'Error',
+        err?.response?.data?.error || 'Failed to create team',
+      );
     }
   };
 
@@ -39,7 +45,10 @@ export default function CreateTeamScreen({ navigation }) {
     >
       {/* Header */}
       <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <Animated.Text entering={FadeInDown.duration(500)} style={styles.headerTitle}>
+        <Animated.Text
+          entering={FadeInDown.duration(500)}
+          style={styles.headerTitle}
+        >
           Create Team
         </Animated.Text>
       </LinearGradient>

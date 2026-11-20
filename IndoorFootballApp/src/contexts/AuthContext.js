@@ -1,12 +1,18 @@
-
-import React, { createContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from 'react';
 import { Alert } from 'react-native';
 import api, { setSessionExpiredHandler } from '../api/api';
 import { saveToken, getToken, removeToken } from '../utils/storage';
 
 export const AuthContext = createContext();
 
-export const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please log in again.';
+export const SESSION_EXPIRED_MESSAGE =
+  'Your session has expired. Please log in again.';
 
 // How long the start-up check may take before we show "Can't reach the server".
 const STARTUP_TIMEOUT_MS = 15000;
@@ -76,7 +82,6 @@ export const AuthProvider = ({ children }) => {
       }
 
       return { success: false, error: 'Login failed' };
-
     } catch (err) {
       return {
         success: false,
@@ -96,7 +101,9 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       return {
         success: false,
-        error: err.response?.data?.error || 'Could not send the email. Please try again later.',
+        error:
+          err.response?.data?.error ||
+          'Could not send the email. Please try again later.',
       };
     }
   };
@@ -114,11 +121,8 @@ export const AuthProvider = ({ children }) => {
       });
 
       return res.data;
-
     } catch (err) {
-      throw new Error(
-        err.response?.data?.error || 'Registration failed'
-      );
+      throw new Error(err.response?.data?.error || 'Registration failed');
     }
   };
 

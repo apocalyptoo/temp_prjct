@@ -35,7 +35,8 @@ function PlayerTabs() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         tabBarIcon: ({ color, size }) => {
           let iconName;
-          if (route.name === 'PlayerProfile') iconName = 'person-circle-outline';
+          if (route.name === 'PlayerProfile')
+            iconName = 'person-circle-outline';
           if (route.name === 'PlayerSettings') iconName = 'settings-outline';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
@@ -64,14 +65,46 @@ export default function PlayerNavigator() {
         component={PlayerTabs}
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="Teams" component={TeamsListScreen} options={{ title: 'All Teams' }} />
-      <Stack.Screen name="CreateTeam" component={CreateTeamScreen} options={{ title: 'Create Team' }} />
-      <Stack.Screen name="MyTeams" component={MyTeamsScreen} options={{ title: 'My Teams' }} />
-      <Stack.Screen name="TeamDetail" component={TeamDetailScreen} options={{ title: 'Team Detail' }} />
-      <Stack.Screen name="AddMember" component={AddMemberScreen} options={{ title: 'Add Member' }} />
-      <Stack.Screen name="Players" component={PlayersListScreen} options={{ title: 'Players' }} />
-      <Stack.Screen name="Invites" component={InvitesScreen} options={{ title: 'Invites' }} />
-      <Stack.Screen name="Indoors" component={IndoorsListScreen} options={{ title: 'Registered Indoors' }} />
+      <Stack.Screen
+        name="Teams"
+        component={TeamsListScreen}
+        options={{ title: 'All Teams' }}
+      />
+      <Stack.Screen
+        name="CreateTeam"
+        component={CreateTeamScreen}
+        options={{ title: 'Create Team' }}
+      />
+      <Stack.Screen
+        name="MyTeams"
+        component={MyTeamsScreen}
+        options={{ title: 'My Teams' }}
+      />
+      <Stack.Screen
+        name="TeamDetail"
+        component={TeamDetailScreen}
+        options={{ title: 'Team Detail' }}
+      />
+      <Stack.Screen
+        name="AddMember"
+        component={AddMemberScreen}
+        options={{ title: 'Add Member' }}
+      />
+      <Stack.Screen
+        name="Players"
+        component={PlayersListScreen}
+        options={{ title: 'Players' }}
+      />
+      <Stack.Screen
+        name="Invites"
+        component={InvitesScreen}
+        options={{ title: 'Invites' }}
+      />
+      <Stack.Screen
+        name="Indoors"
+        component={IndoorsListScreen}
+        options={{ title: 'Registered Indoors' }}
+      />
     </Stack.Navigator>
   );
 }

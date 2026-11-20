@@ -4,7 +4,13 @@
 // spinner, text and button, with no colours or sizes of its own, until the theme module
 // exists (docs/DESIGN.md).
 import React from 'react';
-import { View, Text, ActivityIndicator, Button, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  ActivityIndicator,
+  Button,
+  StyleSheet,
+} from 'react-native';
 
 export function StartupLoading() {
   return (

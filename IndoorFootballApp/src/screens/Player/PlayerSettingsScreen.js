@@ -13,19 +13,34 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { AuthContext } from '../../contexts/AuthContext';
 import api from '../../api/api';
 
-const SettingsItem = ({ icon, label, sublabel, onPress, danger = false, loading = false }) => (
-  <TouchableOpacity style={styles.item} onPress={onPress} activeOpacity={0.7} disabled={loading}>
+const SettingsItem = ({
+  icon,
+  label,
+  sublabel,
+  onPress,
+  danger = false,
+  loading = false,
+}) => (
+  <TouchableOpacity
+    style={styles.item}
+    onPress={onPress}
+    activeOpacity={0.7}
+    disabled={loading}
+  >
     <View style={[styles.itemIconWrapper, danger && styles.itemIconDanger]}>
       <Ionicons name={icon} size={20} color={danger ? '#EF4444' : '#1E3A8A'} />
     </View>
     <View style={{ flex: 1 }}>
-      <Text style={[styles.itemLabel, danger && { color: '#EF4444' }]}>{label}</Text>
+      <Text style={[styles.itemLabel, danger && { color: '#EF4444' }]}>
+        {label}
+      </Text>
       {!!sublabel && <Text style={styles.itemSublabel}>{sublabel}</Text>}
     </View>
-    {loading
-      ? <ActivityIndicator size="small" color="#1E3A8A" />
-      : <Ionicons name="chevron-forward" size={16} color="#ccc" />
-    }
+    {loading ? (
+      <ActivityIndicator size="small" color="#1E3A8A" />
+    ) : (
+      <Ionicons name="chevron-forward" size={16} color="#ccc" />
+    )}
   </TouchableOpacity>
 );
 
@@ -56,19 +71,20 @@ export default function PlayerSettingsScreen({ navigation }) {
                 'Email Sent ✅',
                 'A password reset link has been sent to ' +
                   user?.email +
-                  '.\n\nCheck your inbox and follow the link to set a new password.'
+                  '.\n\nCheck your inbox and follow the link to set a new password.',
               );
             } catch (err) {
               Alert.alert(
                 'Error',
-                err.response?.data?.error || 'Failed to send reset email. Try again.'
+                err.response?.data?.error ||
+                  'Failed to send reset email. Try again.',
               );
             } finally {
               setResetLoading(false);
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -110,7 +126,10 @@ export default function PlayerSettingsScreen({ navigation }) {
             label="About ConnectArena"
             sublabel="Version 1.0.0"
             onPress={() =>
-              Alert.alert('ConnectArena', 'Version 1.0.0\nBuilt for indoor football communities.')
+              Alert.alert(
+                'ConnectArena',
+                'Version 1.0.0\nBuilt for indoor football communities.',
+              )
             }
           />
           <View style={styles.divider} />
@@ -118,7 +137,9 @@ export default function PlayerSettingsScreen({ navigation }) {
             icon="help-circle-outline"
             label="Support"
             sublabel="Get help or report an issue"
-            onPress={() => Alert.alert('Support', 'Contact us at support@connectarena.com')}
+            onPress={() =>
+              Alert.alert('Support', 'Contact us at support@connectarena.com')
+            }
           />
         </View>
       </View>
@@ -154,7 +175,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
-  headerSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 4 },
+  headerSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 4,
+  },
   section: { marginHorizontal: 16, marginTop: 20 },
   sectionTitle: {
     fontSize: 12,

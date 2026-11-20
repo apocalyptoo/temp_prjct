@@ -1,4 +1,3 @@
-
 // src/screens/Invites/InvitesScreen.js
 import React, { useEffect, useState } from 'react';
 import {
@@ -32,7 +31,7 @@ export default function InvitesScreen() {
     }
   };
 
-  const acceptInvite = async (teamId) => {
+  const acceptInvite = async teamId => {
     try {
       await api.post(`/teams/${teamId}/accept`);
       Alert.alert('Joined', 'You have joined the team.');
@@ -44,7 +43,7 @@ export default function InvitesScreen() {
     }
   };
 
-  const rejectInvite = async (teamId) => {
+  const rejectInvite = async teamId => {
     try {
       await api.post(`/teams/${teamId}/reject`);
       Alert.alert('Rejected', 'Invite rejected.');
@@ -64,18 +63,25 @@ export default function InvitesScreen() {
     <View style={styles.container}>
       {/* Header */}
       <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <Animated.Text entering={FadeInDown.duration(500)} style={styles.headerTitle}>
+        <Animated.Text
+          entering={FadeInDown.duration(500)}
+          style={styles.headerTitle}
+        >
           Team Invites
         </Animated.Text>
       </LinearGradient>
 
       {/* List */}
       {loading ? (
-        <ActivityIndicator size="large" color="#1E3A8A" style={{ marginTop: 30 }} />
+        <ActivityIndicator
+          size="large"
+          color="#1E3A8A"
+          style={{ marginTop: 30 }}
+        />
       ) : (
         <FlatList
           data={invites}
-          keyExtractor={(i) => String(i.id)}
+          keyExtractor={i => String(i.id)}
           contentContainerStyle={styles.list}
           renderItem={({ item, index }) => (
             <Animated.View entering={FadeInUp.delay(index * 100)}>
@@ -114,7 +120,9 @@ export default function InvitesScreen() {
               </View>
             </Animated.View>
           )}
-          ListEmptyComponent={<Text style={styles.empty}>No pending invites</Text>}
+          ListEmptyComponent={
+            <Text style={styles.empty}>No pending invites</Text>
+          }
         />
       )}
     </View>

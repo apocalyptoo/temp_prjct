@@ -33,7 +33,10 @@ export default function TeamDetailScreen({ route, navigation }) {
       if (fresh) {
         setTeam(fresh);
       } else {
-        Alert.alert('Team not available', 'This team no longer exists, or you are no longer in it.');
+        Alert.alert(
+          'Team not available',
+          'This team no longer exists, or you are no longer in it.',
+        );
         navigation.goBack();
       }
     } catch (err) {
@@ -42,7 +45,10 @@ export default function TeamDetailScreen({ route, navigation }) {
   }, [navigation, teamId]);
 
   // Reload whenever the screen comes into view (for example back from Add Member).
-  useEffect(() => navigation.addListener('focus', loadTeam), [navigation, loadTeam]);
+  useEffect(
+    () => navigation.addListener('focus', loadTeam),
+    [navigation, loadTeam],
+  );
 
   // Check if logged-in user is the team's captain (Team.ownerId)
   const isOwner = user?.id === team.ownerId;
@@ -72,17 +78,20 @@ export default function TeamDetailScreen({ route, navigation }) {
                 isPendingInvite ? 'Invite cancelled' : 'Removed',
                 isPendingInvite
                   ? `The invite to ${memberName} has been cancelled.`
-                  : `${memberName} has been removed from the team.`
+                  : `${memberName} has been removed from the team.`,
               );
               await loadTeam();
             } catch (err) {
-              Alert.alert('Error', err.response?.data?.error || 'Failed to remove player.');
+              Alert.alert(
+                'Error',
+                err.response?.data?.error || 'Failed to remove player.',
+              );
             } finally {
               setRemovingId(null);
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -103,12 +112,15 @@ export default function TeamDetailScreen({ route, navigation }) {
                 { text: 'OK', onPress: () => navigation.goBack() },
               ]);
             } catch (err) {
-              Alert.alert('Error', err.response?.data?.error || 'Failed to delete team.');
+              Alert.alert(
+                'Error',
+                err.response?.data?.error || 'Failed to delete team.',
+              );
               setDeleting(false);
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -116,12 +128,19 @@ export default function TeamDetailScreen({ route, navigation }) {
     <View style={styles.container}>
       {/* Header */}
       <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <Animated.Text entering={FadeInDown.duration(500)} style={styles.headerTitle}>
+        <Animated.Text
+          entering={FadeInDown.duration(500)}
+          style={styles.headerTitle}
+        >
           {team.name}
         </Animated.Text>
         {isOwner && (
           <View style={styles.ownerBadge}>
-            <Ionicons name="shield-checkmark-outline" size={13} color="#1E3A8A" />
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={13}
+              color="#1E3A8A"
+            />
             <Text style={styles.ownerBadgeText}>You are the captain</Text>
           </View>
         )}
@@ -138,7 +157,12 @@ export default function TeamDetailScreen({ route, navigation }) {
           <View style={styles.ownerActions}>
             <TouchableOpacity
               style={styles.addButton}
-              onPress={() => navigation.navigate('AddMember', { teamId: team.id, ownerId: team.ownerId, })}
+              onPress={() =>
+                navigation.navigate('AddMember', {
+                  teamId: team.id,
+                  ownerId: team.ownerId,
+                })
+              }
             >
               <Ionicons name="person-add-outline" size={16} color="#fff" />
               <Text style={styles.addButtonText}>Add Member</Text>
@@ -149,13 +173,14 @@ export default function TeamDetailScreen({ route, navigation }) {
               onPress={handleDeleteTeam}
               disabled={deleting}
             >
-              {deleting
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <>
-                    <Ionicons name="trash-outline" size={16} color="#fff" />
-                    <Text style={styles.deleteTeamText}>Delete Team</Text>
-                  </>
-              }
+              {deleting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="trash-outline" size={16} color="#fff" />
+                  <Text style={styles.deleteTeamText}>Delete Team</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -164,12 +189,10 @@ export default function TeamDetailScreen({ route, navigation }) {
       {/* Members List */}
       <FlatList
         data={listedPeople}
-        keyExtractor={(m) => String(m.userId || m.id)}
+        keyExtractor={m => String(m.userId || m.id)}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
-          <Text style={styles.memberTitle}>
-            Members ({members.length})
-          </Text>
+          <Text style={styles.memberTitle}>Members ({members.length})</Text>
         }
         renderItem={({ item, index }) => {
           const memberUserId = item.userId || item.user?.id;
@@ -196,8 +219,12 @@ export default function TeamDetailScreen({ route, navigation }) {
                       </View>
                     )}
                   </View>
-                  {!!memberEmail && <Text style={styles.memberEmail}>{memberEmail}</Text>}
-                  <Text style={styles.memberStatus}>{item.status || 'member'}</Text>
+                  {!!memberEmail && (
+                    <Text style={styles.memberEmail}>{memberEmail}</Text>
+                  )}
+                  <Text style={styles.memberStatus}>
+                    {item.status || 'member'}
+                  </Text>
                 </View>
 
                 {/* Remove button — only the captain sees it, and not on their own row */}
@@ -207,13 +234,24 @@ export default function TeamDetailScreen({ route, navigation }) {
                       styles.removeBtn,
                       removingId === memberUserId && styles.removeBtnDisabled,
                     ]}
-                    onPress={() => handleRemovePlayer(memberUserId, memberName, item.status === 'pending')}
+                    onPress={() =>
+                      handleRemovePlayer(
+                        memberUserId,
+                        memberName,
+                        item.status === 'pending',
+                      )
+                    }
                     disabled={removingId === memberUserId}
                   >
-                    {removingId === memberUserId
-                      ? <ActivityIndicator size="small" color="#fff" />
-                      : <Ionicons name="person-remove-outline" size={16} color="#fff" />
-                    }
+                    {removingId === memberUserId ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Ionicons
+                        name="person-remove-outline"
+                        size={16}
+                        color="#fff"
+                      />
+                    )}
                   </TouchableOpacity>
                 )}
               </LinearGradient>
@@ -253,7 +291,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 4,
   },
-  ownerBadgeText: { color: '#1E3A8A', fontSize: 12, fontWeight: '700', marginLeft: 4 },
+  ownerBadgeText: {
+    color: '#1E3A8A',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
 
   infoCard: {
     backgroundColor: '#fff',
@@ -266,7 +309,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 6,
   },
-  teamDescription: { fontSize: 14, color: '#444', lineHeight: 20, marginBottom: 12 },
+  teamDescription: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
 
   ownerActions: {
     flexDirection: 'row',
@@ -282,7 +330,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 6,
   },
-  addButtonText: { color: '#fff', fontWeight: '700', fontSize: 14, marginLeft: 4 },
+  addButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+    marginLeft: 4,
+  },
   deleteTeamButton: {
     flex: 1,
     flexDirection: 'row',
@@ -293,7 +346,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 6,
   },
-  deleteTeamText: { color: '#fff', fontWeight: '700', fontSize: 14, marginLeft: 4 },
+  deleteTeamText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+    marginLeft: 4,
+  },
 
   list: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 },
   memberTitle: {

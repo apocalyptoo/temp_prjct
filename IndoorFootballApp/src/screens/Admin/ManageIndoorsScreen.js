@@ -33,7 +33,9 @@ export default function ManageIndoorsScreen() {
     }
   };
 
-  useEffect(() => { loadIndoors(); }, []);
+  useEffect(() => {
+    loadIndoors();
+  }, []);
 
   const deleteIndoor = (userId, name) => {
     Alert.alert(
@@ -51,13 +53,16 @@ export default function ManageIndoorsScreen() {
               await loadIndoors();
               Alert.alert('Deleted', 'Indoor field deleted successfully.');
             } catch (err) {
-              Alert.alert('Error', err.response?.data?.error || 'Failed to delete indoor.');
+              Alert.alert(
+                'Error',
+                err.response?.data?.error || 'Failed to delete indoor.',
+              );
             } finally {
               setDeletingId(null);
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -65,21 +70,33 @@ export default function ManageIndoorsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <Animated.Text entering={FadeInDown.duration(500)} style={styles.headerTitle}>
+        <Animated.Text
+          entering={FadeInDown.duration(500)}
+          style={styles.headerTitle}
+        >
           Manage Indoors
         </Animated.Text>
-        <Text style={styles.headerSub}>{indoors.length} registered indoor fields</Text>
+        <Text style={styles.headerSub}>
+          {indoors.length} registered indoor fields
+        </Text>
       </LinearGradient>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#1E3A8A" style={{ marginTop: 40 }} />
+        <ActivityIndicator
+          size="large"
+          color="#1E3A8A"
+          style={{ marginTop: 40 }}
+        />
       ) : (
         <FlatList
           data={indoors}
-          keyExtractor={(i) => String(i.userId)}
+          keyExtractor={i => String(i.userId)}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => loadIndoors(true)} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadIndoors(true)}
+            />
           }
           renderItem={({ item, index }) => (
             <Animated.View entering={FadeInUp.delay(index * 60)}>
@@ -94,7 +111,9 @@ export default function ManageIndoorsScreen() {
                   <Text style={styles.indoorName}>{item.indoorName}</Text>
                   <Text style={styles.email}>{item.email}</Text>
                   <Text style={styles.meta}>{item.phone}</Text>
-                  <Text style={styles.meta} numberOfLines={1}>{item.address}</Text>
+                  <Text style={styles.meta} numberOfLines={1}>
+                    {item.address}
+                  </Text>
                   {!item.verified && (
                     <View style={styles.unverifiedBadge}>
                       <Text style={styles.unverifiedText}>Unverified</Text>
@@ -104,14 +123,18 @@ export default function ManageIndoorsScreen() {
 
                 {/* Delete button */}
                 <TouchableOpacity
-                  style={[styles.deleteBtn, deletingId === item.userId && styles.deleteBtnDisabled]}
+                  style={[
+                    styles.deleteBtn,
+                    deletingId === item.userId && styles.deleteBtnDisabled,
+                  ]}
                   onPress={() => deleteIndoor(item.userId, item.indoorName)}
                   disabled={deletingId === item.userId}
                 >
-                  {deletingId === item.userId
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Ionicons name="trash-outline" size={18} color="#fff" />
-                  }
+                  {deletingId === item.userId ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Ionicons name="trash-outline" size={18} color="#fff" />
+                  )}
                 </TouchableOpacity>
               </View>
             </Animated.View>

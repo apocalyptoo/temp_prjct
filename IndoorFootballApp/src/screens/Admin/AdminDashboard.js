@@ -1,4 +1,3 @@
-
 import React, { useContext, useEffect, useState } from 'react';
 import {
   View,
@@ -27,8 +26,15 @@ const StatCard = ({ icon, label, value, color = '#1E3A8A' }) => (
 );
 
 const ActionBtn = ({ icon, label, onPress }) => (
-  <TouchableOpacity style={styles.actionBtn} onPress={onPress} activeOpacity={0.8}>
-    <LinearGradient colors={['#FFFFFF', '#a1d3f5ff']} style={styles.actionGradient}>
+  <TouchableOpacity
+    style={styles.actionBtn}
+    onPress={onPress}
+    activeOpacity={0.8}
+  >
+    <LinearGradient
+      colors={['#FFFFFF', '#a1d3f5ff']}
+      style={styles.actionGradient}
+    >
       <Ionicons name={icon} size={32} color="#1E3A8A" />
       <Text style={styles.actionLabel}>{label}</Text>
     </LinearGradient>
@@ -54,7 +60,9 @@ export default function AdminDashboard({ navigation }) {
     }
   };
 
-  useEffect(() => { fetchStats(); }, []);
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   const onLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to log out?', [
@@ -67,7 +75,10 @@ export default function AdminDashboard({ navigation }) {
     <ScrollView
       style={styles.container}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => fetchStats(true)} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => fetchStats(true)}
+        />
       }
     >
       {/* ── Hero Header ── */}
@@ -77,7 +88,10 @@ export default function AdminDashboard({ navigation }) {
             <Ionicons name="shield-checkmark" size={40} color="#1E3A8A" />
           </View>
         </View>
-        <Animated.Text entering={FadeInDown.duration(500)} style={styles.headerTitle}>
+        <Animated.Text
+          entering={FadeInDown.duration(500)}
+          style={styles.headerTitle}
+        >
           Admin Dashboard
         </Animated.Text>
         <Text style={styles.headerEmail}>{user?.email}</Text>
@@ -96,16 +110,42 @@ export default function AdminDashboard({ navigation }) {
       {/* ── Stats Row ── */}
       <View style={styles.statsRow}>
         {loading ? (
-          <ActivityIndicator size="small" color="#1E3A8A" style={{ marginVertical: 20 }} />
+          <ActivityIndicator
+            size="small"
+            color="#1E3A8A"
+            style={{ marginVertical: 20 }}
+          />
         ) : (
-          <Animated.View entering={FadeInUp.delay(100)} style={styles.statsInner}>
-            <StatCard icon="people-outline" label="Total Users" value={stats?.userCount} />
+          <Animated.View
+            entering={FadeInUp.delay(100)}
+            style={styles.statsInner}
+          >
+            <StatCard
+              icon="people-outline"
+              label="Total Users"
+              value={stats?.userCount}
+            />
             <View style={styles.statDivider} />
-            <StatCard icon="people-circle-outline" label="Players" value={stats?.playerCount} color="#3B82F6" />
+            <StatCard
+              icon="people-circle-outline"
+              label="Players"
+              value={stats?.playerCount}
+              color="#3B82F6"
+            />
             <View style={styles.statDivider} />
-            <StatCard icon="business-outline" label="Owners" value={stats?.ownerCount} color="#10B981" />
+            <StatCard
+              icon="business-outline"
+              label="Owners"
+              value={stats?.ownerCount}
+              color="#10B981"
+            />
             <View style={styles.statDivider} />
-            <StatCard icon="shield-outline" label="Teams" value={stats?.teamCount} color="#F59E0B" />
+            <StatCard
+              icon="shield-outline"
+              label="Teams"
+              value={stats?.teamCount}
+              color="#F59E0B"
+            />
           </Animated.View>
         )}
       </View>
@@ -171,7 +211,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 4,
   },
-  badgeText: { color: '#1E3A8A', fontSize: 12, fontWeight: '700', marginLeft: 4 },
+  badgeText: {
+    color: '#1E3A8A',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -211,7 +256,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   statValue: { fontSize: 18, fontWeight: '800', color: '#111' },
-  statLabel: { fontSize: 10, color: '#888', fontWeight: '600', marginTop: 2, textAlign: 'center' },
+  statLabel: {
+    fontSize: 10,
+    color: '#888',
+    fontWeight: '600',
+    marginTop: 2,
+    textAlign: 'center',
+  },
   statDivider: { width: 1, backgroundColor: '#F1F5F9', marginVertical: 8 },
 
   // Actions

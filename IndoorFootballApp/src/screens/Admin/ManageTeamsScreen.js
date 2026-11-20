@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -27,14 +26,19 @@ export default function ManageTeamsScreen() {
       const res = await api.get('/admin/teams');
       setTeams(res.data || []);
     } catch (err) {
-      Alert.alert('Error', err.response?.data?.error || 'Failed to fetch teams');
+      Alert.alert(
+        'Error',
+        err.response?.data?.error || 'Failed to fetch teams',
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => { loadTeams(); }, []);
+  useEffect(() => {
+    loadTeams();
+  }, []);
 
   const deleteTeam = (id, name) => {
     Alert.alert(
@@ -58,7 +62,7 @@ export default function ManageTeamsScreen() {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -66,21 +70,31 @@ export default function ManageTeamsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <Animated.Text entering={FadeInDown.duration(500)} style={styles.headerTitle}>
+        <Animated.Text
+          entering={FadeInDown.duration(500)}
+          style={styles.headerTitle}
+        >
           Manage Teams
         </Animated.Text>
         <Text style={styles.headerSub}>{teams.length} teams registered</Text>
       </LinearGradient>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#1E3A8A" style={{ marginTop: 40 }} />
+        <ActivityIndicator
+          size="large"
+          color="#1E3A8A"
+          style={{ marginTop: 40 }}
+        />
       ) : (
         <FlatList
           data={teams}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={item => String(item.id)}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => loadTeams(true)} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadTeams(true)}
+            />
           }
           renderItem={({ item, index }) => (
             <Animated.View entering={FadeInUp.delay(index * 60)}>
@@ -103,8 +117,14 @@ export default function ManageTeamsScreen() {
                   </Text>
                   <View style={styles.infoRow}>
                     <View style={styles.memberBadge}>
-                      <Ionicons name="people-outline" size={12} color="#3B82F6" />
-                      <Text style={styles.memberText}>{item.memberCount} members</Text>
+                      <Ionicons
+                        name="people-outline"
+                        size={12}
+                        color="#3B82F6"
+                      />
+                      <Text style={styles.memberText}>
+                        {item.memberCount} members
+                      </Text>
                     </View>
                     <Text style={styles.date}>
                       {new Date(item.createdAt).toLocaleDateString()}
@@ -114,21 +134,23 @@ export default function ManageTeamsScreen() {
 
                 {/* Delete button */}
                 <TouchableOpacity
-                  style={[styles.deleteBtn, deletingId === item.id && styles.deleteBtnDisabled]}
+                  style={[
+                    styles.deleteBtn,
+                    deletingId === item.id && styles.deleteBtnDisabled,
+                  ]}
                   onPress={() => deleteTeam(item.id, item.name)}
                   disabled={deletingId === item.id}
                 >
-                  {deletingId === item.id
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Ionicons name="trash-outline" size={18} color="#fff" />
-                  }
+                  {deletingId === item.id ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Ionicons name="trash-outline" size={18} color="#fff" />
+                  )}
                 </TouchableOpacity>
               </View>
             </Animated.View>
           )}
-          ListEmptyComponent={
-            <Text style={styles.empty}>No teams found</Text>
-          }
+          ListEmptyComponent={<Text style={styles.empty}>No teams found</Text>}
         />
       )}
     </View>

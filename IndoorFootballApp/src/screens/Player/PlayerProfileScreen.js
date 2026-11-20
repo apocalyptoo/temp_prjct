@@ -28,14 +28,19 @@ export default function PlayerProfileScreen() {
       const res = await api.get('/players/me');
       setData(res.data);
     } catch (err) {
-      console.error('PlayerProfile load error:', err.response?.data || err.message);
+      console.error(
+        'PlayerProfile load error:',
+        err.response?.data || err.message,
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   if (loading && !data) {
     return (
@@ -109,7 +114,7 @@ export default function PlayerProfileScreen() {
 
         <TouchableOpacity
           style={styles.actionBtn}
-          onPress={() => navigation.navigate('Indoors')}   
+          onPress={() => navigation.navigate('Indoors')}
         >
           <Ionicons name="business-outline" size={24} color="#1E3A8A" />
           <Text style={styles.actionLabel}>Indoors</Text>
@@ -120,7 +125,6 @@ export default function PlayerProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Player Info</Text>
         <View style={styles.card}>
-
           {/* Position */}
           <View style={styles.infoRow}>
             <View style={styles.infoIconWrapper}>
@@ -168,7 +172,6 @@ export default function PlayerProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Contact Information</Text>
         <View style={styles.card}>
-
           {/* Phone */}
           <View style={styles.infoRow}>
             <View style={styles.infoIconWrapper}>

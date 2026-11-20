@@ -29,14 +29,19 @@ export default function OwnerProfileScreen() {
       const res = await api.get('/owners/me');
       setData(res.data);
     } catch (err) {
-      console.error('OwnerProfile load error:', err.response?.data || err.message);
+      console.error(
+        'OwnerProfile load error:',
+        err.response?.data || err.message,
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   if (loading && !data) {
     return (
@@ -96,7 +101,6 @@ export default function OwnerProfileScreen() {
         <Text style={styles.sectionTitle}>Contact Information</Text>
 
         <View style={styles.card}>
-
           {/* Phone */}
           <View style={styles.infoRow}>
             <View style={styles.infoIconWrapper}>
@@ -151,7 +155,6 @@ export default function OwnerProfileScreen() {
               </View>
             </>
           )}
-
         </View>
       </View>
 
@@ -236,7 +239,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   actionBtn: { alignItems: 'center', gap: 6 },
-  actionLabel: { fontSize: 12, color: '#1E3A8A', fontWeight: '600', marginTop: 4 },
+  actionLabel: {
+    fontSize: 12,
+    color: '#1E3A8A',
+    fontWeight: '600',
+    marginTop: 4,
+  },
 
   // Sections
   section: { marginHorizontal: 16, marginTop: 20 },

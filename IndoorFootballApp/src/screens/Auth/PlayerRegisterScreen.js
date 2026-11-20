@@ -76,11 +76,10 @@ export default function PlayerRegisterScreen({ navigation }) {
 
       Alert.alert(
         'Success',
-        res?.message || 'Check your email to verify your account'
+        res?.message || 'Check your email to verify your account',
       );
 
       navigation.navigate('Login');
-
     } catch (err) {
       Alert.alert('Error', err.message || 'Registration failed');
     }

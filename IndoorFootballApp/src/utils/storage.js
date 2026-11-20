@@ -2,7 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // store string token (if token is object, stringify before saving)
-export const saveToken = async (token) => {
+export const saveToken = async token => {
   try {
     const value = typeof token === 'string' ? token : JSON.stringify(token);
     await AsyncStorage.setItem('jwt', value);

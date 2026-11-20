@@ -1,5 +1,3 @@
-
-
 // src/screens/Player/PlayersListScreen.js
 import React, { useEffect, useState } from 'react';
 import {
@@ -39,24 +37,31 @@ export default function PlayersListScreen() {
     <View style={styles.container}>
       {/* Header */}
       <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <Animated.Text entering={FadeInDown.duration(500)} style={styles.headerTitle}>
+        <Animated.Text
+          entering={FadeInDown.duration(500)}
+          style={styles.headerTitle}
+        >
           Players
         </Animated.Text>
       </LinearGradient>
 
       {/* List */}
       {loading ? (
-        <ActivityIndicator size="large" color="#1E3A8A" style={{ marginTop: 30 }} />
+        <ActivityIndicator
+          size="large"
+          color="#1E3A8A"
+          style={{ marginTop: 30 }}
+        />
       ) : (
         <FlatList
           data={players}
-          keyExtractor={(i) => String(i.id)}
+          keyExtractor={i => String(i.id)}
           contentContainerStyle={styles.list}
           renderItem={({ item, index }) => (
             <Animated.View entering={FadeInUp.delay(index * 80)}>
               <LinearGradient
                 colors={['#FFFFFF', '#a1d3f5ff']}
-                style={styles.card} 
+                style={styles.card}
               >
                 <Image
                   source={require('../../../assets/icons/player.png')}
@@ -64,14 +69,17 @@ export default function PlayersListScreen() {
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{item.name}</Text>
-                  {!!item.email && <Text style={styles.email}>{item.email}</Text>}
+                  {!!item.email && (
+                    <Text style={styles.email}>{item.email}</Text>
+                  )}
                 </View>
               </LinearGradient>
             </Animated.View>
           )}
-          ListEmptyComponent={<Text style={styles.empty}>No players found</Text>}
+          ListEmptyComponent={
+            <Text style={styles.empty}>No players found</Text>
+          }
         />
-
       )}
     </View>
   );

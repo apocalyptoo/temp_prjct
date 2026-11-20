@@ -60,7 +60,7 @@ export default function OwnerRegisterScreen({ navigation }) {
 
       Alert.alert(
         'Success',
-        res?.message || 'Check your email to verify your account'
+        res?.message || 'Check your email to verify your account',
       );
 
       navigation.navigate('Login');

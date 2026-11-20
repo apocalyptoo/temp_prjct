@@ -25,7 +25,9 @@ export default function IndoorsListScreen() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -34,11 +36,15 @@ export default function IndoorsListScreen() {
       </LinearGradient>
 
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 30 }} size="large" color="#1E3A8A" />
+        <ActivityIndicator
+          style={{ marginTop: 30 }}
+          size="large"
+          color="#1E3A8A"
+        />
       ) : (
         <FlatList
           data={indoors}
-          keyExtractor={(i) => String(i.userId)}
+          keyExtractor={i => String(i.userId)}
           contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
           renderItem={({ item }) => (
             <View style={styles.card}>
@@ -59,7 +65,9 @@ export default function IndoorsListScreen() {
             </View>
           )}
           ListEmptyComponent={
-            <Text style={{ textAlign: 'center', marginTop: 30 }}>No indoors found</Text>
+            <Text style={{ textAlign: 'center', marginTop: 30 }}>
+              No indoors found
+            </Text>
           }
         />
       )}
@@ -76,7 +84,12 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
   },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff', textAlign: 'center' },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#fff',
+    textAlign: 'center',
+  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 18,
