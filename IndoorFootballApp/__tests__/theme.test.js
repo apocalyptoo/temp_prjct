@@ -129,7 +129,7 @@ describe('typography.js', () => {
     const expected = {
       display: [34, 'BarlowCondensed-Bold'],
       title: [36, 'BarlowCondensed-Bold'],
-      cardTitle: [19, 'BarlowCondensed-Bold'],
+      cardTitle: [22, 'BarlowCondensed-Bold'],
       section: [18, 'BarlowCondensed-Bold'],
       body: [15, 'Inter-Regular'],
       bodyStrong: [15, 'Inter-SemiBold'],

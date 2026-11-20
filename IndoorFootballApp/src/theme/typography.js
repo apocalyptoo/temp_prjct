@@ -39,7 +39,7 @@ const text = (fontFamily, size) => ({
 export const typography = {
   display: heading(34), // screen titles ("MY TEAMS")
   title: heading(36), // detail page titles (team name)
-  cardTitle: heading(19), // team or venue names in cards
+  cardTitle: heading(22), // team or venue names in cards
   section: heading(18), // section headings inside cards ("JOIN REQUESTS")
   body: text(fonts.regular, 15), // list item text
   bodyStrong: text(fonts.semiBold, 15), // list item names

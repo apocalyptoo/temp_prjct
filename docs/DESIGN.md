@@ -97,7 +97,7 @@ Two font families, both from Google Fonts (free to use in apps under the Open Fo
 |---|---|---|---|
 | `display` | Barlow Condensed 34 | 37 | Screen titles ("MY TEAMS") |
 | `title` | Barlow Condensed 36 | 40 | Detail page titles (team name) |
-| `cardTitle` | Barlow Condensed 19 | 21 | Team or venue names in cards |
+| `cardTitle` | Barlow Condensed 22 | 24 | Team or venue names in cards |
 | `section` | Barlow Condensed 18 | 20 | Section headings inside cards ("JOIN REQUESTS") |
 | `body` | Inter 15, 400 | 22 | List item text |
 | `bodyStrong` | Inter 15, 600 | 22 | List item names |
