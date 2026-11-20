@@ -120,6 +120,17 @@ _Implementation notes:_
 - Position becomes an **enum**. Existing free-text values are mapped: obvious matches (case-insensitive, for example "GK" or "goalkeeper" → Goalkeeper, "striker" → Forward) map to their value, everything else to Any. The full mapping is shown to the owner before the migration runs.
 - Both are schema changes in the Phase 4 migration and need approval.
 
+### Login sessions (v1.0)
+
+- A login lasts **30 days**. After that the user logs in again.
+- **Log out** removes the login from that phone only. There's no "log out of all devices" button in v1.0.
+- These events log the account out **on every device**:
+  - **Password reset** (the "Forgot password" email link).
+  - **Password change while logged in.** The phone that made the change stays logged in.
+  - **Suspension** by the admin. A suspended user loses access at once.
+
+_Implementation note:_ each login token carries the account's token version (`User.tokenVersion`). The events above increase that number, which cancels every older token.
+
 ### Team membership (v1.0)
 
 **Who can do what**

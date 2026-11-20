@@ -89,7 +89,7 @@ Several items need schema changes. Each needs my approval before the migration i
 - [ ] Schema enums (TeamMember status, player position) and `onDelete: Cascade` where appropriate, in the same migration as the membership changes (invite vs request, accepted at). Needs approval. (DECISIONS.md 2026-11-20)
 - [ ] Store the captain only in Team.captainId: rename from ownerId and remove the captain member role, with tests. Touches about 16 places in the backend and the app. Do this before transfer captaincy and account deletion. (PRODUCT.md, "Team membership")
 - [ ] Profile editing (players and venue owners)
-- [ ] Change password while logged in
+- [ ] Change password while logged in. It logs the account out on every other device: increase `tokenVersion` and reply with a fresh token, so the phone that made the change stays logged in (DECISIONS.md 2026-11-20, "Which events log out every device").
 - [ ] Join request flow: captains see, approve and reject requests. The join endpoint was removed in Phase 1 (item 3) and needs to be rebuilt, recording that the row is a join request, not an invite.
 - [ ] Venue discovery polish
 - [ ] Team membership: record invite vs join request, accepted at date (same migration as invite/request), cancel requests and invites, leave a team, transfer captaincy, 15-member limit, "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership")
@@ -100,7 +100,7 @@ Several items need schema changes. Each needs my approval before the migration i
 - [ ] Pagination on list endpoints (with the Explore lists)
 - [ ] Validate owner website URLs (http/https only) on the backend and before `Linking.openURL`
 - [ ] Notifications screen ("Needs your action" + "Updates"), badge, read/unread (PRODUCT.md, "Notifications")
-- [ ] Moderation: Report button and admin Reports screen; Block and unblock (Settings → Blocked players); suspend and unsuspend users; Terms of Use and Privacy Policy checkbox at registration (PRODUCT.md, "Administration and moderation")
+- [ ] Moderation: Report button and admin Reports screen; Block and unblock (Settings → Blocked players); suspend and unsuspend users (suspending increases `tokenVersion`, so the user is logged out on every device at once); Terms of Use and Privacy Policy checkbox at registration (PRODUCT.md, "Administration and moderation")
 - [x] Write `docs/DESIGN.md` (colors, fonts, spacing, components, screen list) before UI work
 - [ ] Theme module and shared components, following the folder structure in DESIGN.md section 2: `src/theme/` (palette, colors, typography, spacing, radius, shadows, index, ThemeProvider with `useTheme()`) and shared components in `src/components/ui/`. Status bar always light content (fix App.js following the phone's theme).
 - [ ] Add Barlow Condensed and Inter font files

@@ -20,6 +20,9 @@ model User {
   verifyTokenExpires DateTime?
   resetToken         String?
   resetTokenExpires  DateTime?
+  // Every login token carries this number (the `tv` claim). Increasing it cancels all
+  // of the account's tokens, which logs it out on every device (DECISIONS.md 2026-11-20).
+  tokenVersion       Int       @default(0)
 
   playerProfile PlayerProfile?
   ownerProfile  OwnerProfile?

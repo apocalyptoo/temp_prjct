@@ -302,3 +302,13 @@ Every endpoint that reads a request body or query checks it with a zod schema (i
 **Why:** the limits protect the database and the screens from huge or malformed values (a 10,000-character name breaks every list it appears in). Checking types closes the whole class of bugs where objects or lists reach Prisma and act as query operators or cause 500s. 72 bytes is where bcrypt stops reading a password, so anything longer gives a false sense of security. Ignoring unknown fields keeps the app working as fields come and go.
 **Alternatives considered:** rejecting unknown fields (rejected: breaks the current app, which sends extras), listing every problem in one reply (rejected: the app shows a single alert), detailed login errors (rejected: they reveal which emails have accounts).
 **Consequence:** request checks live in one place per router, and controllers read only the checked values (`req.valid`). The register screens still repeat some checks; they need the new limits when they're rebuilt in Phase 4.
+
+### 2026-11-20: Which events log out every device
+Bumping an account's `tokenVersion` cancels every login token it has, so every phone logged in to that account is logged out. That happens on exactly three events:
+- **Password reset** (built in Task 3.3).
+- **Password change while logged in** (applied when that feature is built in Phase 4). The phone that made the change stays logged in, because the reply gives it a fresh token.
+- **Suspension** (applied when suspension is built in Phase 4).
+
+Normal "Log out" only removes the token from that phone, as today. There's no "log out of all devices" button in v1.0.
+**Why:** a password reset or change often means the old password leaked, so any phone that was logged in with it must be logged out. A suspended user must lose access at once, not when their token expires up to 30 days later.
+**Alternatives considered:** a "log out of all devices" button (deferred: not needed for v1.0), logging out every device on normal logout too (rejected: logging out one phone shouldn't affect the others).

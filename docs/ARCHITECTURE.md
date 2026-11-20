@@ -256,7 +256,7 @@ The tables are described in `backend/prisma/schema.prisma`. Changes to that file
 
 ### The tables in plain words
 
-- **User:** one row per account. Holds the email, the hashed password, the role (`PLAYER`, `OWNER` or `ADMIN`), whether the email is verified, and temporary tokens for email verification and password reset, each with an expiry time. The tokens are stored only as SHA-256 hashes (see "Tokens are stored hashed" in section 4), and both token columns have an index so lookups stay fast.
+- **User:** one row per account. Holds the email, the hashed password, the role (`PLAYER`, `OWNER` or `ADMIN`), whether the email is verified, and temporary tokens for email verification and password reset, each with an expiry time. The tokens are stored only as SHA-256 hashes (see "Tokens are stored hashed" in section 4), and both token columns have an index so lookups stay fast. It also holds a **token version** (`tokenVersion`, a number starting at 0). Every login token carries a copy of it. Increasing it cancels all of that account's login tokens at once, which logs the account out on every phone (see "How login works" in section 4).
 - **PlayerProfile:** extra details for a player: name, phone, playing position, and optional height, weight and address. Each player has exactly one.
 - **OwnerProfile:** extra details for a venue owner: indoor (venue) name, phone, address, and optional description and website. Each owner has exactly one.
 - **Team:** a team's name, optional description, who created it (`ownerId`), and when.
