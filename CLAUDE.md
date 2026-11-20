@@ -37,7 +37,9 @@ Indoor football (futsal) management app with three user roles: **PLAYER**, **OWN
 - `backend/`: Express 5 REST API (ES modules, `"type": "module"`) + Prisma 6 on PostgreSQL.
 - `IndoorFootballApp/`: React Native 0.82 mobile app (plain JS screens; only the template test is TS).
 
-The root `package.json` / `node_modules` are stray leftovers. Install dependencies inside each subproject instead.
+The repository root has no `package.json`: install dependencies and run `npm` inside each subproject. `README.md` (root) is the setup guide for a new PC, and `backend/.env.example` lists every backend variable with fake values; keep both in sync with the code.
+
+**Line endings:** the root `.gitattributes` stores and checks out text files with LF (overriding `core.autocrlf`), keeps `*.bat`/`*.cmd` CRLF, keeps `gradlew` and `*.sh` LF, and marks images, fonts, jars and keystores binary. Prettier 2.x expects LF. The root `.gitignore` ignores `node_modules/`, `.env` and `.env.*` (except `.env.example`) in every folder.
 
 ## Commands
 
@@ -56,7 +58,7 @@ node --test tests/auth-tokens.test.js   # single test file
 - **createAdmin.js** lowercases and trims `ADMIN_EMAIL` (`normalizeEmail`). It refuses to run if `ADMIN_EMAIL` or `ADMIN_PASSWORD` is missing or the password is weak, and never prints the password. It updates an existing admin with that email, and refuses to promote a non-admin account or to create a second admin.
 - **Tests:** backend tests use Node's built-in test runner (`node:test`) and `fetch`, with no extra dependencies. They send real HTTP requests to the running local server and use Prisma directly to set up data. Each test creates its own throwaway user (`test-<uuid>@example.com`) and deletes it in `t.after()`. Shared setup lives in `tests/helpers.js`. Test files run one at a time (`--test-concurrency=1`) because they share the server and database. `authController` never sends mail to `@example.com` addresses (it logs a line instead), so test runs send no real email. Sending to a `.invalid` address fails at once (that domain can never receive mail), which tests use to make sending fail on purpose. Never change existing users in tests. Tokens put straight into the database must be stored as `sha256Hex(token)` (from `tests/helpers.js`), with the plain token sent in the request, like a real email link. Because the server trusts one proxy, `postJson`/`postForm`/`getWithIp` send a random made-up `X-Forwarded-For` address per request, so the suite never trips the rate limits; `tests/rate-limits.test.js` passes a fixed address to hit them. To test that a multi-step delete rolls back, `tests/admin-delete.test.js` passes `deleteUserAndData`/`deleteTeamAndMembers` a wrapped Prisma client that throws at one step inside the real transaction (`failAt`).
 
-Required `backend/.env` variables: `DATABASE_URL`, `JWT_SECRET`, `EMAIL_USER`, `EMAIL_PASS` (Gmail SMTP via nodemailer), `BACKEND_PUBLIC_URL` (used to build the email verify and reset links), and optionally `PORT`. `ADMIN_EMAIL` and `ADMIN_PASSWORD` are only needed when running `scripts/createAdmin.js`.
+Required `backend/.env` variables (see `backend/.env.example`): `DATABASE_URL`, `JWT_SECRET`, `EMAIL_USER`, `EMAIL_PASS` (Gmail SMTP via nodemailer), `BACKEND_PUBLIC_URL` (used to build the email verify and reset links), and optionally `PORT`. `ADMIN_EMAIL` and `ADMIN_PASSWORD` are only needed when running `scripts/createAdmin.js`.
 
 Mobile app (run from `IndoorFootballApp/`):
 ```bash
@@ -65,7 +67,7 @@ npm start                    # Metro
 npm run android              # main target; iOS also needs `bundle install && bundle exec pod install` in ios/
 npm run lint                 # ESLint (@react-native config) only; it doesn't check formatting
 npx prettier --check src App.js   # Prettier 2.8.8 formatting check (.prettierrc.js), run separately
-npm test                     # Jest (react-native preset)
+npm test                     # Jest (react-native preset; jest.setup.js mocks AsyncStorage, jest.config.js transformIgnorePatterns adds @react-navigation and react-native-* packages)
 npx jest __tests__/App.test.tsx   # single test file
 ```
 

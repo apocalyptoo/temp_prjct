@@ -62,12 +62,12 @@ Root cause behind several findings: **values from `req.body` and `req.query` go 
 - [x] Rename the 'Owner' label to 'Captain' in TeamDetailScreen (and anywhere else the team creator is shown as owner) (also the backend's team error messages)
 - [x] Remove dead screens (`RegisterScreen.js`, `PlayerDashboard.js`, `ResetPasswordScreen.js`) or wire them up. (deleted; `ResetPassword` also removed from `AuthStack`)
 - [x] Remove the React Native deps from the backend `package.json` (also removed the unused diagram tools, `node-fetch` and the old generated Prisma client in `backend/generated/`, the leftover diagram files `prisma/ERD.svg`, `dfd1.md`, `diagram.md`, and the unused `/generated/prisma` line in `backend/.gitignore`).
-- [ ] Untrack the root `node_modules`. Delete commented-out old code (the erd generator block in `schema.prisma` is done; others remain, e.g. the old `listPlayers` in `playerController.js`).
+- [x] Untrack the root `node_modules`. Delete commented-out old code. (root `node_modules`, `package.json` and `package-lock.json` deleted, as nothing used them; root `.gitignore` added)
 - [x] Fix ESLint errors (19). (18 were in the deleted `RegisterScreen.js`, 1 was the AddMemberScreen hooks error; 0 errors now, 46 warnings remain)
 - [x] Fix or replace the outdated `testFlow.js`. (deleted; the `tests/` suite replaces it)
-- [ ] Write `README.md` (how to run locally) and `backend/.env.example`.
-- [ ] Add .gitattributes to normalise line endings, then run Prettier on the app in one formatting-only commit
-- [ ] Fix the app's Jest test (needs an AsyncStorage mock)
+- [x] Write `README.md` (how to run locally) and `backend/.env.example`.
+- [x] Add .gitattributes to normalise line endings, then run Prettier on the app in one formatting-only commit
+- [x] Fix the app's Jest test (needs an AsyncStorage mock) (`jest.setup.js` uses the package's own mock; `jest.config.js` also lets Jest translate React Navigation and `react-native-*` packages)
 
 ## Phase 3: Foundations
 

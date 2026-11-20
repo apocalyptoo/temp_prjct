@@ -17,6 +17,8 @@ The project has two parts that live side by side:
 - `IndoorFootballApp/`: the **mobile app** people install on their phone.
 - `backend/`: the **server** the app talks to. It stores all the data in a database.
 
+Each part has its own `package.json`, so `npm` commands are always run inside one of the two folders. The root [README.md](../README.md) explains how to set everything up on a new computer.
+
 ### The three roles
 
 Every account has exactly one role, chosen when the account is created.
@@ -276,6 +278,8 @@ When the code says "only the team owner can invite players", it means the team c
 IndoorFootballApp/
 ├── App.js               entry point: wraps everything in the login state
 ├── index.js             registers the app with React Native
+├── __tests__/           the Jest test (renders the whole app once)
+├── jest.config.js       Jest settings; jest.setup.js swaps native modules for mocks
 ├── src/
 │   ├── api/api.js       shared helper for talking to the backend
 │   ├── contexts/        AuthContext.js: who is logged in
@@ -394,7 +398,7 @@ There's currently no way to ask to join a team. The old `POST /teams/:teamId/joi
 
 ## 8. Configuration
 
-The backend reads its settings from **environment variables**: named values set outside the code, so secrets aren't written into the source. They go in a file called `backend/.env`, which git ignores. The `dotenv` library loads that file at startup.
+The backend reads its settings from **environment variables**: named values set outside the code, so secrets aren't written into the source. They go in a file called `backend/.env`, which git ignores. The `dotenv` library loads that file at startup. `backend/.env.example` lists every variable with a comment and a fake value: copy it to `.env` and fill it in.
 
 | Variable | What it's for |
 |---|---|
