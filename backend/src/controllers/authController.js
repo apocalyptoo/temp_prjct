@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import { config } from '../config.js';
 import { prisma } from '../db.js';
-import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '../utils/password.js';
+import { INVALID_LOGIN, INVALID_RESET_LINK } from '../validation/authSchemas.js';
 import {
   generateToken,
   hashToken,
@@ -50,11 +50,11 @@ transporter.verify(function (error, success) {
   }
 });
 
-// Same reply for an unknown email and a wrong password, so nobody can use login
-// to find out which emails have accounts.
-const INVALID_LOGIN = 'Invalid email or password';
-
-const INVALID_RESET_LINK = 'Invalid or expired token';
+// Every request body and query is checked by its schema in src/validation/authSchemas.js
+// before these handlers run (see authRoutes.js). The handlers read only req.valid.
+//
+// INVALID_LOGIN is the same reply for an unknown email and a wrong password (and any
+// badly shaped login request), so nobody can use login to find out which emails have accounts.
 
 // A fixed hash to compare against when the email doesn't exist, so an unknown email
 // takes as long as a wrong password (bcrypt is deliberately slow). Same cost (10) as
@@ -76,82 +76,23 @@ const sendVerificationEmail = ({ email, displayName, token }) =>
 
 // REGISTER
 export const register = async (req, res, next) => {
-  const { name, password, role, profileData } = req.body;
-  // Lowercased and trimmed (null if not a non-empty string, so an object email like
-  // {"not": ""} never reaches Prisma).
-  const email = normalizeEmail(req.body.email);
+  // Already checked and cleaned by registerSchema (src/validation/authSchemas.js): the
+  // email is normalised, the role is PLAYER or OWNER, the password passes the strength
+  // rule, and profileData has only the fields of that role, with the right types.
+  const { email, password, role, name, profileData } = req.valid.body;
 
   try {
-    // 1) Validate required fields
-    if (!email || !password || !role || !profileData) {
-      return res.status(400).json({
-        error: 'Email, password, role, and profileData are required',
-      });
-    }
-
-    // 2) Validate role
-    if (!['PLAYER', 'OWNER'].includes(role)) {
-      return res.status(400).json({ error: 'Invalid role selected' });
-    }
-
-    // 3) Validate password strength (shared rule; also rejects non-string passwords)
-    if (!isStrongPassword(password)) {
-      return res.status(400).json({ error: PASSWORD_RULE_MESSAGE });
-    }
-
-    // 4) Check if email exists
+    // 1) Check if email exists
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
-    // 5) Role-based profile validation
-    if (role === 'PLAYER') {
-      // You said PlayerProfile.name should always equal "name" passed
-      if (!name) return res.status(400).json({ error: 'Name is required for PLAYER' });
-
-      const { phone, position, height, weight, address } = profileData;
-
-      if (!phone || !position) {
-        return res.status(400).json({
-          error: 'PLAYER profile requires phone and position',
-        });
-      }
-      if (!/^\d{11}$/.test(phone)) {
-        return res.status(400).json({ error: 'Phone number must be exactly 11 digits' });
-      }
-      if (height !== null && height !== undefined) {
-        const h = Number(height);
-        if (isNaN(h) || h < 100 || h > 250) {
-          return res.status(400).json({ error: 'Height must be between 100 and 250 cm' });
-        }
-      }
-      if (weight !== null && weight !== undefined) {
-        const w = Number(weight);
-        if (isNaN(w) || w < 30 || w > 200) {
-          return res.status(400).json({ error: 'Weight must be between 30 and 200 kg' });
-        }
-      }
-    }
-
-    if (role === 'OWNER') {
-      const { indoorName, phone, address, description, website } = profileData;
-
-      if (!indoorName || !phone || !address) {
-        return res.status(400).json({
-          error: 'OWNER profile requires indoorName, phone, and address',
-        });
-      }
-      if (!/^\d{11}$/.test(phone)) {
-        return res.status(400).json({ error: 'Phone number must be exactly 11 digits' });
-      }
-    }
-
-    // 6) Hash password + generate verify token (the database keeps only its hash)
+    // 2) Hash password + generate verify token (the database keeps only its hash)
     const hashedPassword = await bcrypt.hash(password, 10);
     const verifyToken = generateToken();
 
-    // 7) Create User + Profile atomically (single Prisma create is atomic)
+    // 3) Create User + Profile atomically (single Prisma create is atomic)
     const user = await prisma.user.create({
       data: {
         email,
@@ -167,15 +108,9 @@ export const register = async (req, res, next) => {
                   name, // stored in PlayerProfile.name
                   phone: profileData.phone,
                   position: profileData.position,
-                  height:
-                    profileData.height === null || profileData.height === undefined
-                      ? null
-                      : Number(profileData.height),
-                  weight:
-                    profileData.weight === null || profileData.weight === undefined
-                      ? null
-                      : Number(profileData.weight),
-                  address: profileData.address || null,
+                  height: profileData.height, // a number or null
+                  weight: profileData.weight, // a number or null
+                  address: profileData.address, // text or null
                 },
               },
             }
@@ -188,8 +123,8 @@ export const register = async (req, res, next) => {
                   indoorName: profileData.indoorName, // stored in OwnerProfile.indoorName
                   phone: profileData.phone,
                   address: profileData.address,
-                  description: profileData.description || null,
-                  website: profileData.website || null,
+                  description: profileData.description, // text or null
+                  website: profileData.website, // text or null
                 },
               },
             }
@@ -202,7 +137,7 @@ export const register = async (req, res, next) => {
       },
     });
 
-    // 8) Send verification email (use a friendly display name)
+    // 4) Send verification email (use a friendly display name)
     const displayName =
       role === 'PLAYER' ? name : profileData.indoorName;
 
@@ -229,25 +164,23 @@ export const register = async (req, res, next) => {
   }
 };
 // VERIFY EMAIL
+// This link is opened from an email in a browser, so it answers with simple pages.
+// Nothing from the link is put into the page. Also used by authRoutes.js when the
+// token isn't shaped like the ones the server makes (missing, repeated, odd).
+export const sendInvalidVerifyLinkPage = (req, res) =>
+  res.status(400).send(
+    messagePage({
+      title: 'Invalid or expired link',
+      message:
+        'This verification link is invalid or has expired. If you have already verified your email, you can log in in the app. ' +
+        "Otherwise, you can request a new verification email from the app's login screen.",
+    })
+  );
+
 export const verifyEmail = async (req, res, next) => {
-  const { token } = req.query;
-
-  // This link is opened from an email in a browser, so it answers with simple pages.
-  // Nothing from the link is put into the page.
-  const invalidLinkPage = () =>
-    res.status(400).send(
-      messagePage({
-        title: 'Invalid or expired link',
-        message:
-          'This verification link is invalid or has expired. If you have already verified your email, you can log in in the app. ' +
-          "Otherwise, you can request a new verification email from the app's login screen.",
-      })
-    );
-
-  // Only a token shaped like the ones the server makes (64 lowercase hex characters)
-  // goes any further. This also stops missing tokens, arrays and objects, which would
-  // otherwise change the database query.
-  if (!isWellFormedToken(token)) return invalidLinkPage();
+  // A well-formed token (64 lowercase hex characters), checked by emailLinkQuerySchema.
+  const { token } = req.valid.query;
+  const invalidLinkPage = () => sendInvalidVerifyLinkPage(req, res);
   try {
     // The database holds the token's hash, and the link must be less than 24 hours old.
     const user = await prisma.user.findFirst({
@@ -268,13 +201,10 @@ export const verifyEmail = async (req, res, next) => {
 
 // LOGIN
 export const login = async (req, res, next) => {
-  const { password } = req.body;
-  const email = normalizeEmail(req.body.email);
-  // Only non-empty strings may go further: an object email would be read as a query
-  // operator by Prisma, and a non-string password makes bcrypt crash.
-  if (!email || typeof password !== 'string' || password === '') {
-    return res.status(400).json({ error: INVALID_LOGIN });
-  }
+  // loginSchema has checked these are non-empty strings (the email normalised). Anything
+  // else already got INVALID_LOGIN: an object email would be read as a query operator
+  // by Prisma, and a non-string password makes bcrypt crash.
+  const { email, password } = req.valid.body;
   try {
     const user = await prisma.user.findUnique({
       where: { email },
@@ -349,11 +279,9 @@ export const getMe = async (req, res, next) => {
 
 // REQUEST PASSWORD RESET
 export const requestPasswordReset = async (req, res, next) => {
-  const email = normalizeEmail(req.body.email);
-  // Only a non-empty string may reach Prisma (an object would be read as a query operator).
-  if (!email) {
-    return res.status(400).json({ error: 'Email is required' });
-  }
+  // A non-empty string, normalised (emailOnlySchema). Anything else already got
+  // "Email is required": an object would be read as a query operator by Prisma.
+  const { email } = req.valid.body;
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
@@ -390,37 +318,36 @@ export const requestPasswordReset = async (req, res, next) => {
 };
 
 // RESET PASSWORD
+
+// The reply when a reset fails. The reset page in a browser posts form data and gets
+// HTML pages back; the app and the tests post JSON and keep getting JSON.
+// A problem the user can fix on the same form (like a weak password) gets a link back
+// to it. A bad or expired link can't be fixed there: they need a new reset email.
+// Also used by authRoutes.js when resetSchema finds a problem, so those replies match.
+export const sendResetFailure = (req, res, message) => {
+  if (!isFormRequest(req)) return res.status(400).json({ error: message });
+  const token = req.body?.token; // raw: only used if it's a well-formed token
+  const canRetry = isWellFormedToken(token) && message !== INVALID_RESET_LINK;
+  return res.status(400).send(
+    messagePage({
+      title: 'Password not changed',
+      message: canRetry ? message : `${message}. Please request a new password reset from the app.`,
+      link: canRetry
+        ? { href: `/auth/reset-password-page?token=${encodeURIComponent(token)}`, text: 'Try again' }
+        : undefined,
+    })
+  );
+};
+
 export const resetPassword = async (req, res, next) => {
-  const { token, password } = req.body;
-
-  // The reset page in a browser posts form data and gets HTML pages back. The app and
-  // the tests post JSON and keep getting JSON.
+  // Checked by resetSchema: both present, the token is a string (an object like
+  // {"not": ""} or token[not]= from the form would be a query operator), and the new
+  // password passes the shared strength rule and the 72-byte limit.
+  const { token, password } = req.valid.body;
   const fromForm = isFormRequest(req);
-
-  // A problem the user can fix on the same form (like a weak password) gets a link back
-  // to it. A bad or expired link can't be fixed there: they need a new reset email.
-  const fail = (message) => {
-    if (!fromForm) return res.status(400).json({ error: message });
-    const canRetry = isWellFormedToken(token) && message !== INVALID_RESET_LINK;
-    return res.status(400).send(
-      messagePage({
-        title: 'Password not changed',
-        message: canRetry ? message : `${message}. Please request a new password reset from the app.`,
-        link: canRetry
-          ? { href: `/auth/reset-password-page?token=${encodeURIComponent(token)}`, text: 'Try again' }
-          : undefined,
-      })
-    );
-  };
+  const fail = (message) => sendResetFailure(req, res, message);
 
   try {
-    if (!token || !password) return fail('Token and new password required');
-    // Only a string may reach Prisma. An object like {"not": ""} (or token[not]= from
-    // the HTML form) would be treated as a query operator and match someone else's token.
-    if (typeof token !== 'string') return fail(INVALID_RESET_LINK);
-    // Same strength rule as registration (shared function; also rejects non-strings).
-    if (!isStrongPassword(password)) return fail(PASSWORD_RULE_MESSAGE);
-
     // The database holds the token's hash, so look up the hash of what the link carried.
     const user = await prisma.user.findFirst({
       where: { resetToken: hashToken(token), resetTokenExpires: { gt: new Date() } },
@@ -463,11 +390,9 @@ export const resetPassword = async (req, res, next) => {
 const RESEND_REPLY = { message: "If that account needs verifying, we've sent a new email." };
 
 export const resendVerification = async (req, res, next) => {
-  const email = normalizeEmail(req.body.email);
-  // Only a non-empty string may reach Prisma (an object would be read as a query operator).
-  if (!email) {
-    return res.status(400).json({ error: 'Email is required' });
-  }
+  // A non-empty string, normalised (emailOnlySchema). Anything else already got
+  // "Email is required": an object would be read as a query operator by Prisma.
+  const { email } = req.valid.body;
   try {
     const user = await prisma.user.findUnique({
       where: { email },
