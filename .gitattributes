@@ -1,0 +1,33 @@
+# Line endings for the whole repository.
+#
+# Text files are stored with LF line endings in the repository and checked out with LF
+# on every computer, including Windows (VS Code and Android Studio handle LF fine, and
+# Prettier expects LF). This rule wins over any core.autocrlf setting.
+* text=auto eol=lf
+
+# Windows scripts need CRLF on disk to run correctly in cmd.exe.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Shell scripts run on Linux, macOS and CI, where CRLF breaks them. Always LF.
+*.sh text eol=lf
+gradlew text eol=lf
+
+# Binary files: never change line endings and never try to show a text diff.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.jar binary
+*.aar binary
+*.keystore binary
+*.jks binary
+*.zip binary
+*.pdf binary
+*.backup binary
