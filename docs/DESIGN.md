@@ -177,7 +177,11 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 
 **Badge.** `badge` background, `onBadge` text, Inter 11/700, minimum 18×18, sits on the top-right of the Notifications tab icon. It shows pending actions plus unread updates.
 
-**Avatar.** A circle with `avatarBg` and initials in `avatarText`. There are no profile photos in v1.0.
+**Avatar.** A circle with `avatarBg` and initials in `avatarText`. There are no profile photos in v1.0. Sizes `avatarSmall` (38, list rows) and `avatarLarge` (44, team cards).
+- **Initials:** the first whole character of the first two words that **start with a letter**, in any script (Unicode letters, so Bangla and other non-Latin names work), in uppercase. A whole character keeps the marks attached to it: a Bangla vowel sign (রাহাত হাসান → রাহা), an accent, or a joined letter (ক্ষ).
+- **Skipped:** words that start with an emoji, a flag, a number or a symbol. Emoji never appear in initials.
+- **"?"** when no word starts with a letter (an empty name, or only emoji, numbers or symbols).
+- Examples: "Nayeem Islam" → NI · "🇧🇩 Tanvir Ahmed" → TA · "👍🏽 Fahim" → F · "10 Rahim Uddin" → RU · "👨‍👩‍👧" → ?
 
 **Bottom tab bar.** `tabBar` background with a 1px `border` top line. Each tab is an icon (24) plus a label (`tabLabel`). Active: `accent`. Inactive: `tabIdle`. The tabs per role are in PRODUCT.md.
 

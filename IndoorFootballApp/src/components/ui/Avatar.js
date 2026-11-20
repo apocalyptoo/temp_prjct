@@ -7,64 +7,36 @@ import { useTheme } from '../../theme/ThemeProvider';
 import Text from './Text';
 
 // ── Initials ──
-// "First letter" means a whole character as people see it, not half of one: a Bangla
-// letter with its vowel sign (রা), a joined letter (ক্ষ), an emoji with a skin tone or
-// joiner (👍🏽, 👨‍👩‍👧), a flag (🇧🇩). Intl.Segmenter does this properly where the phone's
-// JavaScript engine has it; otherwise a simpler rule below covers these cases.
+// The first whole character of the first two words that start with a letter, in any
+// script. Words that start with an emoji, a flag, a number or a symbol are skipped, so
+// emoji never become initials. "?" when no word starts with a letter.
+//   "Nayeem Islam" → "NI"   "🇧🇩 Tanvir Ahmed" → "TA"   "👍🏽 Fahim" → "F"   "👨‍👩‍👧" → "?"
+// "Whole character" keeps the marks that belong to a letter: a Bangla vowel sign (রা),
+// an accent, or a joined letter (ক্ষ).
+//
+// These patterns are built with new RegExp(...) on purpose. Written as /\p{L}/u, the
+// app's Babel setup (which rewrites u-flag patterns) fails with "Expected atom" and the
+// build breaks. Hermes itself supports Unicode categories (its compiler accepts \p{L}
+// and \p{M} and rejects unknown ones), and so does Node for the tests.
+const STARTS_WITH_LETTER = new RegExp('^\\p{L}', 'u'); // any script's letters
+const IS_MARK = new RegExp('^\\p{M}$', 'u'); // vowel signs, accents and other marks
 
-const ZWJ = 0x200d; // zero-width joiner (joins emoji, and some letters)
+const ZWJ = 0x200d; // zero-width joiner (can join two letters into one)
 
-const isRegionalIndicator = cp => cp >= 0x1f1e6 && cp <= 0x1f1ff; // flag halves
-
-// Indic scripts (Devanagari, Bengali and the others from U+0900 to U+0DFF) share one
-// layout: in each 128-character block, the vowel signs, nukta, virama and other marks
-// sit at the same offsets.
-const isIndicMark = cp => {
-  if (cp < 0x0900 || cp > 0x0dff) return false;
-  const offset = cp % 0x80;
-  return (
-    offset <= 0x03 ||
-    (offset >= 0x3a && offset <= 0x4f && offset !== 0x3d) ||
-    (offset >= 0x51 && offset <= 0x57) ||
-    offset === 0x62 ||
-    offset === 0x63
-  );
-};
+// A virama joins the next letter onto this one (ক + ্ + ষ = ক্ষ). In the Indic scripts
+// (U+0900 to U+0DFF) it sits at the same offset in every 128-character block.
 const isVirama = cp => cp >= 0x0900 && cp <= 0x0dff && cp % 0x80 === 0x4d;
 
-// Marks that belong to the character before them.
-const isMark = cp =>
-  (cp >= 0x0300 && cp <= 0x036f) || // accents
-  (cp >= 0x1ab0 && cp <= 0x1aff) ||
-  (cp >= 0x1dc0 && cp <= 0x1dff) ||
-  (cp >= 0x20d0 && cp <= 0x20ff) ||
-  (cp >= 0xfe00 && cp <= 0xfe0f) || // variation selectors (emoji style)
-  (cp >= 0xfe20 && cp <= 0xfe2f) ||
-  (cp >= 0x1f3fb && cp <= 0x1f3ff) || // emoji skin tones
-  (cp >= 0xe0020 && cp <= 0xe007f) || // tag characters (some flags)
-  isIndicMark(cp);
-
-// The first whole character of a word, without Intl.Segmenter.
+// The first whole character of a word, where the phone has no Intl.Segmenter.
 function firstCharacterFallback(word) {
-  const points = Array.from(word); // splits by code point, so emoji stay whole
+  const points = Array.from(word); // splits by code point, never half of one
   if (points.length === 0) return '';
-  const codeAt = i => points[i].codePointAt(0);
-
-  if (
-    points.length > 1 &&
-    isRegionalIndicator(codeAt(0)) &&
-    isRegionalIndicator(codeAt(1))
-  ) {
-    return points[0] + points[1]; // a flag is two halves
-  }
-
   let result = points[0];
   for (let i = 1; i < points.length; i += 1) {
-    const cp = codeAt(i);
-    const previous = codeAt(i - 1);
-    // A mark or joiner belongs to what came before; so does the letter after a joiner
-    // or a virama (which joins two letters into one, as in ক্ষ).
-    if (cp === ZWJ || isMark(cp) || previous === ZWJ || isVirama(previous)) {
+    const previous = points[i - 1].codePointAt(0);
+    const joined = previous === ZWJ || isVirama(previous);
+    const cp = points[i].codePointAt(0);
+    if (cp === ZWJ || IS_MARK.test(points[i]) || joined) {
       result += points[i];
     } else {
       break;
@@ -73,10 +45,14 @@ function firstCharacterFallback(word) {
   return result;
 }
 
+// Intl.Segmenter finds whole characters exactly, where the JavaScript engine has it.
 const defaultSegmenter =
   typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function'
     ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
     : null;
+
+// Which way this engine finds whole characters (shown in the developer UI gallery).
+export const INITIALS_METHOD = defaultSegmenter ? 'Intl.Segmenter' : 'fallback';
 
 function firstCharacter(word, segmenter) {
   if (segmenter) {
@@ -86,13 +62,16 @@ function firstCharacter(word, segmenter) {
   return firstCharacterFallback(word);
 }
 
-// Up to two initials: the first character of the first two words, uppercase. "?" for
-// an empty name. `segmenter` is only passed by the tests (null tries the fallback).
+// Up to two initials, uppercase. `segmenter` is only passed by the tests (null tries
+// the fallback).
 export function getInitials(name, segmenter = defaultSegmenter) {
   if (typeof name !== 'string') return '?';
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return '?';
-  return words
+  const letterWords = name
+    .trim()
+    .split(/\s+/)
+    .filter(word => STARTS_WITH_LETTER.test(word));
+  if (letterWords.length === 0) return '?';
+  return letterWords
     .slice(0, 2)
     .map(word => firstCharacter(word, segmenter))
     .join('')

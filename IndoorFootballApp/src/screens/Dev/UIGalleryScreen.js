@@ -27,19 +27,23 @@ import {
   TextLink,
 } from '../../components/ui';
 import { ICON_NAMES } from '../../components/ui/Icon';
+import { INITIALS_METHOD } from '../../components/ui/Avatar';
 
 const FAKE_REQUEST_MS = 2000;
 
+// Names that test the initials rule (DESIGN.md section 6, Avatar).
 const TRICKY_NAMES = [
   'Nayeem Islam',
   'rahim',
   '   Fahim    Rahman  ',
   'Rahim Uddin Ahmed',
-  'রাকিব হাসান',
+  'রাহাত হাসান',
   'ক্ষমা',
-  '👍🏽 Fan',
-  '👨‍👩‍👧 Family',
-  '🇧🇩 Tigers',
+  '🇧🇩 Tanvir Ahmed',
+  '👍🏽 Fahim',
+  'Rahim ⚽ Uddin',
+  '10 Rahim Uddin',
+  '👨‍👩‍👧',
   '',
 ];
 
@@ -256,16 +260,21 @@ export default function UIGalleryScreen({ navigation }) {
         </Section>
 
         <Section title="Avatars">
-          <Row>
-            {TRICKY_NAMES.map(name => (
-              <Avatar key={`small-${name}`} name={name} />
-            ))}
-          </Row>
-          <Row>
-            {TRICKY_NAMES.map(name => (
-              <Avatar key={`large-${name}`} name={name} size="large" />
-            ))}
-          </Row>
+          <Text variant="meta" color="textMuted">
+            Whole characters found with: {INITIALS_METHOD}
+          </Text>
+          {TRICKY_NAMES.map(name => (
+            <View
+              key={name || 'empty'}
+              style={[styles.row, styles.noWrap, { gap: spacing.md }]}
+            >
+              <Avatar name={name} />
+              <Avatar name={name} size="large" />
+              <Text variant="meta" color="textMuted" style={styles.fill}>
+                {name ? `"${name}"` : '(empty name)'}
+              </Text>
+            </View>
+          ))}
         </Section>
 
         <Section title="List rows">
