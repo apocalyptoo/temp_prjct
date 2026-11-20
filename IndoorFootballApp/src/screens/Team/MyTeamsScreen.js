@@ -99,7 +99,7 @@ export default function MyTeamsScreen({ navigation }) {
             <Text style={styles.empty}>You're not part of any team yet.</Text>
           }
           renderItem={({ item, index }) => {
-            const isOwner = user?.id === item.ownerId;
+            const isCaptain = user?.id === item.captainId;
             return (
               <Animated.View entering={FadeInUp.delay(index * 100)}>
                 <TouchableOpacity
@@ -120,7 +120,7 @@ export default function MyTeamsScreen({ navigation }) {
                       <View style={{ flex: 1 }}>
                         <View style={styles.nameRow}>
                           <Text style={styles.teamName}>{item.name}</Text>
-                          {isOwner && (
+                          {isCaptain && (
                             <View style={styles.ownerBadge}>
                               <Text style={styles.ownerBadgeText}>Captain</Text>
                             </View>
@@ -135,8 +135,8 @@ export default function MyTeamsScreen({ navigation }) {
                       </View>
                     </View>
 
-                    {/* Delete button — only for owner */}
-                    {isOwner && (
+                    {/* Delete button — only for the captain */}
+                    {isCaptain && (
                       <TouchableOpacity
                         style={[
                           styles.deleteBtn,

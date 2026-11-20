@@ -22,8 +22,8 @@ describe('GET /players/invites', () => {
     assert.equal(res.status, 200);
     assert.equal(invites.length, 1);
     assert.equal(invites[0].team.name, 'Invite Name Test');
-    assert.equal(invites[0].team.owner.id, captain.user.id);
-    assert.equal(invites[0].team.owner.name, 'Captain Rahim');
-    assert.equal(invites[0].team.owner.email, undefined, "the captain's email is never shown");
+    assert.equal(invites[0].team.captain.id, captain.user.id);
+    assert.equal(invites[0].team.captain.name, 'Captain Rahim');
+    assert.equal(invites[0].team.captain.email, undefined, "the captain's email is never shown");
   });
 });

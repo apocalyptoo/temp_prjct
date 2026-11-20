@@ -54,15 +54,15 @@ describe('Only players can use team actions (item 13)', () => {
 
       assert.equal(res.status, 403);
       assert.match((await res.json()).error, /only player accounts/i);
-      assert.equal(await prisma.team.count({ where: { ownerId: account.user.id } }), 0);
+      assert.equal(await prisma.team.count({ where: { captainId: account.user.id } }), 0);
     });
 
     test(`a ${role} account can't invite, accept or reject`, async (t) => {
       const account = await createLoggedInUser(t, { role });
       const player = await createLoggedInPlayer(t);
-      // A team owned by the non-player, made directly in the database (old data could
-      // look like this, because owners used to be able to create teams).
-      const team = await prisma.team.create({ data: { name: 'Test Team', ownerId: account.user.id } });
+      // A team captained by the non-player, made directly in the database (old data could
+      // look like this, because venue owners used to be able to create teams).
+      const team = await prisma.team.create({ data: { name: 'Test Team', captainId: account.user.id } });
 
       const invite = await postJson(`/teams/${team.id}/invite`, { userId: player.user.id }, account.jwt);
       const accept = await postJson(`/teams/${team.id}/accept`, {}, account.jwt);

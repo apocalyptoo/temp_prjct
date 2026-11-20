@@ -11,17 +11,18 @@ export const createTeam = async (req, res, next) => {
   try {
     // Trimmed, 2–40 characters; description trimmed, at most 200, or null (createTeamSchema).
     const { name, description } = req.valid.body;
-    const ownerId = req.user.id;
+    const captainId = req.user.id;
 
+    // The creator becomes the captain (stored only in captainId) and is also an
+    // accepted member of the team.
     const team = await prisma.team.create({
       data: {
         name,
         description,
-        ownerId,
+        captainId,
         members: {
           create: {
-            userId: ownerId,
-            role: 'captain',
+            userId: captainId,
             status: 'accepted',
           },
         },
@@ -34,7 +35,7 @@ export const createTeam = async (req, res, next) => {
   }
 };
 
-// ── Invite player (owner only) ──
+// ── Invite player (captain only) ──
 export const invitePlayer = async (req, res, next) => {
   try {
     const teamId = parseId(req.params.teamId);
@@ -46,7 +47,7 @@ export const invitePlayer = async (req, res, next) => {
     const team = await prisma.team.findUnique({ where: { id: teamId } });
     if (!team) return res.status(404).json({ error: 'Team not found' });
 
-    if (team.ownerId !== inviterId) {
+    if (team.captainId !== inviterId) {
       return res.status(403).json({ error: 'Only the team captain can invite players.' });
     }
 
@@ -70,7 +71,7 @@ export const invitePlayer = async (req, res, next) => {
   }
 };
 
-// ── Remove player (owner only) ──
+// ── Remove player (captain only) ──
 export const removePlayer = async (req, res, next) => {
   try {
     const teamId = parseId(req.params.teamId);
@@ -82,12 +83,12 @@ export const removePlayer = async (req, res, next) => {
     const team = await prisma.team.findUnique({ where: { id: teamId } });
     if (!team) return res.status(404).json({ error: 'Team not found' });
 
-    // Only team owner can remove players
-    if (team.ownerId !== requesterId) {
+    // Only the team captain can remove players
+    if (team.captainId !== requesterId) {
       return res.status(403).json({ error: 'Only the team captain can remove players.' });
     }
 
-    // Owner cannot remove themselves
+    // The captain cannot remove themselves
     if (userId === requesterId) {
       return res.status(400).json({ error: 'The team captain cannot remove themselves.' });
     }
@@ -107,7 +108,7 @@ export const removePlayer = async (req, res, next) => {
   }
 };
 
-// ── Delete team (owner only) ──
+// ── Delete team (captain only) ──
 export const deleteTeam = async (req, res, next) => {
   try {
     const teamId = parseId(req.params.teamId);
@@ -117,7 +118,7 @@ export const deleteTeam = async (req, res, next) => {
     const team = await prisma.team.findUnique({ where: { id: teamId } });
     if (!team) return res.status(404).json({ error: 'Team not found' });
 
-    if (team.ownerId !== requesterId) {
+    if (team.captainId !== requesterId) {
       return res.status(403).json({ error: 'Only the team captain can delete this team.' });
     }
 
@@ -191,7 +192,7 @@ const MEMBERS_WITH_NAMES = {
 // Shapes one team for the viewer:
 // - members: accepted members only (a pending invite isn't membership yet);
 // - pendingInvites: the team's pending invites, only for the team's captain
-//   (Team.ownerId), so they can see who they've invited. Nobody else gets the field.
+//   (Team.captainId), so they can see who they've invited. Nobody else gets the field.
 // Members are other users, so they go through the visibility rules (no email).
 function toTeamResponse(team, viewer) {
   const withVisibleUser = (m) => ({
@@ -206,7 +207,7 @@ function toTeamResponse(team, viewer) {
   });
   const { members, ...rest } = team;
   const result = { ...rest, members: members.filter((m) => m.status === 'accepted').map(withVisibleUser) };
-  if (team.ownerId === viewer.id) {
+  if (team.captainId === viewer.id) {
     result.pendingInvites = members.filter((m) => m.status === 'pending').map(withVisibleUser);
   }
   return result;
@@ -228,7 +229,7 @@ export const getTeams = async (req, res, next) => {
 };
 
 // ── Get my teams ──
-// Teams the viewer created or is an accepted member of (a pending invite doesn't count).
+// Teams the viewer captains or is an accepted member of (a pending invite doesn't count).
 export const getMyTeams = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -236,7 +237,7 @@ export const getMyTeams = async (req, res, next) => {
     const teams = await prisma.team.findMany({
       where: {
         OR: [
-          { ownerId: userId },
+          { captainId: userId },
           { members: { some: { userId, status: 'accepted' } } },
         ],
       },

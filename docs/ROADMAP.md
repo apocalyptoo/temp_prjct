@@ -88,7 +88,7 @@ Built in four steps, in order (DECISIONS.md 2026-11-20, "Phase 4 order"). Severa
 
 ### Step 1: Team data groundwork (backend only)
 
-- [ ] 4.1 Store the captain only in Team.captainId: rename from ownerId and remove the captain member role, with tests. Touches about 16 places in the backend and the app. Do this before transfer captaincy and account deletion. (PRODUCT.md, "Team membership")
+- [x] 4.1 Store the captain only in Team.captainId: rename from ownerId and remove the captain member role, with tests. Touches about 16 places in the backend and the app. Do this before transfer captaincy and account deletion. (PRODUCT.md, "Team membership") (done 2026-11-20: migration `20261120161908_captain_id` renamed the column in place; `tests/captain-id.test.js`)
 - [ ] 4.2 Membership data, in one migration: TeamMember status as an enum; record how each membership started (invite, join request, or the captain creating the team); a real accepted-at date; `onDelete: Cascade` where appropriate, as a safety net. Needs approval. (DECISIONS.md 2026-11-20; split from the old "Schema enums" item, whose position enum moved to the registration item in Step 3)
 
 ### Step 2: The new look's foundation (app only)

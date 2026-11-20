@@ -5,7 +5,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { prisma, createLoggedInPlayer, postJson } from './helpers.js';
 
-const teamCount = (ownerId) => prisma.team.count({ where: { ownerId } });
+const teamCount = (captainId) => prisma.team.count({ where: { captainId } });
 
 // Sends a create request and checks it was refused with 400 and the given message,
 // and that no team was created.

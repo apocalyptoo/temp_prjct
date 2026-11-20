@@ -93,7 +93,7 @@ describe('Other users never see email, phone or address', () => {
     const invites = await get('/players/invites', pending.jwt);
 
     assert.ok(invites.length >= 1);
-    for (const invite of invites) assert.equal('email' in invite.team.owner, false);
+    for (const invite of invites) assert.equal('email' in invite.team.captain, false);
   });
 
   test("GET /owners: venue listings are public, but the owner's login email is hidden", async (t) => {

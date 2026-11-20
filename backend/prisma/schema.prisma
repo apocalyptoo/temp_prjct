@@ -27,8 +27,10 @@ model User {
   playerProfile PlayerProfile?
   ownerProfile  OwnerProfile?
 
-  ownedTeams  Team[]       @relation("OwnedTeams")
-  teamMembers TeamMember[]
+  // Teams this user captains (Team.captainId). The captain is stored only there
+  // (DECISIONS.md 2026-11-18); they are also an accepted TeamMember of the team.
+  captainedTeams Team[]       @relation("CaptainedTeams")
+  teamMembers    TeamMember[]
 
   @@index([verifyToken])
   @@index([resetToken])
@@ -63,17 +65,18 @@ model Team {
   id          Int          @id @default(autoincrement())
   name        String
   description String?
-  ownerId     Int
+  captainId   Int
   createdAt   DateTime     @default(now())
-  owner       User         @relation("OwnedTeams", fields: [ownerId], references: [id])
+  captain     User         @relation("CaptainedTeams", fields: [captainId], references: [id])
   members     TeamMember[]
+
+  @@index([captainId])
 }
 
 model TeamMember {
   id       Int      @id @default(autoincrement())
   teamId   Int
   userId   Int
-  role     String   @default("player")
   status   String   @default("pending")
   joinedAt DateTime @default(now())
   team     Team     @relation(fields: [teamId], references: [id])

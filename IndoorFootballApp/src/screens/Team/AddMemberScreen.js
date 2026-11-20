@@ -16,12 +16,12 @@ import { AuthContext } from '../../contexts/AuthContext';
 import api from '../../api/api';
 
 export default function AddMemberScreen({ route, navigation }) {
-  const { teamId, ownerId } = route.params; // ← ownerId passed from TeamDetail
+  const { teamId, captainId } = route.params; // ← captainId passed from TeamDetail
   const { user } = useContext(AuthContext);
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [invitingId, setInvitingId] = useState(null);
-  const isCaptain = user?.id === ownerId;
+  const isCaptain = user?.id === captainId;
 
   // All hooks run on every render (React's rule), so the captain check below comes
   // after them, and loading only happens for the captain.

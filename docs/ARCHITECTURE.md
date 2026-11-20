@@ -95,7 +95,7 @@ Here's what happens, step by step, when a player creates a team.
 6. `backend/src/routes/teamRoutes.js` matches `POST /create` and runs four functions in order: `verifyToken`, `playersOnly`, `validate(...)`, then `createTeam`.
 7. `backend/src/middleware/auth.js`: `verifyToken` checks the token is genuine and not expired. If it's fine, the user's id and role go into `req.user`. If not, the request stops with a 401 ("not logged in") error. `playersOnly` then stops venue owner and admin accounts with a 403.
 8. `backend/src/middleware/validate.js` checks the request body against `createTeamSchema` (in `backend/src/validation/teamSchemas.js`; see "How requests are checked" below). The name is required, must be text, and must be 2 to 40 characters once spaces at the ends are trimmed. The description is optional, but if given it must be text and at most 200 characters after trimming (an empty description is saved as none). Team names don't have to be unique. If a check fails, it replies 400 with a clear message, such as "Team name must be between 2 and 40 characters", and `createTeam` never runs.
-9. `backend/src/controllers/teamController.js`: `createTeam` takes the checked, trimmed values from `req.valid.body` and uses Prisma to save them. In one step it creates the `Team` row and a `TeamMember` row that makes the creator the team's captain (`role: 'captain'`, `status: 'accepted'`).
+9. `backend/src/controllers/teamController.js`: `createTeam` takes the checked, trimmed values from `req.valid.body` and uses Prisma to save them. In one step it creates the `Team` row, with the creator as its captain (`captainId`), and a `TeamMember` row with `status: 'accepted'`, so the captain is also a member.
 10. Prisma turns that into SQL and PostgreSQL stores both rows.
 
 **Back to the phone**
@@ -265,8 +265,8 @@ The tables are described in `backend/prisma/schema.prisma`. Changes to that file
 - **User:** one row per account. Holds the email, the hashed password, the role (`PLAYER`, `OWNER` or `ADMIN`), whether the email is verified, and temporary tokens for email verification and password reset, each with an expiry time. The tokens are stored only as SHA-256 hashes (see "Tokens are stored hashed" in section 4), and both token columns have an index so lookups stay fast. It also holds a **token version** (`tokenVersion`, a number starting at 0). Every login token carries a copy of it. Increasing it cancels all of that account's login tokens at once, which logs the account out on every phone (see "How login works" in section 4).
 - **PlayerProfile:** extra details for a player: name, phone, playing position, and optional height, weight and address. Each player has exactly one.
 - **OwnerProfile:** extra details for a venue owner: indoor (venue) name, phone, address, and optional description and website. Each owner has exactly one.
-- **Team:** a team's name, optional description, who created it (`ownerId`), and when.
-- **TeamMember:** links a user to a team. It has a `role` (`captain` or `player`) and a `status`: `pending` means invited but not yet in, and `accepted` means in the team. A user can appear only once per team. Only `accepted` rows count as membership: member lists, member counts and a player's number of teams all leave out `pending` rows.
+- **Team:** a team's name, optional description, its captain (`captainId`), and when it was created. The creator becomes the captain. `captainId` is the only place the captain is recorded, so a team can never have two captains or none. It has an index, so finding a player's teams stays fast.
+- **TeamMember:** links a user to a team. It has a `status`: `pending` means invited but not yet in, and `accepted` means in the team. A user can appear only once per team. The captain also has an `accepted` row, like any member; nothing on the row marks them as captain (that's `Team.captainId`). Only `accepted` rows count as membership: member lists, member counts and a player's number of teams all leave out `pending` rows.
 
 Admins have a User row but no profile.
 
@@ -278,7 +278,7 @@ Admins have a User row but no profile.
      │           └───┬────────┬───┘           │
      ▼               │        │               ▼
 PlayerProfile        │        │         OwnerProfile
-                     │ owns   │ is a member through
+                     │captains│ is a member through
                      ▼        ▼
                   ┌──────┐  ┌────────────┐
                   │ Team │◀─│ TeamMember │
@@ -286,19 +286,19 @@ PlayerProfile        │        │         OwnerProfile
 ```
 
 - A user has either a PlayerProfile or an OwnerProfile, depending on their role.
-- A user can create (own) many teams.
+- A user can captain many teams (`Team.captainId`, the `captain` relation; `captainedTeams` on User).
 - A team has many TeamMember rows, and a user can be a member of many teams.
 
 The database doesn't delete linked rows automatically. When the code deletes a team or a user, it first deletes the linked rows by hand (members, then teams, then profiles, then the user). All those steps run inside one **transaction**: the database either does every step or, if one fails, undoes the ones already done, so nothing is ever left half-deleted. This logic lives in one shared file, `src/utils/deletion.js` (`deleteUserAndData` and `deleteTeamAndMembers`), used by both the admin screens and a captain deleting their team.
 
 ### Two meanings of "owner"
 
-This trips people up, so it's worth saying clearly:
+This used to trip people up. "Owner" now means only one thing:
 
 1. **Owner the role** (`Role.OWNER`): a venue owner, a type of account.
-2. **Team owner** (`Team.ownerId`): the *player* who created a team. They're also its captain.
+2. The *player* who runs a team is the **captain** (`Team.captainId`), everywhere: in the database, the API replies and the app. Until Task 4.1 the code called this the "team owner" (`Team.ownerId`), and also marked the captain's member row with `role: 'captain'`; both are gone.
 
-When the code says "only the team owner can invite players", it means the team creator (a player), not a venue owner.
+When the code says "only the team captain can invite players", it means the team's captain (a player), not a venue owner.
 
 ---
 
@@ -421,13 +421,13 @@ Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 ### Team invites
 
 1. A captain opens their team (**My Teams** → team → **Add Member**) and picks a player (`AddMemberScreen.js`). The list leaves out the captain, the team's members and anyone who already has a pending invite to it (worked out from the captain's `GET /teams/me` reply).
-2. The app sends `POST /teams/:teamId/invite`. The backend checks that the sender is a player account, that the player id is a positive whole number, that the sender created the team, that the invited person exists and is a player (otherwise 404 "Player not found"), and that they aren't already listed. It then adds a `TeamMember` row with status `pending`.
-3. The invited player sees it in **Invites** (`InvitesScreen.js`, which calls `GET /players/invites`) as "Invited by <captain name> to <team name>". The reply gives each invite's `team.owner` as `{ id, name }`: the captain's player name, through the visibility rules (never their email).
+2. The app sends `POST /teams/:teamId/invite`. The backend checks that the sender is a player account, that the player id is a positive whole number, that the sender is the team's captain (`Team.captainId`), that the invited person exists and is a player (otherwise 404 "Player not found"), and that they aren't already listed. It then adds a `TeamMember` row with status `pending`.
+3. The invited player sees it in **Invites** (`InvitesScreen.js`, which calls `GET /players/invites`) as "Invited by <captain name> to <team name>". The reply gives each invite's `team.captain` as `{ id, name }`, alongside `team.captainId`: the captain's player name, through the visibility rules (never their email).
 4. **Accept** (`POST /teams/:teamId/accept`) changes the status to `accepted`. **Reject** (`POST /teams/:teamId/reject`) deletes the row. Both only work on a `pending` row. If there's no pending invite for that player and team, they reply 404 "Invite not found".
 
-The team owner can also remove a member (`DELETE /teams/:teamId/members/:userId`) or delete the whole team (`DELETE /teams/:teamId`).
+The captain can also remove a member (`DELETE /teams/:teamId/members/:userId`) or delete the whole team (`DELETE /teams/:teamId`).
 
-A pending invite isn't membership yet. In the team lists (`GET /teams` and `GET /teams/me`) each team's `members` holds only accepted members. The team's captain also gets a separate `pendingInvites` list, so they can see who they've invited; nobody else gets it. `TeamDetailScreen` shows the captain those invites under the members, labelled "pending", without counting them; the captain can remove a member or cancel an invite from there. The screen reloads its team from `GET /teams/me` whenever it comes into view and after a removal, so it never shows stale data, and goes back if the team is gone. **My Teams** also reloads whenever it comes into view, so a team deleted in Team Detail disappears straight away. **All Teams** shows each team's captain by name: the captain is always one of the team's accepted members, so the app takes the name from the `members` list the backend already sends. The app calls the team creator **Captain** everywhere (badges, labels, messages). A player's team count (`GET /players/:id`, `totalTeams`) and the admin's member counts also include only accepted memberships.
+A pending invite isn't membership yet. In the team lists (`GET /teams` and `GET /teams/me`) each team's `members` holds only accepted members. The team's captain also gets a separate `pendingInvites` list, so they can see who they've invited; nobody else gets it. `TeamDetailScreen` shows the captain those invites under the members, labelled "pending", without counting them; the captain can remove a member or cancel an invite from there. The screen reloads its team from `GET /teams/me` whenever it comes into view and after a removal, so it never shows stale data, and goes back if the team is gone. **My Teams** also reloads whenever it comes into view, so a team deleted in Team Detail disappears straight away. **All Teams** shows each team's captain by name: the captain is always one of the team's accepted members, so the app takes the name from the `members` list the backend already sends. The app calls the team's captain **Captain** everywhere (badges, labels, messages). A player's team count (`GET /players/:id`, `totalTeams`) and the admin's member counts also include only accepted memberships.
 
 ### Join requests
 

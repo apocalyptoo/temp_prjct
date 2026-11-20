@@ -50,8 +50,8 @@ export default function TeamDetailScreen({ route, navigation }) {
     [navigation, loadTeam],
   );
 
-  // Check if logged-in user is the team's captain (Team.ownerId)
-  const isOwner = user?.id === team.ownerId;
+  // Check if the logged-in user is the team's captain (Team.captainId)
+  const isCaptain = user?.id === team.captainId;
 
   // `members` holds accepted members only. The backend adds `pendingInvites` only for
   // the captain; they're listed after the members (labelled "pending") but not counted.
@@ -134,7 +134,7 @@ export default function TeamDetailScreen({ route, navigation }) {
         >
           {team.name}
         </Animated.Text>
-        {isOwner && (
+        {isCaptain && (
           <View style={styles.ownerBadge}>
             <Ionicons
               name="shield-checkmark-outline"
@@ -153,14 +153,14 @@ export default function TeamDetailScreen({ route, navigation }) {
         </Text>
 
         {/* Captain-only action buttons */}
-        {isOwner && (
+        {isCaptain && (
           <View style={styles.ownerActions}>
             <TouchableOpacity
               style={styles.addButton}
               onPress={() =>
                 navigation.navigate('AddMember', {
                   teamId: team.id,
-                  ownerId: team.ownerId,
+                  captainId: team.captainId,
                 })
               }
             >
@@ -198,7 +198,7 @@ export default function TeamDetailScreen({ route, navigation }) {
           const memberUserId = item.userId || item.user?.id;
           const memberName = item.user?.name || `User ${memberUserId}`;
           const memberEmail = item.user?.email || '';
-          const isThisOwner = memberUserId === team.ownerId;
+          const isThisCaptain = memberUserId === team.captainId;
 
           return (
             <Animated.View entering={FadeInUp.delay(index * 80)}>
@@ -213,7 +213,7 @@ export default function TeamDetailScreen({ route, navigation }) {
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <View style={styles.memberNameRow}>
                     <Text style={styles.memberName}>{memberName}</Text>
-                    {isThisOwner && (
+                    {isThisCaptain && (
                       <View style={styles.captainBadge}>
                         <Text style={styles.captainText}>Captain</Text>
                       </View>
@@ -228,7 +228,7 @@ export default function TeamDetailScreen({ route, navigation }) {
                 </View>
 
                 {/* Remove button — only the captain sees it, and not on their own row */}
-                {isOwner && !isThisOwner && (
+                {isCaptain && !isThisCaptain && (
                   <TouchableOpacity
                     style={[
                       styles.removeBtn,

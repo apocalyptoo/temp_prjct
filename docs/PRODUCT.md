@@ -17,7 +17,7 @@ A football community app for indoor football (futsal) players in Bangladesh. Pla
 **Two meanings of "owner":**
 
 - `Role.OWNER` is a **venue owner** (a type of account).
-- The player who creates a team is called the **captain** in product terms. In the code this is `Team.ownerId`.
+- The player who creates a team is its **captain**. The code uses the same word (`Team.captainId`).
 
 ## v1.0 scope
 
@@ -118,7 +118,7 @@ Sign-up asks only for what the core flows need. Everything else is filled in lat
 _Implementation notes:_
 - `OwnerProfile.phone` and `OwnerProfile.address` become **optional**. Player phone and position stay required.
 - Position becomes an **enum**. Existing free-text values are mapped: obvious matches (case-insensitive, for example "GK" or "goalkeeper" → Goalkeeper, "striker" → Forward) map to their value, everything else to Any. The full mapping is shown to the owner before the migration runs.
-- Both are schema changes in the Phase 4 migration and need approval.
+- Both are schema changes in the profiles and registration migration and need approval (DECISIONS.md 2026-11-20, "Phase 4 order").
 
 ### Login sessions (v1.0)
 
@@ -163,8 +163,8 @@ _Implementation note:_ each login token carries the account's token version (`Us
 _Implementation notes:_
 - Invites and join requests are currently stored the same way (`status: pending`). The data needs to record who started each one (invite vs request).
 - **"Longest-standing member"** means the member with the **earliest accepted date**. Memberships need a new **accepted at** date, because the current `joinedAt` records when the invite or request was created, not when it was accepted. For existing accepted members, fill accepted at with `joinedAt` (the best value available). If two dates are equal, the lower membership id wins.
-- **The captain is stored in one place only:** `Team.ownerId`, renamed to `Team.captainId`. The "captain" member role is removed, so the captain can't be recorded in two places that might disagree. A captaincy transfer is a single update of `captainId`. Until this change is made, any code that changes captaincy must update both `Team.ownerId` and the captain's `TeamMember` row in one transaction.
-- These are schema changes and need approval. The invite/request field and accepted at should go in the same migration. The `captainId` change belongs with the Phase 4 membership work.
+- **The captain is stored in one place only:** `Team.captainId`. There's no "captain" member role, so the captain can't be recorded in two places that might disagree. The captain is still an accepted member of the team. A captaincy transfer is a single update of `captainId`.
+- These are schema changes and need approval. The invite/request field and accepted at should go in the same migration (Task 4.2). The `captainId` change was its own migration (Task 4.1).
 
 ### Account deletion (v1.0)
 

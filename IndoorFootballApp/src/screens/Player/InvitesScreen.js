@@ -96,7 +96,7 @@ export default function InvitesScreen() {
                       {item.team?.name || `Team ${item.teamId}`}
                     </Text>
                     <Text style={styles.status}>
-                      Invited by {item.team?.owner?.name || 'the captain'} to{' '}
+                      Invited by {item.team?.captain?.name || 'the captain'} to{' '}
                       {item.team?.name || `Team ${item.teamId}`}
                     </Text>
                   </View>

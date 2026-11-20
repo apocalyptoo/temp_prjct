@@ -38,17 +38,17 @@ export const inOneDay = () => new Date(Date.now() + 24 * 60 * 60 * 1000);
 // like a real email link. Written here independently of the app's hashToken().
 export const sha256Hex = (token) => crypto.createHash('sha256').update(token, 'utf8').digest('hex');
 
-// Deletes a user (with their profile, team memberships and the teams they created)
+// Deletes a user (with their profile, team memberships and the teams they captain)
 // by email when the test ends, pass or fail.
 // Only call it with an email the test made up itself.
 export function deleteUserAfter(t, email) {
   t.after(async () => {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return;
-    const ownedTeams = await prisma.team.findMany({ where: { ownerId: user.id }, select: { id: true } });
-    const ownedTeamIds = ownedTeams.map((team) => team.id);
-    await prisma.teamMember.deleteMany({ where: { OR: [{ userId: user.id }, { teamId: { in: ownedTeamIds } }] } });
-    await prisma.team.deleteMany({ where: { id: { in: ownedTeamIds } } });
+    const captainedTeams = await prisma.team.findMany({ where: { captainId: user.id }, select: { id: true } });
+    const captainedTeamIds = captainedTeams.map((team) => team.id);
+    await prisma.teamMember.deleteMany({ where: { OR: [{ userId: user.id }, { teamId: { in: captainedTeamIds } }] } });
+    await prisma.team.deleteMany({ where: { id: { in: captainedTeamIds } } });
     await prisma.playerProfile.deleteMany({ where: { userId: user.id } });
     await prisma.ownerProfile.deleteMany({ where: { userId: user.id } });
     await prisma.user.deleteMany({ where: { id: user.id } });

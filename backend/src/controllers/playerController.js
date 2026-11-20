@@ -81,9 +81,9 @@ export const getPendingInvites = async (req, res, next) => {
       include: {
         team: {
           include: {
-            // The team's creator (captain) is always a player, so the name comes
-            // from their player profile.
-            owner: {
+            // The team's captain is always a player, so the name comes from their
+            // player profile.
+            captain: {
               select: {
                 id: true,
                 playerProfile: { select: { name: true } },
@@ -98,12 +98,12 @@ export const getPendingInvites = async (req, res, next) => {
     const viewer = viewerFrom(req);
     res.json(
       invites.map((invite) => {
-        const { owner } = invite.team;
+        const { captain } = invite.team;
         return {
           ...invite,
           team: {
             ...invite.team,
-            owner: toVisibleUser({ id: owner.id, name: owner.playerProfile?.name || 'Unknown' }, viewer),
+            captain: toVisibleUser({ id: captain.id, name: captain.playerProfile?.name || 'Unknown' }, viewer),
           },
         };
       })

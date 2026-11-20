@@ -11,18 +11,18 @@
 // pass to the longest-standing member instead of being deleted.
 
 // Deletes a user and everything that depends on them: their team memberships, the teams
-// they created (with those teams' members) and their profile. Returns false if no user
+// they captain (with those teams' members) and their profile. Returns false if no user
 // has this id.
 export async function deleteUserAndData(db, userId) {
   return db.$transaction(async (tx) => {
     const user = await tx.user.findUnique({ where: { id: userId }, select: { id: true } });
     if (!user) return false;
 
-    // Their own memberships, plus every membership of a team they created.
+    // Their own memberships, plus every membership of a team they captain.
     await tx.teamMember.deleteMany({
-      where: { OR: [{ userId }, { team: { ownerId: userId } }] },
+      where: { OR: [{ userId }, { team: { captainId: userId } }] },
     });
-    await tx.team.deleteMany({ where: { ownerId: userId } });
+    await tx.team.deleteMany({ where: { captainId: userId } });
     await tx.playerProfile.deleteMany({ where: { userId } });
     await tx.ownerProfile.deleteMany({ where: { userId } });
     await tx.user.delete({ where: { id: userId } });

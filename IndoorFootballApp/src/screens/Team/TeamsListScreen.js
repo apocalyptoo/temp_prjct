@@ -21,10 +21,11 @@ export default function TeamsListScreen({ navigation }) {
   // Only players can create teams (venue owners also see this screen, read-only).
   const canCreateTeam = user?.role === 'PLAYER';
 
-  // The captain (Team.ownerId) is always one of the team's accepted members, and each
+  // The captain (Team.captainId) is always one of the team's accepted members, and each
   // member already comes with their visible name, so no extra request is needed.
   const captainName = team =>
-    team.members?.find(m => m.userId === team.ownerId)?.user?.name || 'Unknown';
+    team.members?.find(m => m.userId === team.captainId)?.user?.name ||
+    'Unknown';
 
   const loadTeams = async () => {
     setLoading(true);

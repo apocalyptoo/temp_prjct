@@ -90,7 +90,7 @@ export const getAllTeams = async (req, res, next) => {
   try {
     const teams = await prisma.team.findMany({
       include: {
-        owner: {
+        captain: {
           select: {
             id: true,
             email: true,
@@ -110,12 +110,12 @@ export const getAllTeams = async (req, res, next) => {
       description: t.description,
       createdAt: t.createdAt,
       memberCount: t._count.members,
-      owner: {
-        id: t.owner.id,
-        email: t.owner.email,
+      captain: {
+        id: t.captain.id,
+        email: t.captain.email,
         name:
-          t.owner.ownerProfile?.indoorName ||
-          t.owner.playerProfile?.name ||
+          t.captain.ownerProfile?.indoorName ||
+          t.captain.playerProfile?.name ||
           'Unknown',
       },
     }));

@@ -32,10 +32,10 @@ async function setUpPlayerWithTeams(t) {
   const ownTeam = await prisma.team.create({
     data: {
       name: 'Own Team',
-      ownerId: player.id,
+      captainId: player.id,
       members: {
         create: [
-          { userId: player.id, role: 'captain', status: 'accepted' },
+          { userId: player.id, status: 'accepted' },
           { userId: teammate.id, status: 'accepted' },
         ],
       },
@@ -44,10 +44,10 @@ async function setUpPlayerWithTeams(t) {
   const otherTeam = await prisma.team.create({
     data: {
       name: 'Other Team',
-      ownerId: otherCaptain.id,
+      captainId: otherCaptain.id,
       members: {
         create: [
-          { userId: otherCaptain.id, role: 'captain', status: 'accepted' },
+          { userId: otherCaptain.id, status: 'accepted' },
           { userId: player.id, status: 'accepted' },
         ],
       },
