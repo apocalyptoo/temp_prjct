@@ -9,6 +9,11 @@
     "start": "node src/server.js",
     "test": "node --test --test-concurrency=1 \"tests/**/*.test.js\""
   },
+  "nodemonConfig": {
+    "ignore": [
+      "tests/**"
+    ]
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

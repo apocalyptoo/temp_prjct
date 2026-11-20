@@ -39,7 +39,7 @@ From `backend/`:
    ```bash
    node scripts/createAdmin.js
    ```
-5. Start the server (it restarts on file changes, port 4000 by default):
+5. Start the server (it restarts when code changes, but not for changes in `tests/`; port 4000 by default):
    ```bash
    npm run dev
    ```
