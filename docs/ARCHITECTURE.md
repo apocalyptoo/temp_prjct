@@ -150,7 +150,7 @@ Three terms used in this layout:
 
 | Prefix | Route file | What it handles |
 |---|---|---|
-| `/auth` | `authRoutes.js` | Register, log in, verify email, forgot/reset password (no login needed), and `GET /auth/me`: who is logged in (needs a token) |
+| `/auth` | `authRoutes.js` | Register, log in, verify email, forgot/reset password (no login needed), `GET /auth/me`: who is logged in, and `POST /auth/change-password` (both need a token) |
 | `/players` | `playerRoutes.js` | My player profile and Edit profile (`PATCH /players/me`), my pending invites, my pending join requests, list all players, a player's stats |
 | `/owners` | `ownerRoutes.js` | My owner profile and editing my venue listing (`PATCH /owners/me`), list all registered venues |
 | `/teams` | `teamRoutes.js` | Create, list, my teams, one team, edit team, invite, cancel invite, accept, reject, join requests (ask, cancel, approve, decline), remove member, leave, transfer captaincy, delete team |
@@ -175,7 +175,7 @@ From then on, the app sends the token with every request, in the header `Authori
 - It then looks the account up in the database. If the account is gone, or the token's version number doesn't match the account's current `tokenVersion`, the token gets 401.
 - The role and email it passes on come from the database, not from the token, so a change takes effect at once.
 
-**Logging out every phone at once.** A token is like a wristband with a number written on it. The account keeps the current number. When the password is reset (the "Forgot password" email), the number goes up by one, in the same database update as the new password. Every wristband with the old number stops working, so every phone that was logged in is logged out, including one that might belong to whoever learned the old password. Logging in again gives a token with the new number. Later, a password change while logged in and a suspension by the admin will do the same (DECISIONS.md, "Which events log out every device"). Normal **Log out** only deletes the token on that one phone.
+**Logging out every phone at once.** A token is like a wristband with a number written on it. The account keeps the current number. When the password is reset (the "Forgot password" email) or changed while logged in, the number goes up by one, in the same database update as the new password. Every wristband with the old number stops working, so every phone that was logged in is logged out, including one that might belong to whoever learned the old password. Logging in again gives a token with the new number. A password change while logged in also hands the phone that made it a new wristband straight away, so that phone stays logged in. Later, a suspension by the admin will do the same (DECISIONS.md, "Which events log out every device"). Normal **Log out** only deletes the token on that one phone.
 
 `GET /auth/me` returns the logged-in user's own details (id, name, email, role, verified) through the visibility rules. The app calls it at start-up to restore the login from the saved token (see section 6). A missing, bad or expired token gets 401, and so does a token for an account that has since been deleted, or one cancelled by a password reset.
 
@@ -242,6 +242,7 @@ The limits and conventions are recorded in DECISIONS.md ("Input validation conve
   | Resend verification email | 5 per hour for one address + email, and at most 20 per hour per address |
   | Reset (form submit) | 10 per 15 minutes per address |
   | Reset page and verify link (opened in a browser) | 30 per 15 minutes per address each |
+  | Change password (logged in) | Only **failed** attempts count (a wrong current password, or a new password that breaks the rule): 10 per 15 minutes per account, and at most 50 per 15 minutes per address across all accounts |
 
   Emails are compared lowercased and trimmed. For IPv6, the whole /56 network counts as one address, because one connection usually owns a range of IPv6 addresses. Browser pages get a readable "Too many attempts" page instead of JSON. The counters are kept in memory, so they reset when the server restarts.
 - **Email cooldown.** A password reset email or a new verification email isn't sent again to the same account within 5 minutes. The reply is unchanged and the earlier email's link still works. This caps how many emails one inbox can get, however many addresses someone uses.
@@ -499,6 +500,17 @@ Known problems in this flow: see [ROADMAP.md](ROADMAP.md), Phases 1 and 2.
 5. Because the form is used in a browser, the replies are simple web pages, not raw JSON: "Password changed" on success; for a weak password, the rule plus a "Try again" link back to the form; for a bad or expired link, a message to request a new reset from the app. Requests sent as JSON still get JSON replies.
 
 Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
+
+### Changing the password while logged in
+
+`POST /auth/change-password` (the Change password screen arrives with task F2.3). Any logged-in account can use it.
+
+1. The app sends the current password and the new one.
+2. `changePasswordSchema` checks that both are there, that the new one follows the same strength rule as sign-up (and is at most 72 bytes), and that it isn't the same as the current one.
+3. The controller compares the current password with the stored hash. If it's wrong, the reply is 400 "Current password is incorrect". It's deliberately not 401: the app treats a 401 as "your session has expired" and logs out, and a typo shouldn't do that. Wrong attempts are rate-limited (see "Protection against abuse and leaks").
+4. In one database update, it saves the new password's hash, raises the token version by one (so every other phone is logged out) and cancels any password reset link that was still waiting. The update only applies if the stored password hasn't changed since step 3, so two changes at the same moment can't both succeed.
+5. The reply is `{ "message": "Password changed", "token": "…" }`: a fresh login token with the new version number. The app saves it, so this phone stays logged in.
+6. Then, without making the reply wait, the backend emails the account a short notice: the password was changed, and if it wasn't you, use Forgot password on the login screen. The email has no link in it (links in "your account changed" emails are what phishing copies). If sending fails, it's logged; the password is already changed.
 
 ### Team invites
 

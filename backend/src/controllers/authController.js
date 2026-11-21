@@ -1,6 +1,4 @@
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import { config } from '../config.js';
 import { prisma } from '../db.js';
 import { INVALID_LOGIN, INVALID_RESET_LINK } from '../validation/authSchemas.js';
 import {
@@ -8,7 +6,7 @@ import {
   hashToken,
   isWellFormedToken,
   sentRecently,
-  LOGIN_TOKEN_LIFETIME_SECONDS,
+  signLoginToken,
   RESET_LINK_LIFETIME_MS,
   VERIFY_LINK_LIFETIME_MS,
 } from '../utils/tokens.js';
@@ -19,7 +17,7 @@ import { toVisibleUser } from '../utils/visibility.js';
 // Account emails go through src/utils/mailer.js (Gmail SMTP; @example.com skipped,
 // .invalid refused). This file loads when the server starts, so this checks the Gmail
 // login once at startup and logs the result.
-const { sendVerificationEmail, sendResetEmail } = mailer;
+const { sendVerificationEmail, sendResetEmail, sendPasswordChangedEmail } = mailer;
 checkMailConnection();
 
 // Every request body and query is checked by its schema in src/validation/authSchemas.js
@@ -166,11 +164,7 @@ export const login = async (req, res, next) => {
 
     // Valid for 30 days. `tv` is the account's current tokenVersion: verifyToken refuses
     // the token once that number has been increased (for example by a password reset).
-    const token = jwt.sign(
-      { id: user.id, userId: user.id, role: user.role, email: user.email, tv: user.tokenVersion },
-      config.jwtSecret,
-      { algorithm: 'HS256', expiresIn: LOGIN_TOKEN_LIFETIME_SECONDS }
-    );
+    const token = signLoginToken(user);
 
     const displayName =
       user.role === 'PLAYER'
@@ -325,6 +319,67 @@ export const resetPassword = async (req, res, next) => {
   }
 };
 
+
+// CHANGE PASSWORD WHILE LOGGED IN (POST /auth/change-password)
+// docs/features/profiles-and-registration.md, d endpoint 6. changePasswordSchema has
+// checked both fields, the new password's rules, and that it differs from the current
+// one; the rate limiters (rateLimits.js) count failed attempts per account and per IP.
+export const changePassword = async (req, res, next) => {
+  const { currentPassword, newPassword } = req.valid.body;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        playerProfile: { select: { name: true } },
+        ownerProfile: { select: { indoorName: true } },
+      },
+    });
+    // verifyToken found the account a moment ago; this only covers it being deleted since.
+    if (!user) return res.status(401).json({ error: 'Invalid token' });
+
+    // A wrong current password is 400, never 401: the app treats any 401 on a request
+    // that carried a token as "session expired" and logs out, so a typo would log the
+    // user out.
+    const wrongPassword = () => res.status(400).json({ error: 'Current password is incorrect' });
+    if (!(await bcrypt.compare(currentPassword, user.password))) return wrongPassword();
+
+    // One update: the new hash, logout on every other device (tokenVersion + 1), and any
+    // pending reset link cancelled (spec P15). It only applies while the stored hash is
+    // still the one just checked, so two changes at the same moment can't both win: the
+    // second finds the hash changed and is told its current password is wrong.
+    let updated;
+    try {
+      updated = await prisma.user.update({
+        where: { id: user.id, password: user.password },
+        data: {
+          password: await bcrypt.hash(newPassword, 10),
+          tokenVersion: { increment: 1 },
+          resetToken: null,
+          resetTokenExpires: null,
+        },
+        select: { id: true, role: true, email: true, tokenVersion: true },
+      });
+    } catch (err) {
+      if (err?.code === 'P2025') return wrongPassword(); // the hash changed in between
+      throw err;
+    }
+
+    // A fresh token with the new tokenVersion keeps this phone logged in.
+    res.json({ message: 'Password changed', token: signLoginToken(updated) });
+
+    // The notice email goes after the reply, so Gmail's few seconds don't hold up the
+    // app. The password is already changed, so a failed send is only logged.
+    const displayName = user.playerProfile?.name ?? user.ownerProfile?.indoorName ?? 'there';
+    sendPasswordChangedEmail({ email: user.email, displayName }).catch((err) =>
+      console.error(`Password-changed email failed for user ${user.id}:`, err)
+    );
+  } catch (err) {
+    return next(err);
+  }
+};
 
 // RESEND VERIFICATION EMAIL
 // Always the same reply, whether the account exists, is already verified, or is in the

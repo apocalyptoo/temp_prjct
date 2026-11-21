@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import jwt from 'jsonwebtoken';
+import { config } from '../config.js';
 
 // Email verification and password reset tokens: 32 random bytes written as
 // 64 lowercase hex characters. The generator and the format check live together
@@ -27,6 +29,18 @@ export const VERIFY_LINK_LIFETIME_MS = 24 * 60 * MINUTE;
 // jsonwebtoken's expiresIn takes). Logins can still be cancelled earlier by increasing
 // the account's tokenVersion (see src/middleware/auth.js).
 export const LOGIN_TOKEN_LIFETIME_SECONDS = 30 * 24 * 60 * 60;
+
+// A login token (JWT) for this user: HS256, valid for 30 days, carrying the account's
+// current tokenVersion as `tv` (src/middleware/auth.js refuses it once that number has
+// been increased). Used by login and by change password, which replies with a fresh
+// token so the phone that changed the password stays logged in.
+// `user` needs id, role, email and tokenVersion.
+export const signLoginToken = (user) =>
+  jwt.sign(
+    { id: user.id, userId: user.id, role: user.role, email: user.email, tv: user.tokenVersion },
+    config.jwtSecret,
+    { algorithm: 'HS256', expiresIn: LOGIN_TOKEN_LIFETIME_SECONDS }
+  );
 
 // Minimum time between two account emails of the same kind to the same account.
 export const EMAIL_COOLDOWN_MS = 5 * MINUTE;

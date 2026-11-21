@@ -118,3 +118,15 @@ export const verifyLinkLimiter = limiter({
   html: true,
   message: 'Too many requests. Please wait 15 minutes and try again.',
 });
+
+// Change password while logged in (DECISIONS.md 2026-11-22, spec D5): like login, only
+// failed requests count (a wrong current password, or a new password that breaks the
+// rule), 10 per 15 minutes per account and 50 per 15 minutes per IP. The route runs
+// verifyToken first, so req.user is the logged-in account.
+const tooManyPasswordChanges = 'Too many attempts to change your password. Please wait 15 minutes and try again.';
+const accountKey = (req) => `account:${req.user.id}`;
+
+export const changePasswordLimiters = [
+  limiter({ windowMs: 15 * MINUTE, limit: 10, keyGenerator: accountKey, onlyFailures: true, message: tooManyPasswordChanges }),
+  limiter({ windowMs: 15 * MINUTE, limit: 50, onlyFailures: true, message: tooManyPasswordChanges }),
+];

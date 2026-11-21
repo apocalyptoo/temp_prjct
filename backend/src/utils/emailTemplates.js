@@ -16,3 +16,11 @@ export const resetEmailHtml = ({ resetLink }) => `
           <a href="${escapeHtml(resetLink)}">Reset password</a>
           <p>This link expires in 1 hour.</p>
         `;
+
+// The notice after a password change while logged in (spec d endpoint 6). No link on
+// purpose: a link in a "your account changed" email is what phishing copies.
+export const passwordChangedEmailHtml = ({ displayName }) => `
+          <p>Hi ${escapeHtml(displayName)},</p>
+          <p>The password for your ConnectArena account was just changed.</p>
+          <p>If this was you, you don't need to do anything. If it wasn't, use Forgot password on the app's login screen right away to set a new one.</p>
+        `;

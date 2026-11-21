@@ -9,6 +9,7 @@ import {
   resetPassword,
   sendResetFailure,
   getMe,
+  changePassword,
 } from '../controllers/authController.js';
 import { verifyToken } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -18,6 +19,7 @@ import {
   emailOnlySchema,
   resetSchema,
   emailLinkQuerySchema,
+  changePasswordSchema,
   INVALID_LOGIN,
 } from '../validation/authSchemas.js';
 import { escapeHtml } from '../utils/html.js';
@@ -30,6 +32,7 @@ import {
   resetPageLimiter,
   verifyLinkLimiter,
   resendVerificationLimiters,
+  changePasswordLimiters,
 } from '../middleware/rateLimits.js';
 const router = express.Router();
 
@@ -49,6 +52,10 @@ router.post(
   resendVerification
 );
 router.get('/me', verifyToken, getMe); // who is logged in (the app calls it at start-up)
+
+// Change password while logged in. verifyToken first: the per-account limiter needs
+// req.user. A success replies with a fresh token (the other devices are logged out).
+router.post('/change-password', verifyToken, ...changePasswordLimiters, validate({ body: changePasswordSchema }), changePassword);
 
 //password reset
 router.post('/forgot', ...forgotPasswordLimiters, validate({ body: emailOnlySchema }), requestPasswordReset);

@@ -136,3 +136,36 @@ describe('nodemailer 10 still knows the Gmail shortcut', () => {
     assert.equal(transporter.transporter.options.secure, true);
   });
 });
+
+describe('The password-changed notice, built by nodemailer', () => {
+  test('has the right to and subject, greets by name, and contains no link', async () => {
+    const { sendPasswordChangedEmail } = createMailer(streamTransporter(), SETTINGS);
+
+    const info = await sendPasswordChangedEmail({ email: 'player@example.org', displayName: 'Rahim' });
+    const { headers, body } = readMessage(info.message);
+
+    assert.deepEqual(info.envelope, { from: 'sender@example.org', to: ['player@example.org'] });
+    assert.equal(headers.subject, 'Your ConnectArena password was changed');
+    assert.match(headers['content-type'], /^text\/html/);
+    assert.ok(body.includes('Hi Rahim,'));
+    assert.ok(body.includes('was just changed'));
+    assert.ok(body.includes('Forgot password'), 'says what to do if it was not them');
+    assert.doesNotMatch(body, /<a\s|href=|https?:\/\//i, 'no link of any kind');
+  });
+
+  test('the name is escaped', async () => {
+    const { sendPasswordChangedEmail } = createMailer(streamTransporter(), SETTINGS);
+
+    const info = await sendPasswordChangedEmail({ email: 'player@example.org', displayName: '<b>Bold</b> & Co' });
+    const { body } = readMessage(info.message);
+
+    assert.ok(body.includes('&lt;b&gt;Bold&lt;/b&gt; &amp; Co'));
+    assert.ok(!body.includes('<b>Bold</b>'));
+  });
+
+  test('like every account email, @example.com is skipped and .invalid fails at once', async () => {
+    const { sendPasswordChangedEmail } = createMailer(streamTransporter(), SETTINGS);
+    assert.equal(await sendPasswordChangedEmail({ email: 'test-x@example.com', displayName: 'T' }), undefined);
+    await assert.rejects(sendPasswordChangedEmail({ email: 'someone@mail.invalid', displayName: 'T' }), /\.invalid address/);
+  });
+});

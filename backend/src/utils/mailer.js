@@ -1,4 +1,4 @@
-// Sending account emails (verification and password reset).
+// Sending account emails (verification, password reset, and the password-changed notice).
 //
 // createMailer(transporter, settings) builds the senders around any nodemailer
 // transporter, so tests can pass one that sends nothing (streamTransport). The server's
@@ -8,7 +8,7 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config.js';
 import { normalizeEmail } from './email.js';
-import { verifyEmailHtml, resetEmailHtml } from './emailTemplates.js';
+import { verifyEmailHtml, resetEmailHtml, passwordChangedEmailHtml } from './emailTemplates.js';
 
 export function createMailer(transporter, { fromAddress, backendPublicUrl }) {
   const from = `"App Support" <${fromAddress}>`;
@@ -47,7 +47,17 @@ export function createMailer(transporter, { fromAddress, backendPublicUrl }) {
       html: resetEmailHtml({ resetLink: `${backendPublicUrl}/auth/reset-password-page?token=${token}` }),
     });
 
-  return { sendMail, sendVerificationEmail, sendResetEmail };
+  // After a password change while logged in. Tells the account's owner, so someone whose
+  // login was stolen finds out (DECISIONS.md 2026-11-22). No link in it.
+  const sendPasswordChangedEmail = ({ email, displayName }) =>
+    sendMail({
+      from,
+      to: email,
+      subject: 'Your ConnectArena password was changed',
+      html: passwordChangedEmailHtml({ displayName }),
+    });
+
+  return { sendMail, sendVerificationEmail, sendResetEmail, sendPasswordChangedEmail };
 }
 
 const gmailTransporter = nodemailer.createTransport({

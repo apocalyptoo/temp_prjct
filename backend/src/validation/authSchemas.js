@@ -19,6 +19,8 @@ const VENUE_NAME_REQUIRED = 'Venue name is required';
 export const TERMS_REQUIRED = 'Please accept the Terms of Use and Privacy Policy';
 const RESET_REQUIRED = 'Token and new password required';
 const EMAIL_REQUIRED = 'Email is required';
+const CHANGE_PASSWORD_REQUIRED = 'Current password and new password are required';
+export const SAME_PASSWORD = 'Your new password must be different from your current one';
 export const PASSWORD_TOO_LONG = `Password must be at most ${MAX_PASSWORD_BYTES} characters (emoji and non-English letters count as more than one)`;
 
 // ── Pieces ──
@@ -122,6 +124,25 @@ export const resetSchema = inStages(
   ),
   z.looseObject({ token: z.string({ error: INVALID_RESET_LINK }) }),
   z.object({ token: z.string(), password: newPassword }),
+);
+
+// ── POST /auth/change-password ──
+// In order: both present as non-empty text, then the new password's strength rule and
+// 72-byte limit (as at sign-up and reset), then the new one must differ from the current
+// one (spec P14). Whether the current password is right is checked by the controller.
+export const changePasswordSchema = inStages(
+  z.looseObject(
+    {
+      currentPassword: z.string({ error: CHANGE_PASSWORD_REQUIRED }).min(1, { error: CHANGE_PASSWORD_REQUIRED }),
+      newPassword: z.string({ error: CHANGE_PASSWORD_REQUIRED }).min(1, { error: CHANGE_PASSWORD_REQUIRED }),
+    },
+    { error: CHANGE_PASSWORD_REQUIRED },
+  ),
+  z.object({ currentPassword: z.string(), newPassword }),
+  z.object({ currentPassword: z.string(), newPassword: z.string() }).refine(
+    ({ currentPassword, newPassword: chosen }) => chosen !== currentPassword,
+    { error: SAME_PASSWORD },
+  ),
 );
 
 // ── GET /auth/verify and GET /auth/reset-password-page ──
