@@ -38,15 +38,17 @@ function MyTeamsTab() {
   );
 }
 
-// Interim: the existing Invites screen, until the real Notifications screen (Step 3).
+// Interim: the Invites screen, until the real Notifications screen (feature 5). An invite
+// opens Team detail, so the team screens are registered here too.
 function NotificationsTab() {
   return (
     <NotificationsStack.Navigator>
       <NotificationsStack.Screen
         name="Invites"
         component={InvitesScreen}
-        options={{ title: 'Invites' }}
+        options={{ headerShown: false }}
       />
+      {teamScreens(NotificationsStack)}
     </NotificationsStack.Navigator>
   );
 }

@@ -1,6 +1,6 @@
 # Feature 1: Team membership (spec)
 
-Phase 4, Step 3. Task F1.0, written 2026-11-21. **Status: approved 2026-11-21** (DECISIONS.md, "Team membership feature spec approved").
+Phase 4, Step 3. Task F1.0, written 2026-11-21. **Status: built 2026-11-22** (approved 2026-11-21, DECISIONS.md "Team membership feature spec approved"; backend in task F1.1, screens in F1.2 and F1.3).
 
 **How to read the markers:**
 - **[Pn, approved]**: a design choice proposed by Claude Code, with its one-line reason, approved by the owner on 2026-11-21. All are listed in section k.
