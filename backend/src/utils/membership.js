@@ -23,3 +23,17 @@ export function toMembershipReply(row, { withMessage = false } = {}) {
   const { origin, acceptedAt, message, ...rest } = row;
   return withMessage ? { ...rest, message } : rest;
 }
+
+// Locks the team's row until the surrounding transaction ends, and returns
+// { id, captainId }, or null when the team doesn't exist. Every write to a team's
+// membership rows or captain calls this first, inside its transaction, so two such
+// writes to the same team run one after the other: two approvals at the same moment
+// can't both see 14 members and take the team to 16. The id is sent as a parameter
+// (Prisma's tagged $queryRaw), never pasted into the SQL.
+export async function lockTeam(tx, teamId) {
+  const rows = await tx.$queryRaw`SELECT id, "captainId" FROM "Team" WHERE id = ${teamId} FOR UPDATE`;
+  return rows[0] ?? null;
+}
+
+// The team's accepted members (the captain included).
+export const countMembers = (tx, teamId) => tx.teamMember.count({ where: { teamId, status: 'accepted' } });

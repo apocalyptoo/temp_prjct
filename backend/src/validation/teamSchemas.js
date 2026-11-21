@@ -50,3 +50,24 @@ export const inviteSchema = z.object(
   },
   { error: 'userId must be a positive integer' }
 );
+
+export const JOIN_REQUEST_MESSAGE_MAX = 150;
+const MESSAGE_NOT_TEXT = 'Message must be text';
+
+// ── POST /teams/:teamId/requests ──
+// message: optional text to the captain, trimmed, at most 150 characters (code points,
+// like team names); missing, null, empty or only spaces is stored as null
+// (docs/PRODUCT.md, "Join request message"). A request with no body has no message.
+export const joinRequestSchema = z.object(
+  {
+    message: z
+      .string({ error: MESSAGE_NOT_TEXT })
+      .trim()
+      .nullish()
+      .transform((message) => message || null)
+      .refine((message) => message === null || charCount(message) <= JOIN_REQUEST_MESSAGE_MAX, {
+        error: `Message must be at most ${JOIN_REQUEST_MESSAGE_MAX} characters`,
+      }),
+  },
+  { error: MESSAGE_NOT_TEXT }
+);

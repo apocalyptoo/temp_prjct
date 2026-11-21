@@ -63,6 +63,24 @@ describe('Joining a team needs the captain', () => {
   });
 });
 
+describe('Accept and reject act on invites only, never on join requests', () => {
+  test("a player can't accept or reject their own join request through the invite routes", async (t) => {
+    const { outsider, team } = await setUpTeamAndOutsider(t);
+    assert.equal((await postJson(`/teams/${team.id}/requests`, { message: 'hi' }, outsider.jwt)).status, 201);
+
+    const acceptRes = await postJson(`/teams/${team.id}/accept`, {}, outsider.jwt);
+    const rejectRes = await postJson(`/teams/${team.id}/reject`, {}, outsider.jwt);
+
+    assert.equal(acceptRes.status, 404);
+    assert.deepEqual(await acceptRes.json(), { error: 'Invite not found' });
+    assert.equal(rejectRes.status, 404);
+    const row = await membership(team.id, outsider.user.id);
+    assert.equal(row.status, 'pending', 'still a pending join request');
+    assert.equal(row.origin, 'request');
+    assert.equal(row.message, 'hi');
+  });
+});
+
 describe('Invite input checks', () => {
   test('rejects a userId that is not a positive integer', async (t) => {
     const { captain, team } = await setUpTeamAndOutsider(t);

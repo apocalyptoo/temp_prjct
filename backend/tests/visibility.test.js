@@ -149,6 +149,39 @@ describe('Yourself and the admin see everything', () => {
   });
 });
 
+describe('A join request message is seen only by the captain, the requester and the admin', () => {
+  test('every team and player endpoint, for every kind of viewer', async (t) => {
+    const { captain, teammate, pending, team } = await teamWithMembers(t);
+    const requester = await playerWithProfile(t);
+    const outsider = await playerWithProfile(t);
+    const owner = await venueOwner(t);
+    const admin = await createLoggedInUser(t, { role: 'ADMIN' });
+    const MESSAGE = 'Secret note for the captain';
+    assert.equal((await postJson(`/teams/${team.id}/requests`, { message: MESSAGE }, requester.jwt)).status, 201);
+
+    // Who may see it, and where.
+    const asCaptain = await get(`/teams/${team.id}`, captain.jwt);
+    const asAdmin = await get(`/teams/${team.id}`, admin.jwt);
+    const asRequester = await get(`/teams/${team.id}`, requester.jwt);
+    const ownList = await get('/players/requests', requester.jwt);
+    assert.equal(asCaptain.joinRequests[0].message, MESSAGE);
+    assert.equal(asAdmin.joinRequests[0].message, MESSAGE);
+    assert.equal(asRequester.myRequest.message, MESSAGE);
+    assert.equal(ownList[0].message, MESSAGE);
+
+    // Everywhere else, for everyone else (and in the team lists, even for the captain).
+    const elsewhere = [];
+    for (const viewer of [teammate, pending, outsider, owner]) {
+      elsewhere.push(await get(`/teams/${team.id}`, viewer.jwt), await get('/teams', viewer.jwt));
+    }
+    for (const viewer of [captain, teammate, requester]) {
+      elsewhere.push(await get('/teams', viewer.jwt), await get('/teams/me', viewer.jwt));
+    }
+    elsewhere.push(await get('/players/invites', pending.jwt), await get('/players', outsider.jwt), await get('/admin/teams', admin.jwt));
+    assert.doesNotMatch(JSON.stringify(elsewhere), new RegExp(MESSAGE));
+  });
+});
+
 describe('No response ever contains passwords or tokens', () => {
   test('every data endpoint, for a player, a venue owner and an admin', async (t) => {
     // Give the users real-looking tokens so a leak would show up.
@@ -156,7 +189,7 @@ describe('No response ever contains passwords or tokens', () => {
       verifyToken: sha256Hex(randomToken()), verifyTokenExpires: inOneDay(),
       resetToken: sha256Hex(randomToken()), resetTokenExpires: inOneHour(),
     });
-    const { captain, pending } = await teamWithMembers(t);
+    const { captain, pending, team } = await teamWithMembers(t);
     await prisma.user.updateMany({ where: { id: { in: [captain.user.id, pending.user.id] } }, data: tokens() });
     const owner = await venueOwner(t);
     const admin = await createLoggedInUser(t, { role: 'ADMIN', ...tokens() });
@@ -168,6 +201,9 @@ describe('No response ever contains passwords or tokens', () => {
       await get('/players/invites', pending.jwt),
       await get('/teams', captain.jwt),
       await get('/teams/me', captain.jwt),
+      await get(`/teams/${team.id}`, captain.jwt),
+      await get(`/teams/${team.id}`, admin.jwt),
+      await get('/players/requests', pending.jwt),
       await get('/owners', captain.jwt),
       await get('/owners/me', owner.jwt),
       await get('/admin/users', admin.jwt),

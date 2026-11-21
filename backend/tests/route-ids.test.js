@@ -50,6 +50,27 @@ describe('Bad team ids get 400', () => {
     assert.equal(res.status, 200);
   });
 
+  test('the join request routes with a bad team id or a bad player id', async (t) => {
+    const player = await createLoggedInPlayer(t);
+    const captain = await createLoggedInPlayer(t);
+    const team = await (await postJson('/teams/create', { name: 'Id Test' }, captain.jwt)).json();
+
+    for (const badId of BAD_IDS) {
+      const checks = [
+        [await postJson(`/teams/${badId}/requests`, {}, player.jwt), 'Invalid team id'],
+        [await sendDelete(`/teams/${badId}/requests/me`, player.jwt), 'Invalid team id'],
+        [await postJson(`/teams/${badId}/requests/${player.user.id}/approve`, {}, captain.jwt), 'Invalid team id'],
+        [await postJson(`/teams/${badId}/requests/${player.user.id}/reject`, {}, captain.jwt), 'Invalid team id'],
+        [await postJson(`/teams/${team.id}/requests/${badId}/approve`, {}, captain.jwt), 'Invalid player id'],
+        [await postJson(`/teams/${team.id}/requests/${badId}/reject`, {}, captain.jwt), 'Invalid player id'],
+      ];
+      for (const [res, message] of checks) {
+        assert.equal(res.status, 400, `id ${badId}: ${res.url}`);
+        assert.deepEqual(await res.json(), { error: message });
+      }
+    }
+  });
+
   test('deleting a team with a bad id', async (t) => {
     const player = await createLoggedInPlayer(t);
 

@@ -153,7 +153,7 @@ Three terms used in this layout:
 | `/auth` | `authRoutes.js` | Register, log in, verify email, forgot/reset password (no login needed), and `GET /auth/me`: who is logged in (needs a token) |
 | `/players` | `playerRoutes.js` | My player profile, my pending invites, my pending join requests, list all players, a player's stats |
 | `/owners` | `ownerRoutes.js` | My owner profile, list all registered venues |
-| `/teams` | `teamRoutes.js` | Create, list, my teams, one team, invite, accept, reject, remove member, delete team |
+| `/teams` | `teamRoutes.js` | Create, list, my teams, one team, invite, accept, reject, join requests (ask, cancel, approve, decline), remove member, delete team |
 | `/admin` | `adminRoutes.js` | Stats, list/delete users, list/delete teams, list/delete venues (admins only). Deleting users only works on player and owner accounts, deleting venues only on owner accounts (404 "Venue not found" otherwise), and an admin account, including your own, gets 403 |
 
 There's also `GET /`, which replies "API running" so you can check the server is up.
@@ -267,7 +267,7 @@ The tables are described in `backend/prisma/schema.prisma`. Changes to that file
 - **OwnerProfile:** extra details for a venue owner: indoor (venue) name, phone, address, and optional description and website. Each owner has exactly one.
 - **Team:** a team's name, optional description, its captain (`captainId`), and when it was created. The creator becomes the captain. `captainId` is the only place the captain is recorded, so a team can never have two captains or none. It has an index, so finding a player's teams stays fast.
 - **TeamMember:** links a user to a team. It has a `status`, which can only be `pending` (invited but not yet in) or `accepted` (in the team); the database refuses any other value. It also records:
-  - **`origin`:** how the membership started: `invite` (the captain invited the player), `request` (the player asked to join; used once join requests are rebuilt) or `creator` (the captain's own row, made with the team).
+  - **`origin`:** how the membership started: `invite` (the captain invited the player), `request` (the player asked to join) or `creator` (the captain's own row, made with the team).
   - **`createdAt`:** when the invite, request or team was created (this used to be called `joinedAt`, a misleading name).
   - **`acceptedAt`:** when the player actually became a member; empty while pending. The **longest-standing member** is the one with the earliest `acceptedAt` (ties go to the lower row id). It decides who becomes captain when a captain deletes their account.
   - **`message`:** a join request's optional message to the captain (added by migration `20261121120000_join_request_message`). Empty on every other row. Approving the request clears it; rejecting or cancelling deletes the whole row.
@@ -482,7 +482,7 @@ Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 1. A captain opens their team (**My Teams** → team → **Add Member**) and picks a player (`AddMemberScreen.js`). The list leaves out the captain, the team's members and anyone who already has a pending invite to it (worked out from the captain's `GET /teams/me` reply).
 2. The app sends `POST /teams/:teamId/invite`. The backend checks that the sender is a player account, that the player id is a positive whole number, that the sender is the team's captain (`Team.captainId`), that the invited person exists and is a player (otherwise 404 "Player not found"), and that they aren't already listed. It then adds a `TeamMember` row with status `pending` and origin `invite`.
 3. The invited player sees it in **Invites** (`InvitesScreen.js`, which calls `GET /players/invites`) as "Invited by <captain name> to <team name>". The reply gives each invite's `team.captain` as `{ id, name }`, alongside `team.captainId`: the captain's player name, through the visibility rules (never their email).
-4. **Accept** (`POST /teams/:teamId/accept`) changes the status to `accepted` and records the time in `acceptedAt`. **Reject** (`POST /teams/:teamId/reject`) deletes the row. Both only work on a `pending` row. If there's no pending invite for that player and team, they reply 404 "Invite not found".
+4. **Accept** (`POST /teams/:teamId/accept`) changes the status to `accepted` and records the time in `acceptedAt`. **Reject** (`POST /teams/:teamId/reject`) deletes the row. Both only work on a pending invite (never on the player's own join request). If there's no pending invite for that player and team, they reply 404 "Invite not found".
 
 The captain can also remove a member (`DELETE /teams/:teamId/members/:userId`) or delete the whole team (`DELETE /teams/:teamId`).
 
@@ -505,7 +505,18 @@ The shaping is done by `toTeamDetail` in `teamController.js`; the team lists use
 
 ### Join requests
 
-There's currently no way to ask to join a team. The old `POST /teams/:teamId/join` endpoint was removed because it was a security hole: it created a `pending` row for the person asking, and since a join request looked exactly like an invite, that player could then "accept" it and join any team without the captain's approval. No screen used it. The join-request flow will be rebuilt in Phase 4, once the data can tell invites and join requests apart. See [ROADMAP.md](ROADMAP.md), Phase 4.
+A player can ask to join a team; the captain approves or declines (feature 1, [features/team-membership.md](features/team-membership.md)). The new screens for it come in the next app tasks; today's app has no button for it yet. Every one of these actions is for player accounts only (venue owners and the admin get 403).
+
+1. **Ask:** `POST /teams/:teamId/requests` with an optional `message` to the captain (text, spaces at both ends removed, at most 150 characters counted like team names; blank means no message). It adds a `TeamMember` row with status `pending`, origin `request` and the message, and replies 201. It's refused with 409 if the player is already in the team ("You're already in this team."), has already asked ("You've already asked to join this team.") or the team is full ("Team is full (15/15)."). **If the captain has already invited the player, asking accepts the invite instead** (both sides agreed): 200 `{ message: 'Joined team successfully', joined: true }`.
+2. **Cancel:** the player deletes their own request with `DELETE /teams/:teamId/requests/me` (404 "Join request not found" if there's none).
+3. **Approve:** the captain calls `POST /teams/:teamId/requests/:userId/approve`. The row becomes `accepted`, `acceptedAt` is set and the message is cleared. A full team gets 409 "Team is full (15/15)." and the request stays pending.
+4. **Decline:** `POST /teams/:teamId/requests/:userId/reject` deletes the row, message included. The player can ask again later.
+
+Only the captain may approve or decline (403 "Only the team captain can approve or reject join requests."). A request that's gone (cancelled, already handled) gets 404 "Join request not found", so a screen showing old data finds out and can reload.
+
+**Players can't approve their own requests.** The old `POST /teams/:teamId/join` endpoint was removed in Phase 1 because a join request looked exactly like an invite, so a player could "accept" their own request. Now every row records its origin, and the invite routes (accept, reject, `GET /players/invites`) only ever look at `origin: invite` rows.
+
+**Two at once can't break the 15-member limit.** Every action that changes a team's members runs in one database transaction whose first step locks the team's row (`lockTeam` in `src/utils/membership.js`, a `SELECT … FOR UPDATE`). If two approvals arrive at the same moment, the second waits until the first has finished, then counts 15 members and is refused. The lock is released when the transaction ends.
 
 ---
 

@@ -9,10 +9,28 @@ import {
   isPendingInvite,
   isPendingRequest,
   toMembershipReply,
+  TEAM_FULL_MESSAGE,
+  lockTeam,
+  countMembers,
 } from '../utils/membership.js';
 
 // Request bodies are checked by the schemas in src/validation/teamSchemas.js before
 // these handlers run (see teamRoutes.js). The handlers read them from req.valid.body.
+
+// Runs `work(tx, team)` in one transaction whose first step locks the team row
+// (lockTeam), so writes to the same team never overlap. `work` returns the reply as
+// [status, body]; an unknown team gets 404 "Team not found".
+function withLockedTeam(teamId, work) {
+  return prisma.$transaction(async (tx) => {
+    const team = await lockTeam(tx, teamId);
+    if (!team) return [404, { error: 'Team not found' }];
+    return work(tx, team);
+  });
+}
+
+const sendReply = (res, [status, body]) => res.status(status).json(body);
+const teamFull = () => [409, { error: TEAM_FULL_MESSAGE }];
+const findRow = (tx, teamId, userId) => tx.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
 
 // ── Create new team ──
 export const createTeam = async (req, res, next) => {
@@ -149,11 +167,10 @@ export const acceptInvite = async (req, res, next) => {
     if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
     const userId = req.user.id;
 
-    // Only a pending row can be accepted. Interim: pending rows can only be created by
-    // the captain's invite (the /join route was removed until Phase 4 can tell
-    // invites and join requests apart).
+    // Only a pending invite can be accepted, never the player's own join request
+    // (players can't approve their own requests).
     const { count } = await prisma.teamMember.updateMany({
-      where: { teamId, userId, status: 'pending' },
+      where: { teamId, userId, status: 'pending', origin: 'invite' },
       data: { status: 'accepted', acceptedAt: new Date() },
     });
     if (count === 0) return res.status(404).json({ error: 'Invite not found' });
@@ -171,14 +188,128 @@ export const rejectInvite = async (req, res, next) => {
     if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
     const userId = req.user.id;
 
-    // Only a pending row can be rejected, so this can't remove an accepted membership
-    // (including the captain's own).
+    // Only a pending invite can be rejected, so this can't remove an accepted membership
+    // (including the captain's own) or the player's own join request.
     const { count } = await prisma.teamMember.deleteMany({
-      where: { teamId, userId, status: 'pending' },
+      where: { teamId, userId, status: 'pending', origin: 'invite' },
     });
     if (count === 0) return res.status(404).json({ error: 'Invite not found' });
 
     res.status(200).json({ message: 'Invite rejected' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// ── Ask to join a team (players) ──
+// Creates a pending join request with an optional message. If the captain has already
+// invited the player, asking accepts the invite instead (both sides agreed). A full
+// team takes no requests (docs/features/team-membership.md, endpoint 5).
+export const requestToJoin = async (req, res, next) => {
+  try {
+    const teamId = parseId(req.params.teamId);
+    if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
+    const userId = req.user.id;
+    const { message } = req.valid.body;
+
+    const reply = await withLockedTeam(teamId, async (tx, team) => {
+      const own = await findRow(tx, teamId, userId);
+      if (team.captainId === userId || (own && isMember(own))) {
+        return [409, { error: "You're already in this team." }];
+      }
+      if (own && isPendingRequest(own)) return [409, { error: "You've already asked to join this team." }];
+      if ((await countMembers(tx, teamId)) >= MAX_TEAM_MEMBERS) return teamFull();
+
+      if (own && isPendingInvite(own)) {
+        await tx.teamMember.update({ where: { id: own.id }, data: { status: 'accepted', acceptedAt: new Date() } });
+        return [200, { message: 'Joined team successfully', joined: true }];
+      }
+
+      const request = await tx.teamMember.create({
+        data: { teamId, userId, status: 'pending', origin: 'request', message },
+        select: { id: true, teamId: true, userId: true, status: true, createdAt: true, message: true },
+      });
+      return [201, request];
+    });
+    return sendReply(res, reply);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// ── Cancel my join request (the requester) ──
+export const cancelMyRequest = async (req, res, next) => {
+  try {
+    const teamId = parseId(req.params.teamId);
+    if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
+    const userId = req.user.id;
+
+    const reply = await withLockedTeam(teamId, async (tx) => {
+      const { count } = await tx.teamMember.deleteMany({
+        where: { teamId, userId, status: 'pending', origin: 'request' },
+      });
+      if (count === 0) return [404, { error: 'Join request not found' }];
+      return [200, { message: 'Request cancelled' }];
+    });
+    return sendReply(res, reply);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// Shared start of approve and reject: the captain check, then the pending request.
+// Returns a reply ([status, body]) to send, or the request row to act on.
+async function findRequestForCaptain(tx, team, teamId, userId, viewerId) {
+  if (team.captainId !== viewerId) {
+    return [403, { error: 'Only the team captain can approve or reject join requests.' }];
+  }
+  const row = await findRow(tx, teamId, userId);
+  if (!row || !isPendingRequest(row)) return [404, { error: 'Join request not found' }];
+  return row;
+}
+
+// ── Approve a join request (captain only) ──
+// Blocked when the team is full; the request then stays pending. Approving clears the
+// message (docs/PRODUCT.md, "Join request message").
+export const approveRequest = async (req, res, next) => {
+  try {
+    const teamId = parseId(req.params.teamId);
+    if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
+    const userId = parseId(req.params.userId);
+    if (userId === null) return res.status(400).json({ error: 'Invalid player id' });
+
+    const reply = await withLockedTeam(teamId, async (tx, team) => {
+      const found = await findRequestForCaptain(tx, team, teamId, userId, req.user.id);
+      if (Array.isArray(found)) return found;
+      if ((await countMembers(tx, teamId)) >= MAX_TEAM_MEMBERS) return teamFull();
+      await tx.teamMember.update({
+        where: { id: found.id },
+        data: { status: 'accepted', acceptedAt: new Date(), message: null },
+      });
+      return [200, { message: 'Request approved' }];
+    });
+    return sendReply(res, reply);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// ── Decline a join request (captain only) ──
+// Deletes the row, and its message with it. Works when the team is full.
+export const rejectRequest = async (req, res, next) => {
+  try {
+    const teamId = parseId(req.params.teamId);
+    if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
+    const userId = parseId(req.params.userId);
+    if (userId === null) return res.status(400).json({ error: 'Invalid player id' });
+
+    const reply = await withLockedTeam(teamId, async (tx, team) => {
+      const found = await findRequestForCaptain(tx, team, teamId, userId, req.user.id);
+      if (Array.isArray(found)) return found;
+      await tx.teamMember.delete({ where: { id: found.id } });
+      return [200, { message: 'Request declined' }];
+    });
+    return sendReply(res, reply);
   } catch (error) {
     return next(error);
   }
