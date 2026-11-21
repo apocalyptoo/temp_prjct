@@ -1,3 +1,5 @@
+import { lockTeam } from './membership.js';
+
 // Shared delete logic for users and teams.
 //
 // Each delete has several steps (the schema has no onDelete: Cascade, so dependent rows
@@ -30,12 +32,22 @@ export async function deleteUserAndData(db, userId) {
   });
 }
 
-// Deletes a team and all its membership rows (accepted and pending). Returns false if
+// Deletes a team and all its membership rows (accepted and pending) inside the caller's
+// transaction `tx`, which must already hold the team lock (lockTeam). Used where the
+// delete is one step of a bigger change, like the last member leaving. Returns false if
 // no team has this id.
+export async function removeTeamRows(tx, teamId) {
+  await tx.teamMember.deleteMany({ where: { teamId } });
+  const { count } = await tx.team.deleteMany({ where: { id: teamId } });
+  return count > 0;
+}
+
+// Deletes a team and all its membership rows in a transaction of its own, under the
+// team lock, so it can't overlap another change to the team. Returns false if no team
+// has this id.
 export async function deleteTeamAndMembers(db, teamId) {
   return db.$transaction(async (tx) => {
-    await tx.teamMember.deleteMany({ where: { teamId } });
-    const { count } = await tx.team.deleteMany({ where: { id: teamId } });
-    return count > 0;
+    if (!(await lockTeam(tx, teamId))) return false;
+    return removeTeamRows(tx, teamId);
   });
 }

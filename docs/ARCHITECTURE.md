@@ -153,7 +153,7 @@ Three terms used in this layout:
 | `/auth` | `authRoutes.js` | Register, log in, verify email, forgot/reset password (no login needed), and `GET /auth/me`: who is logged in (needs a token) |
 | `/players` | `playerRoutes.js` | My player profile, my pending invites, my pending join requests, list all players, a player's stats |
 | `/owners` | `ownerRoutes.js` | My owner profile, list all registered venues |
-| `/teams` | `teamRoutes.js` | Create, list, my teams, one team, invite, cancel invite, accept, reject, join requests (ask, cancel, approve, decline), remove member, delete team |
+| `/teams` | `teamRoutes.js` | Create, list, my teams, one team, edit team, invite, cancel invite, accept, reject, join requests (ask, cancel, approve, decline), remove member, leave, transfer captaincy, delete team |
 | `/admin` | `adminRoutes.js` | Stats, list/delete users, list/delete teams, list/delete venues (admins only). Deleting users only works on player and owner accounts, deleting venues only on owner accounts (404 "Venue not found" otherwise), and an admin account, including your own, gets 403 |
 
 There's also `GET /`, which replies "API running" so you can check the server is up.
@@ -185,7 +185,7 @@ There are four layers of checks:
 
 - **Logged in?** `verifyToken` runs on every route except `/auth`.
 - **Admin?** The `isAdmin` middleware runs on every `/admin` route. It rejects anyone whose token role isn't `ADMIN`.
-- **Player?** The `playersOnly` middleware runs on every team action: creating a team, inviting, accepting, rejecting, the join request actions, removing a member and cancelling an invite. Venue owner and admin accounts get a 403 saying only player accounts can create or join teams.
+- **Player?** The `playersOnly` middleware runs on every team action: creating, editing and deleting a team, inviting, accepting, rejecting, the join request actions, removing a member, cancelling an invite, leaving and transferring captaincy. Venue owner and admin accounts get a 403 saying only player accounts can create or join teams.
 - **Everything else** is checked inside the controllers. For example, `/players/me` refuses non-players, and inviting, removing or deleting in a team is refused unless you created that team.
 
 Known security problems in these checks: see [ROADMAP.md](ROADMAP.md), Phase 1.
@@ -295,7 +295,7 @@ PlayerProfile        │        │         OwnerProfile
 - A user can captain many teams (`Team.captainId`, the `captain` relation; `captainedTeams` on User).
 - A team has many TeamMember rows, and a user can be a member of many teams.
 
-The database has delete rules as a safety net: deleting a user also deletes their profile and their membership rows, and deleting a team also deletes its membership rows (this is called **cascade**). But it **refuses** to delete a user who is still captain of a team, so a team can never be left without a captain; the team must first be handed over or deleted. The code doesn't rely on cascade yet: when it deletes a team or a user, it still deletes the linked rows itself, in order (members, then teams, then profiles, then the user). All those steps run inside one **transaction**: the database either does every step or, if one fails, undoes the ones already done, so nothing is ever left half-deleted. This logic lives in one shared file, `src/utils/deletion.js` (`deleteUserAndData` and `deleteTeamAndMembers`), used by both the admin screens and a captain deleting their team.
+The database has delete rules as a safety net: deleting a user also deletes their profile and their membership rows, and deleting a team also deletes its membership rows (this is called **cascade**). But it **refuses** to delete a user who is still captain of a team, so a team can never be left without a captain; the team must first be handed over or deleted. The code doesn't rely on cascade yet: when it deletes a team or a user, it still deletes the linked rows itself, in order (members, then teams, then profiles, then the user). All those steps run inside one **transaction**: the database either does every step or, if one fails, undoes the ones already done, so nothing is ever left half-deleted. This logic lives in one shared file, `src/utils/deletion.js` (`deleteUserAndData`, `deleteTeamAndMembers` and `removeTeamRows`), used by the admin screens, a captain deleting their team, and the last member leaving a team. Deleting a team also takes the team lock (see "Join requests" in section 6), so it can't overlap another change to the same team.
 
 ### Two meanings of "owner"
 
@@ -502,6 +502,14 @@ A pending invite isn't membership yet. In the team lists (`GET /teams` and `GET 
 The shaping is done by `toTeamDetail` in `teamController.js`; the team lists use `toTeamListItem`. **My Teams** (`GET /teams/me`) also gives each team `memberCount` and `maxMembers`, and the captain gets `joinRequestCount` (the number of join requests waiting). `GET /players/requests` lists the player's own pending join requests (newest first, with their message and the team's member count); only player accounts may call it. `GET /players/invites` lists invites only (never the player's own requests), and each team carries `memberCount` and `maxMembers`. `GET /players` gives each player their public position in `playerProfile`.
 
 **The join request message** is private: only the team's captain, the player who sent it and the admin ever get it in a reply. Every other reply leaves it out (`MEMBERSHIP_FIELDS_NOT_IN_REPLIES`).
+
+### Leaving, captaincy and editing
+
+All three are for player accounts only and run under the team lock (feature 1, [features/team-membership.md](features/team-membership.md)). The new screens for them come in the next app tasks.
+
+- **Leave** (`POST /teams/:teamId/leave`): a member's row is deleted (200 "You left the team."). The captain can't leave while other members exist (409 "Transfer captaincy before leaving the team."). A captain who is the only member deletes the team by leaving, together with its pending invites and requests (200, `teamDeleted: true`). Anyone who isn't an accepted member gets 404 "You're not a member of this team."
+- **Transfer captaincy** (`POST /teams/:teamId/transfer` with `{ userId }`): only the captain, and only to an accepted member of the team (404 "Player not found in this team." otherwise; 400 "You're already the captain." for yourself). It's a single update of `Team.captainId`, the only place the captain is stored, so there's never a moment with two captains or none. The old captain stays in the team as a player. Because of the team lock, a transfer and the new captain leaving at the same moment run one after the other, so the captain is always a member.
+- **Edit team** (`PATCH /teams/:teamId` with `{ name, description }`): only the captain. The same checks and messages as creating a team; the app sends both fields every time, and a missing description is removed. The reply is the updated team, in the same shape as `GET /teams/:teamId`.
 
 ### Join requests
 

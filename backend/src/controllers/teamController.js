@@ -1,6 +1,6 @@
 import { prisma } from '../db.js';
 import { viewerFrom, toVisibleUser } from '../utils/visibility.js';
-import { deleteTeamAndMembers } from '../utils/deletion.js';
+import { removeTeamRows } from '../utils/deletion.js';
 import { parseId } from '../utils/ids.js';
 import {
   MEMBERSHIP_FIELDS_NOT_IN_REPLIES,
@@ -156,19 +156,87 @@ export const deleteTeam = async (req, res, next) => {
   try {
     const teamId = parseId(req.params.teamId);
     if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
-    const requesterId = req.user.id;
 
-    const team = await prisma.team.findUnique({ where: { id: teamId } });
-    if (!team) return res.status(404).json({ error: 'Team not found' });
+    const reply = await withLockedTeam(teamId, async (tx, team) => {
+      if (team.captainId !== req.user.id) return [403, { error: 'Only the team captain can delete this team.' }];
+      await removeTeamRows(tx, teamId);
+      return [200, { message: 'Team deleted successfully.' }];
+    });
+    return sendReply(res, reply);
+  } catch (error) {
+    return next(error);
+  }
+};
 
-    if (team.captainId !== requesterId) {
-      return res.status(403).json({ error: 'Only the team captain can delete this team.' });
-    }
+// ── Leave a team (members) ──
+// The captain must hand over captaincy first, unless they're the only member: then
+// leaving deletes the team, with its pending invites and requests
+// (docs/PRODUCT.md, "Leaving and captaincy").
+export const leaveTeam = async (req, res, next) => {
+  try {
+    const teamId = parseId(req.params.teamId);
+    if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
+    const userId = req.user.id;
 
-    // Members and team in one transaction (shared with the admin delete).
-    await deleteTeamAndMembers(prisma, teamId);
+    const reply = await withLockedTeam(teamId, async (tx, team) => {
+      const own = await findRow(tx, teamId, userId);
+      if (!own || !isMember(own)) return [404, { error: "You're not a member of this team." }];
 
-    return res.json({ message: 'Team deleted successfully.' });
+      if (team.captainId === userId) {
+        if ((await countMembers(tx, teamId)) > 1) return [409, { error: 'Transfer captaincy before leaving the team.' }];
+        await removeTeamRows(tx, teamId);
+        return [200, { message: 'Team deleted', teamDeleted: true }];
+      }
+
+      await tx.teamMember.delete({ where: { id: own.id } });
+      return [200, { message: 'You left the team.', teamDeleted: false }];
+    });
+    return sendReply(res, reply);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// ── Transfer captaincy (captain only) ──
+// One update of Team.captainId (the only place the captain is stored). The new captain
+// must be an accepted member; the old captain stays an accepted member.
+export const transferCaptaincy = async (req, res, next) => {
+  try {
+    const teamId = parseId(req.params.teamId);
+    if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
+    // A real positive whole number (transferSchema, the same rule as inviteSchema).
+    const { userId } = req.valid.body;
+
+    const reply = await withLockedTeam(teamId, async (tx, team) => {
+      if (team.captainId !== req.user.id) return [403, { error: 'Only the team captain can transfer captaincy.' }];
+      if (userId === team.captainId) return [400, { error: "You're already the captain." }];
+      const target = await findRow(tx, teamId, userId);
+      if (!target || !isMember(target)) return [404, { error: 'Player not found in this team.' }];
+
+      await tx.team.update({ where: { id: teamId }, data: { captainId: userId } });
+      return [200, { message: 'Captaincy transferred', captainId: userId }];
+    });
+    return sendReply(res, reply);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// ── Edit team (captain only) ──
+// The same rules as creating a team (updateTeamSchema). Replies with the updated team
+// in the GET /teams/:teamId shape.
+export const updateTeam = async (req, res, next) => {
+  try {
+    const teamId = parseId(req.params.teamId);
+    if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
+    const { name, description } = req.valid.body;
+
+    const reply = await withLockedTeam(teamId, async (tx, team) => {
+      if (team.captainId !== req.user.id) return [403, { error: 'Only the team captain can edit this team.' }];
+      await tx.team.update({ where: { id: teamId }, data: { name, description } });
+      return [200, toTeamDetail(await findTeamWithRows(tx, teamId), viewerFrom(req))];
+    });
+    return sendReply(res, reply);
   } catch (error) {
     return next(error);
   }

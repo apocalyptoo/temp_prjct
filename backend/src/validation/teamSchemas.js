@@ -71,3 +71,12 @@ export const joinRequestSchema = z.object(
   },
   { error: MESSAGE_NOT_TEXT }
 );
+
+// ── POST /teams/:teamId/transfer ──
+// The new captain's userId: the same rule (and message) as inviting.
+export const transferSchema = inviteSchema;
+
+// ── PATCH /teams/:teamId ──
+// The same rules as creating a team. The app always sends both fields; a missing
+// description is stored as null, exactly as at create (docs/features/team-membership.md, P7).
+export const updateTeamSchema = createTeamSchema;

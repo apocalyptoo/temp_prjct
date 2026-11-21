@@ -14,10 +14,19 @@ import {
   removePlayer,
   cancelInvite,
   deleteTeam,
+  leaveTeam,
+  transferCaptaincy,
+  updateTeam,
 } from '../controllers/teamController.js';
 import { verifyToken, playersOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { createTeamSchema, inviteSchema, joinRequestSchema } from '../validation/teamSchemas.js';
+import {
+  createTeamSchema,
+  inviteSchema,
+  joinRequestSchema,
+  transferSchema,
+  updateTeamSchema,
+} from '../validation/teamSchemas.js';
 
 const router = express.Router();
 
@@ -32,7 +41,10 @@ router.post('/:teamId/requests/:userId/approve', verifyToken, playersOnly, appro
 router.post('/:teamId/requests/:userId/reject', verifyToken, playersOnly, rejectRequest);
 router.delete('/:teamId/members/:userId', verifyToken, playersOnly, removePlayer);
 router.delete('/:teamId/invites/:userId', verifyToken, playersOnly, cancelInvite);
-router.delete('/:teamId', verifyToken, deleteTeam);                   
+router.post('/:teamId/leave', verifyToken, playersOnly, leaveTeam);
+router.post('/:teamId/transfer', verifyToken, playersOnly, validate({ body: transferSchema }), transferCaptaincy);
+router.patch('/:teamId', verifyToken, playersOnly, validate({ body: updateTeamSchema }), updateTeam);
+router.delete('/:teamId', verifyToken, playersOnly, deleteTeam);
 router.get('/me', verifyToken, getMyTeams); // must be above /:teamId
 router.get('/:teamId', verifyToken, getTeam);
 router.get('/', verifyToken, getTeams);
