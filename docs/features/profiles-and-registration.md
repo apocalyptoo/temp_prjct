@@ -1,6 +1,6 @@
 # Feature 2: Profiles and registration (spec)
 
-Phase 4, Step 3. Task F2.0, written 2026-11-22. **Status: approved 2026-11-22** (DECISIONS.md, "Profiles and registration feature spec approved"). Not built yet: backend in task F2.1, screens in F2.2–F2.4.
+Phase 4, Step 3. Task F2.0, written 2026-11-22. **Status: approved 2026-11-22** (DECISIONS.md, "Profiles and registration feature spec approved"). **Backend built 2026-11-22** (task F2.1); screens still to come in F2.2–F2.4.
 
 **How to read the markers:**
 - **[Dn, approved]**: a default from the task brief, confirmed by the owner on 2026-11-22.

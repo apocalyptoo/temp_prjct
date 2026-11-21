@@ -146,7 +146,7 @@ Three terms used in this layout:
 
 ### The five routers
 
-`server.js` connects each address prefix to a router file. Each router file uses the controller with the same name.
+`server.js` connects each address prefix to a router file. Each router file uses the controller with the same name (the `/legal` pages are fixed text, so they need none).
 
 | Prefix | Route file | What it handles |
 |---|---|---|
@@ -154,6 +154,7 @@ Three terms used in this layout:
 | `/players` | `playerRoutes.js` | My player profile and Edit profile (`PATCH /players/me`), my pending invites, my pending join requests, list all players, a player's stats |
 | `/owners` | `ownerRoutes.js` | My owner profile and editing my venue listing (`PATCH /owners/me`), list all registered venues |
 | `/teams` | `teamRoutes.js` | Create, list, my teams, one team, edit team, invite, cancel invite, accept, reject, join requests (ask, cancel, approve, decline), remove member, leave, transfer captaincy, delete team |
+| `/legal` | `legalRoutes.js` | The Terms of Use (`/legal/terms`) and Privacy Policy (`/legal/privacy`) as web pages, no login needed. The text is a placeholder until the deployment phase writes the real one |
 | `/admin` | `adminRoutes.js` | Stats, list/delete users, list/delete teams, list/delete venues (admins only). Deleting users only works on player and owner accounts, deleting venues only on owner accounts (404 "Venue not found" otherwise), and an admin account, including your own, gets 403 |
 
 There's also `GET /`, which replies "API running" so you can check the server is up.
@@ -637,6 +638,7 @@ The mobile app has no config file. Its backend address lives in `IndoorFootballA
 | Who may see which user fields | `backend/src/utils/visibility.js` |
 | The text of the verification or reset emails | `backend/src/utils/emailTemplates.js` |
 | How emails are sent (Gmail, the sender, which addresses are skipped) | `backend/src/utils/mailer.js` |
+| The Terms of Use and Privacy Policy text | `backend/src/routes/legalRoutes.js` (the page layout is `legalPage` in `backend/src/utils/pages.js`) |
 | The database tables | `backend/prisma/schema.prisma`, then create a migration |
 | Environment variables | `backend/.env` (never commit it) |
 | The rules a setting must follow at startup | `backend/src/config/loadConfig.js` |
