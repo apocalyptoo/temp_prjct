@@ -129,8 +129,12 @@ const tappables = renderer =>
   );
 const labels = renderer =>
   tappables(renderer).map(n => n.props.accessibilityLabel);
+// The last match: a dialog renders after the screen, and its confirm button can share
+// the label of the button that opened it ("Leave team", "Delete team").
 const button = (renderer, label) =>
-  tappables(renderer).find(n => n.props.accessibilityLabel === label);
+  tappables(renderer)
+    .filter(n => n.props.accessibilityLabel === label)
+    .pop();
 const press = async (renderer, label) => {
   await act(async () => button(renderer, label).props.onPress());
   await settle();
@@ -413,5 +417,184 @@ describe('Actions', () => {
       'Something went wrong. Please try again.',
     );
     expect(api.get).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Confirmation dialogs (exact wording, then the request)', () => {
+  // Opens the dialog with `opener`, checks its words and buttons, confirms, and
+  // returns what happened.
+  async function confirmDialog(team, opener, expected, options) {
+    const { renderer, navigation } = await render(team, options);
+    await press(renderer, opener);
+    const text = shownText(renderer);
+    expect(text).toContain(expected.title);
+    expect(text).toContain(expected.message);
+    expect(labels(renderer)).toEqual(
+      expect.arrayContaining([expected.confirm, expected.cancel ?? 'Cancel']),
+    );
+    await press(renderer, expected.confirm);
+    return { renderer, navigation };
+  }
+
+  beforeEach(() => {
+    api.post.mockResolvedValue({ data: {} });
+    api.delete.mockResolvedValue({ data: {} });
+  });
+
+  test('a member leaves: "Leave Dhanmondi Strikers?", then back', async () => {
+    const { navigation } = await confirmDialog(
+      viewAs('member'),
+      'Leave team',
+      {
+        title: 'Leave Dhanmondi Strikers?',
+        message:
+          "You'll need a new invite or an approved request to join again.",
+        confirm: 'Leave team',
+      },
+      { user: { ...PLAYER, id: 2 } },
+    );
+
+    expect(api.post).toHaveBeenCalledWith('/teams/7/leave');
+    expect(navigation.goBack).toHaveBeenCalled();
+  });
+
+  test('the captain with members: "Transfer captaincy first" opens Transfer captaincy, sends nothing', async () => {
+    const { navigation } = await confirmDialog(CAPTAIN_VIEW, 'Leave team', {
+      title: 'Transfer captaincy first',
+      message:
+        "You're the captain of Dhanmondi Strikers. Make another member captain, then you can leave.",
+      confirm: 'Transfer captaincy',
+      cancel: 'Not now',
+    });
+
+    expect(api.post).not.toHaveBeenCalled();
+    expect(navigation.navigate).toHaveBeenCalledWith('TransferCaptaincy', {
+      teamId: 7,
+      teamName: 'Dhanmondi Strikers',
+    });
+  });
+
+  test('the captain alone: "Leave and delete Dhanmondi Strikers?", then back', async () => {
+    const alone = {
+      ...CAPTAIN_VIEW,
+      memberCount: 1,
+      members: [CAPTAIN_VIEW.members[0]],
+    };
+    const { navigation } = await confirmDialog(alone, 'Leave team', {
+      title: 'Leave and delete Dhanmondi Strikers?',
+      message:
+        "You're the only member, so leaving deletes the team and cancels its pending invites and requests. This can't be undone.",
+      confirm: 'Leave and delete',
+    });
+
+    expect(api.post).toHaveBeenCalledWith('/teams/7/leave');
+    expect(navigation.goBack).toHaveBeenCalled();
+  });
+
+  test('remove a member, then reload', async () => {
+    await confirmDialog(CAPTAIN_VIEW, 'Remove Tanvir Ahmed', {
+      title: 'Remove Tanvir Ahmed from Dhanmondi Strikers?',
+      message: "They'll no longer be a member of this team.",
+      confirm: 'Remove',
+    });
+
+    expect(api.delete).toHaveBeenCalledWith('/teams/7/members/2');
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  test('delete the team, then back', async () => {
+    const { navigation } = await confirmDialog(CAPTAIN_VIEW, 'Delete team', {
+      title: 'Delete Dhanmondi Strikers?',
+      message:
+        "This deletes the team for all its members and cancels its pending invites and requests. This can't be undone.",
+      confirm: 'Delete team',
+    });
+
+    expect(api.delete).toHaveBeenCalledWith('/teams/7');
+    expect(navigation.goBack).toHaveBeenCalled();
+  });
+
+  test('decline a join request, then reload', async () => {
+    await confirmDialog(CAPTAIN_VIEW, 'Decline Nayeem Islam', {
+      title: "Decline Nayeem Islam's request?",
+      message: 'They can ask to join again later.',
+      confirm: 'Decline',
+    });
+
+    expect(api.post).toHaveBeenCalledWith('/teams/7/requests/3/reject');
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  test('cancel an invite ("Keep invite" to back out), then reload', async () => {
+    await confirmDialog(CAPTAIN_VIEW, 'Cancel invite to Sakib Hasan', {
+      title: 'Cancel the invite to Sakib Hasan?',
+      message: "They won't be able to accept it any more.",
+      confirm: 'Cancel invite',
+      cancel: 'Keep invite',
+    });
+
+    expect(api.delete).toHaveBeenCalledWith('/teams/7/invites/4');
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  test('backing out of a dialog sends nothing', async () => {
+    const { renderer } = await render(CAPTAIN_VIEW);
+
+    await press(renderer, 'Cancel invite to Sakib Hasan');
+    await press(renderer, 'Keep invite');
+    await press(renderer, 'Delete team');
+    await press(renderer, 'Cancel');
+
+    expect(shownText(renderer)).not.toContain('Delete Dhanmondi Strikers?');
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
+  test('a 404 on confirm (already removed) closes the dialog, says so and reloads', async () => {
+    api.delete.mockRejectedValue(
+      httpError(404, 'Player not found in this team.'),
+    );
+    const { renderer } = await render(CAPTAIN_VIEW);
+
+    await press(renderer, 'Remove Tanvir Ahmed');
+    await press(renderer, 'Remove');
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Something changed',
+      'Player not found in this team.',
+    );
+    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(shownText(renderer)).not.toContain(
+      'Remove Tanvir Ahmed from Dhanmondi Strikers?',
+    );
+  });
+
+  test('a 409 on leave (someone joined meanwhile) says so, reloads and stays', async () => {
+    api.post.mockRejectedValue(
+      httpError(409, 'Transfer captaincy before leaving the team.'),
+    );
+    const alone = {
+      ...CAPTAIN_VIEW,
+      memberCount: 1,
+      members: [CAPTAIN_VIEW.members[0]],
+    };
+    const { renderer, navigation } = await render(alone);
+
+    await press(renderer, 'Leave team');
+    await press(renderer, 'Leave and delete');
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Something changed',
+      'Transfer captaincy before leaving the team.',
+    );
+    expect(navigation.goBack).not.toHaveBeenCalled();
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  test('only the captain sees remove, cancel invite, decline and delete', async () => {
+    const { renderer } = await render(viewAs('member'), {
+      user: { ...PLAYER, id: 2 },
+    });
+
+    expect(labels(renderer)).toEqual(['Back to My Teams', 'Leave team']);
   });
 });

@@ -11,6 +11,7 @@ import {
   BackLink,
   Button,
   Card,
+  ConfirmDialog,
   Divider,
   Icon,
   IconButton,
@@ -41,6 +42,80 @@ function backLabel(navigation) {
   return BACK_LABELS[below] ?? 'Back';
 }
 
+// The confirmation dialogs (docs/features/team-membership.md, section e, "Confirmation
+// dialogs"), with the spec's exact wording. Each says what the confirm button sends,
+// and whether the screen then goes back (the team is gone for this viewer) or reloads.
+function dialogFor(kind, team, row) {
+  const name = row ? personName(row) : '';
+  switch (kind) {
+    case 'leave':
+      return {
+        title: `Leave ${team.name}?`,
+        message:
+          "You'll need a new invite or an approved request to join again.",
+        confirmTitle: 'Leave team',
+        destructive: true,
+        request: () => api.post(`/teams/${team.id}/leave`),
+        goBack: true,
+      };
+    case 'transferFirst':
+      return {
+        title: 'Transfer captaincy first',
+        message: `You're the captain of ${team.name}. Make another member captain, then you can leave.`,
+        confirmTitle: 'Transfer captaincy',
+        cancelTitle: 'Not now',
+        opens: 'TransferCaptaincy',
+      };
+    case 'leaveAndDelete':
+      return {
+        title: `Leave and delete ${team.name}?`,
+        message:
+          "You're the only member, so leaving deletes the team and cancels its pending invites and requests. This can't be undone.",
+        confirmTitle: 'Leave and delete',
+        destructive: true,
+        request: () => api.post(`/teams/${team.id}/leave`),
+        goBack: true,
+      };
+    case 'remove':
+      return {
+        title: `Remove ${name} from ${team.name}?`,
+        message: "They'll no longer be a member of this team.",
+        confirmTitle: 'Remove',
+        destructive: true,
+        request: () => api.delete(`/teams/${team.id}/members/${row.userId}`),
+      };
+    case 'delete':
+      return {
+        title: `Delete ${team.name}?`,
+        message: `This deletes the team for all its members and cancels its pending invites and requests. This can't be undone.`,
+        confirmTitle: 'Delete team',
+        destructive: true,
+        request: () => api.delete(`/teams/${team.id}`),
+        goBack: true,
+      };
+    case 'declineRequest':
+      return {
+        title: `Decline ${name}'s request?`,
+        message: 'They can ask to join again later.',
+        confirmTitle: 'Decline',
+        destructive: true,
+        request: () =>
+          api.post(`/teams/${team.id}/requests/${row.userId}/reject`),
+      };
+    case 'cancelInvite':
+      return {
+        title: `Cancel the invite to ${name}?`,
+        message: "They won't be able to accept it any more.",
+        confirmTitle: 'Cancel invite',
+        cancelTitle: 'Keep invite',
+        destructive: true,
+        request: () => api.delete(`/teams/${team.id}/invites/${row.userId}`),
+      };
+    default:
+      return null;
+  }
+}
+
 export default function TeamDetailScreen({ route, navigation }) {
   const { teamId } = route.params;
   const { user } = useContext(AuthContext);
@@ -49,19 +124,38 @@ export default function TeamDetailScreen({ route, navigation }) {
   // Which action's request is running (one at a time), so its button shows the
   // loading state and nothing else can be pressed twice.
   const [busy, setBusy] = useState(null);
+  // The open confirmation dialog: { kind, row } (see dialogFor), or null.
+  const [asking, setAsking] = useState(null);
 
-  // Runs one action, then shows the team as it is now. A 404 or 409 means the screen
-  // was out of date: the alert says so and the team reloads.
-  const run = async (key, request) => {
+  // Runs one action, then shows the team as it is now (or goes back, when the team is
+  // gone for this viewer). A 404 or 409 means the screen was out of date: the alert
+  // says so and the team reloads.
+  const run = async (key, request, { goBack = false } = {}) => {
     setBusy(key);
     try {
       await request();
-      await reload();
-    } catch (err) {
-      showActionError(err, { onStale: reload });
-    } finally {
       setBusy(null);
+      if (goBack) navigation.goBack();
+      else await reload();
+    } catch (err) {
+      setBusy(null);
+      showActionError(err, { onStale: reload });
     }
+  };
+
+  const dialog =
+    asking && team ? dialogFor(asking.kind, team, asking.row) : null;
+  const confirm = async () => {
+    if (dialog.opens) {
+      setAsking(null);
+      navigation.navigate(dialog.opens, {
+        teamId: team.id,
+        teamName: team.name,
+      });
+      return;
+    }
+    await run('dialog', dialog.request, { goBack: dialog.goBack });
+    setAsking(null);
   };
 
   return (
@@ -78,14 +172,26 @@ export default function TeamDetailScreen({ route, navigation }) {
           isPlayer={user?.role === 'PLAYER'}
           busy={busy}
           run={run}
+          ask={(kind, row) => setAsking({ kind, row })}
           navigation={navigation}
         />
       )}
+      <ConfirmDialog
+        visible={dialog !== null}
+        title={dialog?.title ?? ''}
+        message={dialog?.message}
+        confirmTitle={dialog?.confirmTitle}
+        cancelTitle={dialog?.cancelTitle}
+        destructive={dialog?.destructive ?? false}
+        loading={busy === 'dialog'}
+        onConfirm={confirm}
+        onCancel={() => setAsking(null)}
+      />
     </Screen>
   );
 }
 
-function TeamContent({ team, isPlayer, busy, run, navigation }) {
+function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
   const { spacing } = useTheme();
   const state = team.viewerState;
   const isFull = team.memberCount >= team.maxMembers;
@@ -196,7 +302,7 @@ function TeamContent({ team, isPlayer, busy, run, navigation }) {
       ) : null}
 
       {state === 'captain' && team.joinRequests?.length > 0 ? (
-        <JoinRequestsCard team={team} busy={busy} run={run} />
+        <JoinRequestsCard team={team} busy={busy} run={run} ask={ask} />
       ) : null}
 
       {state === 'captain' && team.pendingInvites?.length > 0 ? (
@@ -207,6 +313,14 @@ function TeamContent({ team, isPlayer, busy, run, navigation }) {
               key={row.userId}
               name={personName(row)}
               meta="Invited"
+              trailing={
+                <IconButton
+                  icon="reject"
+                  accessibilityLabel={`Cancel invite to ${personName(row)}`}
+                  disabled={busy !== null}
+                  onPress={() => ask('cancelInvite', row)}
+                />
+              }
               last={index === team.pendingInvites.length - 1}
             />
           ))}
@@ -220,16 +334,55 @@ function TeamContent({ team, isPlayer, busy, run, navigation }) {
             key={row.userId}
             name={personName(row)}
             meta={personPosition(row)}
-            trailing={row.userId === team.captainId ? <CaptainLabel /> : null}
+            trailing={
+              row.userId === team.captainId ? (
+                <CaptainLabel />
+              ) : state === 'captain' ? (
+                <IconButton
+                  icon="remove"
+                  accessibilityLabel={`Remove ${personName(row)}`}
+                  disabled={busy !== null}
+                  onPress={() => ask('remove', row)}
+                />
+              ) : null
+            }
             last={index === team.members.length - 1}
           />
         ))}
       </Card>
 
-      {/* TODO(F1.3): the captain's "Edit team" button goes here, under the cards
-          (docs/features/team-membership.md, section e). It's hidden until the Create /
-          Edit team form exists. "Invite players" above opens the interim Add Member
-          screen until F1.3 builds the new one. */}
+      {/* TODO(F1.3): the captain's "Edit team" button goes here, above Leave and
+          Delete (docs/features/team-membership.md, section e). It's hidden until the
+          Create / Edit team form exists. "Invite players" above opens the interim Add
+          Member screen until F1.3 builds the new one. */}
+
+      {state === 'member' ? (
+        <Button
+          title="Leave team"
+          variant="danger"
+          fullWidth
+          onPress={() => ask('leave')}
+        />
+      ) : null}
+
+      {state === 'captain' ? (
+        <View style={{ gap: spacing.md }}>
+          <Button
+            title="Leave team"
+            variant="danger"
+            fullWidth
+            onPress={() =>
+              ask(team.memberCount > 1 ? 'transferFirst' : 'leaveAndDelete')
+            }
+          />
+          <Button
+            title="Delete team"
+            variant="danger"
+            fullWidth
+            onPress={() => ask('delete')}
+          />
+        </View>
+      ) : null}
     </>
   );
 }
@@ -263,7 +416,8 @@ function CaptainLabel() {
 }
 
 // The captain's join requests, oldest first, each with its message under the row.
-function JoinRequestsCard({ team, busy, run }) {
+// Approving needs no confirmation; declining asks first (ask).
+function JoinRequestsCard({ team, busy, run, ask }) {
   const { spacing } = useTheme();
   const requests = team.joinRequests;
   return (
@@ -285,6 +439,12 @@ function JoinRequestsCard({ team, busy, run }) {
               last
               trailing={
                 <View style={[styles.row, { gap: spacing.sm }]}>
+                  <IconButton
+                    variant="reject"
+                    accessibilityLabel={`Decline ${name}`}
+                    disabled={busy !== null}
+                    onPress={() => ask('declineRequest', row)}
+                  />
                   <IconButton
                     variant="approve"
                     accessibilityLabel={`Approve ${name}`}

@@ -261,7 +261,7 @@ The old Invites screen rebuilt in the new design until feature 5 replaces it: ti
 | Leave team (captain, the only member) | Leave and delete {team}? | You're the only member, so leaving deletes the team and cancels its pending invites and requests. This can't be undone. | **Leave and delete** (danger) |
 | Transfer captaincy | Make {name} captain? | You'll stay in {team} as a player. {name} will manage invites, requests and the team's details. | **Make captain** (primary) |
 | Remove member | Remove {name} from {team}? | They'll no longer be a member of this team. | **Remove** (danger) |
-| Delete team | Delete {team}? | This deletes the team for all {memberCount} members and cancels its pending invites and requests. This can't be undone. | **Delete team** (danger) |
+| Delete team | Delete {team}? | This deletes the team for all its members and cancels its pending invites and requests. This can't be undone. | **Delete team** (danger) |
 | Decline join request | Decline {name}'s request? | They can ask to join again later. | **Decline** (danger) |
 | Cancel invite **[P18]** | Cancel the invite to {name}? | They won't be able to accept it any more. | **Cancel invite** (danger). Cancel: "Keep invite" |
 
