@@ -1,230 +1,269 @@
-import React, { useCallback, useEffect, useState, useContext } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  RefreshControl,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
-import { AuthContext } from '../../contexts/AuthContext';
+// My Teams (docs/features/team-membership.md, section e, "My Teams"; the mockup is
+// docs/design/floodlight-my-teams.png): the player's teams as cards, the join requests
+// they've sent (with Cancel), and Create team. Reloads whenever it comes into view, and
+// on pull to refresh.
+import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import api from '../../api/api';
+import { AuthContext } from '../../contexts/AuthContext';
+import { useTheme } from '../../theme/ThemeProvider';
+import {
+  Avatar,
+  Button,
+  Card,
+  Divider,
+  EmptyState,
+  ListRow,
+  NoticeLine,
+  Pill,
+  Screen,
+  ScreenHeader,
+  SectionHeader,
+  Text,
+  TextLink,
+} from '../../components/ui';
+import { TeamLoadState, showActionError } from './teamCommon';
 
 export default function MyTeamsScreen({ navigation }) {
   const { user } = useContext(AuthContext);
-  const [teams, setTeams] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
+  const { colors, spacing } = useTheme();
+  const [teams, setTeams] = useState(null); // GET /teams/me
+  const [requests, setRequests] = useState([]); // GET /players/requests
+  const [status, setStatus] = useState('loading'); // loading | ready | error
+  const [refreshing, setRefreshing] = useState(false);
+  const [cancelling, setCancelling] = useState(null); // teamId of the request
 
-  const loadMyTeams = useCallback(async () => {
-    setLoading(true);
+  // A failed reload keeps what's shown; only a failed first load shows the error.
+  const load = useCallback(async () => {
     try {
-      const res = await api.get('/teams/me');
-      setTeams(res.data);
-    } catch (err) {
-      console.error('loadMyTeams', err?.response?.data || err.message);
-    } finally {
-      setLoading(false);
+      const [teamsRes, requestsRes] = await Promise.all([
+        api.get('/teams/me'),
+        api.get('/players/requests'),
+      ]);
+      setTeams(teamsRes.data);
+      setRequests(requestsRes.data);
+      setStatus('ready');
+    } catch {
+      setStatus(current => (current === 'ready' ? 'ready' : 'error'));
     }
   }, []);
 
-  // Reload whenever the screen comes into view (including the first time), so a team
-  // deleted or changed in Team Detail is up to date when you come back.
-  useEffect(
-    () => navigation.addListener('focus', loadMyTeams),
-    [navigation, loadMyTeams],
-  );
+  useEffect(() => navigation.addListener('focus', load), [navigation, load]);
 
-  const handleDelete = (teamId, teamName) => {
-    Alert.alert(
-      'Delete Team',
-      `Are you sure you want to delete "${teamName}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingId(teamId);
-            try {
-              await api.delete(`/teams/${teamId}`);
-              await loadMyTeams();
-              Alert.alert('Deleted', 'Team deleted successfully.');
-            } catch (err) {
-              Alert.alert(
-                'Error',
-                err.response?.data?.error || 'Failed to delete team.',
-              );
-            } finally {
-              setDeletingId(null);
-            }
-          },
-        },
-      ],
-    );
+  const refresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
   };
 
+  const retry = () => {
+    setStatus('loading');
+    load();
+  };
+
+  const cancelRequest = async teamId => {
+    setCancelling(teamId);
+    try {
+      await api.delete(`/teams/${teamId}/requests/me`);
+      await load();
+    } catch (err) {
+      showActionError(err, { onStale: load });
+    } finally {
+      setCancelling(null);
+    }
+  };
+
+  const openTeam = teamId => navigation.navigate('TeamDetail', { teamId });
+
+  const header = (
+    <ScreenHeader
+      title="My Teams"
+      action={
+        <Button
+          title="Create team"
+          icon="add"
+          onPress={() => navigation.navigate('CreateTeam')}
+        />
+      }
+      style={{ paddingTop: spacing.lg }}
+    />
+  );
+
+  if (status !== 'ready') {
+    return (
+      <Screen style={{ gap: spacing.listGap }}>
+        {header}
+        <TeamLoadState
+          status={status}
+          onRetry={retry}
+          errorMessage="Couldn't load your teams."
+        />
+      </Screen>
+    );
+  }
+
+  const nothingYet = teams.length === 0 && requests.length === 0;
+
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <Animated.Text
-          entering={FadeInDown.duration(500)}
-          style={styles.headerTitle}
-        >
-          My Teams
-        </Animated.Text>
-      </LinearGradient>
+    <Screen>
+      <FlatList
+        data={teams}
+        keyExtractor={team => String(team.id)}
+        renderItem={({ item }) => (
+          <TeamCard
+            team={item}
+            isCaptain={item.captainId === user?.id}
+            onPress={() => openTeam(item.id)}
+          />
+        )}
+        ListHeaderComponent={header}
+        ListHeaderComponentStyle={{ marginBottom: spacing.listGap }}
+        ItemSeparatorComponent={Gap}
+        ListEmptyComponent={
+          nothingYet ? (
+            <View>
+              <EmptyState
+                message="You're not in a team yet."
+                actionTitle="Create team"
+                actionIcon="add"
+                onAction={() => navigation.navigate('CreateTeam')}
+              />
+              <TextLink
+                title="Find a team"
+                onPress={() =>
+                  navigation.navigate('ExploreTab', {
+                    screen: 'Teams',
+                    initial: false,
+                  })
+                }
+                style={styles.centred}
+              />
+            </View>
+          ) : null
+        }
+        ListFooterComponent={
+          requests.length > 0 ? (
+            <RequestsSentCard
+              requests={requests}
+              cancelling={cancelling}
+              onCancel={cancelRequest}
+              onOpen={openTeam}
+              style={teams.length > 0 ? { marginTop: spacing.listGap } : null}
+            />
+          ) : null
+        }
+        contentContainerStyle={{ paddingBottom: spacing.xxxl }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            colors={[colors.accent]}
+            tintColor={colors.accent}
+            progressBackgroundColor={colors.surface}
+          />
+        }
+      />
+    </Screen>
+  );
+}
 
-      {loading ? (
-        <ActivityIndicator
-          size="large"
-          color="#1E3A8A"
-          style={{ marginTop: 30 }}
-        />
-      ) : (
-        <FlatList
-          data={teams}
-          keyExtractor={item => String(item.id)}
-          refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={loadMyTeams} />
-          }
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <Text style={styles.empty}>You're not part of any team yet.</Text>
-          }
-          renderItem={({ item, index }) => {
-            const isCaptain = user?.id === item.captainId;
-            return (
-              <Animated.View entering={FadeInUp.delay(index * 100)}>
-                <TouchableOpacity
-                  onPress={() =>
-                    navigation.navigate('TeamDetail', { teamId: item.id })
+function Gap() {
+  const { spacing } = useTheme();
+  return <View style={{ height: spacing.listGap }} />;
+}
+
+// One team, as in the mockup: avatar, name, "x / 15 members", the viewer's pill, the
+// description, and for a captain with join requests, the notice line.
+function TeamCard({ team, isCaptain, onPress }) {
+  const { spacing } = useTheme();
+  const waiting = isCaptain ? team.joinRequestCount ?? 0 : 0;
+  return (
+    <Card
+      onPress={onPress}
+      accessibilityLabel={`Open ${team.name}`}
+      style={{ gap: spacing.cardGap }}
+    >
+      <View style={[styles.row, { gap: spacing.md }]}>
+        <Avatar name={team.name} size="large" />
+        <View style={styles.fill}>
+          <Text variant="cardTitle">{team.name}</Text>
+          <Text variant="meta" color="textMuted">
+            {`${team.memberCount} / ${team.maxMembers} members`}
+          </Text>
+        </View>
+        {isCaptain ? (
+          <Pill label="Captain" variant="strong" />
+        ) : (
+          <Pill label="Player" />
+        )}
+      </View>
+      {team.description ? (
+        <Text variant="bodySmall" color="textMuted" numberOfLines={2}>
+          {team.description}
+        </Text>
+      ) : null}
+      {waiting > 0 ? (
+        <>
+          <Divider />
+          <NoticeLine
+            strong={`${waiting} join ${waiting === 1 ? 'request' : 'requests'}`}
+            text="waiting for you"
+          />
+        </>
+      ) : null}
+    </Card>
+  );
+}
+
+// The join requests the player has sent, each with its message and Cancel.
+function RequestsSentCard({ requests, cancelling, onCancel, onOpen, style }) {
+  const { spacing } = useTheme();
+  return (
+    <Card style={style}>
+      <SectionHeader title="Requests sent" />
+      {requests.map((request, index) => {
+        const last = index === requests.length - 1;
+        return (
+          <View key={request.teamId}>
+            {/* The row draws no line of its own, so the message sits above the line. */}
+            <ListRow
+              name={request.team.name}
+              meta="Waiting for the captain"
+              onPress={() => onOpen(request.teamId)}
+              accessibilityLabel={`Open ${request.team.name}`}
+              last
+              trailing={
+                <Button
+                  title="Cancel"
+                  variant="secondary"
+                  accessibilityLabel={`Cancel request to ${request.team.name}`}
+                  loading={cancelling === request.teamId}
+                  disabled={
+                    cancelling !== null && cancelling !== request.teamId
                   }
-                  activeOpacity={0.85}
-                >
-                  <LinearGradient
-                    colors={['#FFFFFF', '#a1d3f5ff']}
-                    style={styles.card}
-                  >
-                    <View style={styles.cardTop}>
-                      <Image
-                        source={require('../../../assets/icons/mtm.png')}
-                        style={styles.icon}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <View style={styles.nameRow}>
-                          <Text style={styles.teamName}>{item.name}</Text>
-                          {isCaptain && (
-                            <View style={styles.ownerBadge}>
-                              <Text style={styles.ownerBadgeText}>Captain</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text numberOfLines={2} style={styles.teamDescription}>
-                          {item.description}
-                        </Text>
-                        <Text style={styles.meta}>
-                          Members: {item.members?.length || 0}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Delete button — only for the captain */}
-                    {isCaptain && (
-                      <TouchableOpacity
-                        style={[
-                          styles.deleteBtn,
-                          deletingId === item.id && styles.deleteBtnDisabled,
-                        ]}
-                        onPress={() => handleDelete(item.id, item.name)}
-                        disabled={deletingId === item.id}
-                      >
-                        {deletingId === item.id ? (
-                          <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                          <>
-                            <Ionicons
-                              name="trash-outline"
-                              size={14}
-                              color="#fff"
-                            />
-                            <Text style={styles.deleteBtnText}>
-                              Delete Team
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </Animated.View>
-            );
-          }}
-        />
-      )}
-    </View>
+                  onPress={() => onCancel(request.teamId)}
+                />
+              }
+            />
+            {request.message ? (
+              <Text
+                variant="bodySmall"
+                color="textMuted"
+                style={{ paddingBottom: spacing.md }}
+              >
+                {`“${request.message}”`}
+              </Text>
+            ) : null}
+            {last ? null : <Divider />}
+          </View>
+        );
+      })}
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F1F5F9' },
-  header: {
-    paddingTop: 60,
-    paddingBottom: 40,
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  list: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 80 },
-  card: {
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-  },
-  cardTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  icon: { width: 48, height: 48, marginRight: 12, tintColor: '#1E3A8A' },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  teamName: { fontSize: 16, fontWeight: '700', color: '#1E3A8A' },
-  ownerBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  ownerBadgeText: { fontSize: 10, fontWeight: '700', color: '#1E3A8A' },
-  teamDescription: { fontSize: 14, color: '#555', marginTop: 4 },
-  meta: { fontSize: 13, color: '#777', marginTop: 4 },
-  deleteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    paddingVertical: 8,
-    marginTop: 10,
-    gap: 6,
-  },
-  deleteBtnDisabled: { backgroundColor: '#9CA3AF' },
-  deleteBtnText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 13,
-    marginLeft: 4,
-  },
-  empty: { textAlign: 'center', color: '#777', marginTop: 30 },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  fill: { flex: 1 },
+  centred: { alignSelf: 'center' },
 });

@@ -26,7 +26,7 @@ function MyTeamsTab() {
       <MyTeamsStack.Screen
         name="MyTeams"
         component={MyTeamsScreen}
-        options={{ title: 'My Teams' }}
+        options={{ headerShown: false }}
       />
       <MyTeamsStack.Screen
         name="CreateTeam"

@@ -70,14 +70,18 @@ export function useTeam(teamId, navigation) {
   return { team, status, reload, retry };
 }
 
-// What a team screen shows before its team has loaded: a spinner, or after a failed
-// first load, a line and Try again.
-export function TeamLoadState({ status, onRetry }) {
+// What a team screen shows before its data has loaded: a spinner, or after a failed
+// first load, a line (errorMessage) and Try again.
+export function TeamLoadState({
+  status,
+  onRetry,
+  errorMessage = "Couldn't load this team.",
+}) {
   const { colors, spacing } = useTheme();
   if (status === 'error') {
     return (
       <EmptyState
-        message="Couldn't load this team."
+        message={errorMessage}
         actionTitle="Try again"
         onAction={onRetry}
       />

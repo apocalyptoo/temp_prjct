@@ -60,6 +60,9 @@ const TEAM = {
     },
   ],
   pendingInvites: [],
+  memberCount: 1,
+  maxMembers: 15,
+  joinRequestCount: 0,
 };
 
 // GET /teams/:teamId for the new Team detail screen.
