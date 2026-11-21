@@ -151,7 +151,7 @@ Three terms used in this layout:
 | Prefix | Route file | What it handles |
 |---|---|---|
 | `/auth` | `authRoutes.js` | Register, log in, verify email, forgot/reset password (no login needed), and `GET /auth/me`: who is logged in (needs a token) |
-| `/players` | `playerRoutes.js` | My player profile, my pending invites, my pending join requests, list all players, a player's stats |
+| `/players` | `playerRoutes.js` | My player profile and Edit profile (`PATCH /players/me`), my pending invites, my pending join requests, list all players, a player's stats |
 | `/owners` | `ownerRoutes.js` | My owner profile, list all registered venues |
 | `/teams` | `teamRoutes.js` | Create, list, my teams, one team, edit team, invite, cancel invite, accept, reject, join requests (ask, cancel, approve, decline), remove member, leave, transfer captaincy, delete team |
 | `/admin` | `adminRoutes.js` | Stats, list/delete users, list/delete teams, list/delete venues (admins only). Deleting users only works on player and owner accounts, deleting venues only on owner accounts (404 "Venue not found" otherwise), and an admin account, including your own, gets 403 |
@@ -186,7 +186,8 @@ There are four layers of checks:
 - **Logged in?** `verifyToken` runs on every route except `/auth`.
 - **Admin?** The `isAdmin` middleware runs on every `/admin` route. It rejects anyone whose token role isn't `ADMIN`.
 - **Player?** The `playersOnly` middleware runs on every team action: creating, editing and deleting a team, inviting, accepting, rejecting, the join request actions, removing a member, cancelling an invite, leaving and transferring captaincy. Venue owner and admin accounts get a 403 saying only player accounts can create or join teams.
-- **Everything else** is checked inside the controllers. For example, `/players/me` refuses non-players, and inviting, removing or deleting in a team is refused unless you created that team.
+- **Only this role?** `onlyRole(role, message)` guards a route for one kind of account, before the request body is checked. Edit profile (`PATCH /players/me`) uses it, so a venue owner or the admin gets 403 "Players only" whatever they send.
+- **Everything else** is checked inside the controllers. For example, `GET /players/me` refuses non-players, and inviting, removing or deleting in a team is refused unless you created that team.
 
 Known security problems in these checks: see [ROADMAP.md](ROADMAP.md), Phase 1.
 
@@ -197,10 +198,9 @@ The backend decides which fields each person may see, following "Profile visibil
 | What | Who sees it |
 |---|---|
 | Everything about an account | The user themselves (e.g. `/players/me`, `/owners/me`, the login reply) and the admin (admin routes) |
-| A player's name, position, height and weight (only if set) | Any logged-in user |
+| A player's name, position, and height, weight and area (each only if set) | Any logged-in user. The area is a general area like "Dhanmondi 27", never a full address; it replaced the old address field |
 | A player's phone | Only accepted teammates: both are accepted members of at least one same team |
 | Email | Only the user themselves and the admin |
-| A player's address | Only the user themselves and the admin, for now. It's still a free-text field that may hold a home address, and becomes the public "Area" field in Phase 4 |
 | A venue listing (name, address, phone, website, description) | Any logged-in user: it's a business listing. The owner's login email stays hidden |
 | Password hashes, tokens and token expiry times | Nobody, ever |
 
@@ -456,6 +456,15 @@ When any request that carried the token gets a 401 (for example the token's 30 d
 4. It saves the User and their profile in a single step, with `verified` set to false and `termsAcceptedAt` set to now. It also saves the hash of a new random verification token and an expiry 24 hours away.
 5. It emails a link containing the token itself to `BACKEND_PUBLIC_URL/auth/verify?token=…` through Gmail. If sending fails, the account still exists, so the reply is still a success (201). It says "Account created, but we couldn't send the verification email. Use 'Resend verification email' on the login screen." The error is logged on the server.
 6. Clicking the link opens the backend in a browser. If the token isn't shaped like one the backend makes (64 lowercase hex characters), it shows an "Invalid or expired link" page without touching the database. It shows the same page if no user has that token's hash, or if the link is more than 24 hours old, with a hint to request a new email from the app's login screen. Otherwise it marks the user verified, clears the token and its expiry, and shows an "Email verified" page telling them they can now log in in the app.
+
+### Editing a player profile
+
+A player changes their details with `PATCH /players/me` (the Edit profile screen arrives with task F2.3).
+
+1. The app sends every field each time: name, phone, position, height, weight and area. An optional field that's left out, empty or null is cleared.
+2. Only player accounts may do this: anyone else gets 403 "Players only", checked before the fields are.
+3. `updatePlayerProfileSchema` (`src/validation/playerSchemas.js`) checks the fields with the same rules as sign-up (`src/validation/profileFields.js`): a name of 2–50 characters, a Bangladeshi mobile number, a position from the list, height 100–250 cm and weight 30–200 kg (numbers, optional), and an area. The area is tidied first (spaces at both ends removed, and every run of spaces inside made one space) and must then be 2–40 characters; the letters stay as typed.
+4. The profile is updated in one step, and the reply is the player's own profile, the same as `GET /players/me`. The new name shows straight away in `GET /auth/me` and in team lists. The email can't be changed here (not in v1.0).
 
 ### Resending the verification email
 

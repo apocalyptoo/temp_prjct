@@ -63,3 +63,10 @@ export const isAdmin = (req, res, next) => {
   }
   next();
 };
+
+// Only accounts with this role may use the route; anyone else gets 403 with `message`.
+// Used before validate(...), so the wrong role is told so even with a bad body.
+export const onlyRole = (role, message) => (req, res, next) => {
+  if (req.user.role !== role) return res.status(403).json({ error: message });
+  next();
+};

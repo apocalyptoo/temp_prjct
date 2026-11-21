@@ -21,7 +21,7 @@ export const listPlayers = async (req, res, next) => {
         email: true,
         createdAt: true,
         playerProfile: {
-          select: { name: true, position: true },
+          select: { name: true, position: true, area: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -29,7 +29,7 @@ export const listPlayers = async (req, res, next) => {
 
     // { id, name, email, playerProfile } (the app reads id and name); the visibility
     // rules then drop the email for everyone except yourself (and the admin). The
-    // position is public and sits in playerProfile, the same shape as team members.
+    // position and area are public and sit in playerProfile, the same shape as team members.
     const viewer = viewerFrom(req);
     const result = players.map((p) =>
       toVisibleUser(
@@ -51,32 +51,29 @@ export const listPlayers = async (req, res, next) => {
 };
 
 
+// The logged-in player's own profile: everything except secrets. Shared by
+// GET /players/me and the reply of PATCH /players/me.
+const loadOwnPlayerProfile = (userId) =>
+  prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      createdAt: true,
+      playerProfile: {
+        select: { name: true, phone: true, position: true, height: true, weight: true, area: true },
+      },
+    },
+  });
+
 export const getMyPlayerProfile = async (req, res, next) => {
   try {
     if (req.user.role !== 'PLAYER') {
       return res.status(403).json({ error: 'Players only' });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        playerProfile: {
-          select: {
-            name: true,
-            phone: true,
-            position: true,
-            height: true,
-            weight: true,
-            area: true,
-          },
-        },
-      },
-    });
-
+    const user = await loadOwnPlayerProfile(req.user.id);
     if (!user || !user.playerProfile) {
       return res.status(404).json({ error: 'Player profile not found' });
     }
@@ -86,6 +83,27 @@ export const getMyPlayerProfile = async (req, res, next) => {
     return next(err);
   }
 };
+
+// PATCH /players/me: Edit profile (docs/features/profiles-and-registration.md,
+// d endpoint 3). Players only (checked by the route, before the body). The body was
+// checked by updatePlayerProfileSchema: every field is present and cleaned, and empty
+// optional fields are null, so one update replaces the whole editable profile.
+export const updateMyPlayerProfile = async (req, res, next) => {
+  try {
+    const { name, phone, position, height, weight, area } = req.valid.body;
+    const { count } = await prisma.playerProfile.updateMany({
+      where: { userId: req.user.id },
+      data: { name, phone, position, height, weight, area },
+    });
+    if (count === 0) return res.status(404).json({ error: 'Player profile not found' });
+
+    const user = await loadOwnPlayerProfile(req.user.id);
+    return res.json(toVisibleUser(user, viewerFrom(req)));
+  } catch (err) {
+    return next(err);
+  }
+};
+
 // The viewer's pending invites (not their own join requests), newest first.
 export const getPendingInvites = async (req, res, next) => {
   try {

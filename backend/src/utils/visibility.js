@@ -5,12 +5,13 @@
 //
 // The rules:
 // - Yourself and the admin: everything (except secrets).
-// - Any other logged-in user, about a player: name, position, height and weight (only if
-//   set), and the teams they belong to.
+// - Any other logged-in user, about a player: name, position, height, weight and area
+//   (each of the last three only if set), and the teams they belong to.
 // - Phone: only accepted teammates (both accepted members of at least one same team).
 // - Email: only yourself and the admin.
-// - Player address: hidden from others for now. It's still the old free-text address
-//   and may be a home address. It becomes the public "Area" field in Phase 4.
+// - Area: the player's general area ("Dhanmondi 27"), public to logged-in users. It
+//   replaced the old free-text address (feature 2), and the app tells players not to
+//   enter a full address.
 // - Venue listings: all business details are public; the owner's login email is not.
 // - Secrets (password hash, tokens, token expiry times): never sent to anyone.
 //
@@ -45,12 +46,13 @@ export function withoutSecrets(value) {
 }
 
 // The part of a player profile another logged-in user may see.
-// Never email; never address (until it becomes "Area"); phone only for accepted teammates.
+// Never email; phone only for accepted teammates; height, weight and area only if set.
 export function toPublicPlayer(profile, { canSeePhone = false } = {}) {
   if (!profile) return profile;
   const out = pick(profile, ['name', 'position']);
   if (profile.height != null) out.height = profile.height;
   if (profile.weight != null) out.weight = profile.weight;
+  if (profile.area != null) out.area = profile.area;
   if (canSeePhone && 'phone' in profile) out.phone = profile.phone;
   return out;
 }

@@ -401,7 +401,7 @@ export const rejectRequest = async (req, res, next) => {
 };
 
 // Team replies load every membership row of the team (accepted and pending) with the
-// person's name and position. Rows are shaped by toMembershipReply before they reach a
+// person's name, position and area (all public). Rows are shaped by toMembershipReply before they reach a
 // reply, so origin, acceptedAt and message never leak.
 const ALL_ROWS_WITH_PEOPLE = {
   members: {
@@ -410,7 +410,7 @@ const ALL_ROWS_WITH_PEOPLE = {
         select: {
           id: true,
           email: true,
-          playerProfile: { select: { name: true, position: true } },
+          playerProfile: { select: { name: true, position: true, area: true } },
           ownerProfile: { select: { indoorName: true } },
         },
       },
@@ -433,7 +433,7 @@ const oldestFirst = (a, b) => time(a.createdAt) - time(b.createdAt) || a.id - b.
 const newestFirst = (a, b) => oldestFirst(b, a);
 
 // One membership row for the viewer: the person goes through the visibility rules (no
-// email, phone or address of other users), the row through toMembershipReply.
+// email or phone of other users), the row through toMembershipReply.
 function toRowReply(row, viewer, options) {
   const user = toVisibleUser(
     {

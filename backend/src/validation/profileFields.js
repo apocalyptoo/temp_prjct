@@ -7,6 +7,7 @@ import { charCount, isFilled, requiredText } from './common.js';
 
 // ── Limits ──
 export const PLAYER_NAME = { min: 2, max: 50 };
+export const AREA = { min: 2, max: 40 }; // spec P3
 export const VENUE_NAME = { min: 2, max: 60 };
 
 // The position list, spelled exactly as the app shows it (spec P1). Same values as the
@@ -48,3 +49,40 @@ export const requiredPhone = (required) =>
 // One of the five positions, exactly as spelled. Missing gets `required`.
 export const position = (required) =>
   z.enum(POSITIONS, { error: (issue) => (isFilled(issue.input) ? POSITION_MESSAGE : required) });
+
+// The player's area: free text, spaces at both ends removed and every run of spaces,
+// tabs or line breaks inside made one space (spec P4). Blank or missing becomes null;
+// otherwise 2–40 characters. The letters stay as typed.
+export const area = () =>
+  z
+    .preprocess((value) => (value === undefined ? null : value), z.string({ error: 'Area must be text' }).nullable())
+    .transform((text) => (text === null ? null : text.trim().replace(/\s+/g, ' ')))
+    .transform((text) => (text === '' ? null : text))
+    .refine((text) => text === null || lengthBetween(AREA)(text), {
+      error: `Area must be between ${AREA.min} and ${AREA.max} characters`,
+    });
+
+// A number in a range, or missing/null. Numbers only: "170" (text) is refused.
+const optionalMeasurement = ({ min, max, notNumber, outOfRange }) =>
+  z
+    .number({ error: notNumber })
+    .refine((n) => n >= min && n <= max, { error: outOfRange })
+    .nullable()
+    .optional()
+    .transform((n) => n ?? null);
+
+export const height = () =>
+  optionalMeasurement({
+    min: 100,
+    max: 250,
+    notNumber: 'Height must be a number',
+    outOfRange: 'Height must be between 100 and 250 cm',
+  });
+
+export const weight = () =>
+  optionalMeasurement({
+    min: 30,
+    max: 200,
+    notNumber: 'Weight must be a number',
+    outOfRange: 'Weight must be between 30 and 200 kg',
+  });

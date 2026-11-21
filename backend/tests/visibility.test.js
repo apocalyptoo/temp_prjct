@@ -60,8 +60,8 @@ async function teamWithMembers(t) {
   return { captain, teammate, pending, team };
 }
 
-describe('Other users never see email, phone or address', () => {
-  test('GET /players: other players have no email, phone or address', async (t) => {
+describe('Other users never see email or phone', () => {
+  test('GET /players: other players have no email or phone, but their area is public', async (t) => {
     const player = await playerWithProfile(t);
     const stranger = await playerWithProfile(t);
 
@@ -70,10 +70,12 @@ describe('Other users never see email, phone or address', () => {
 
     assert.ok(entry, 'the player should be listed');
     assert.equal(entry.name, 'Test Player');
-    for (const hidden of ['email', 'phone', 'address']) assert.equal(hidden in entry, false, `${hidden} must be hidden`);
+    for (const hidden of ['email', 'phone']) assert.equal(hidden in entry, false, `${hidden} must be hidden`);
+    assert.equal(entry.playerProfile.area, 'Dhanmondi 27', 'Area is public (PRODUCT.md, "Profile visibility")');
+    assert.equal('phone' in entry.playerProfile, false);
   });
 
-  test('GET /teams and /teams/me: members other than yourself have no email', async (t) => {
+  test('GET /teams and /teams/me: members other than yourself have no email or phone; their area shows', async (t) => {
     const { teammate, team } = await teamWithMembers(t);
 
     for (const path of ['/teams', '/teams/me']) {
@@ -82,9 +84,11 @@ describe('Other users never see email, phone or address', () => {
       assert.ok(found, `${path} should include the team`);
       for (const member of found.members) {
         if (member.userId === teammate.user.id) continue; // your own entry may show your email
-        for (const hidden of ['email', 'phone', 'address']) {
+        for (const hidden of ['email', 'phone']) {
           assert.equal(hidden in member.user, false, `${path}: another member's ${hidden} must be hidden`);
         }
+        assert.equal('phone' in member.user.playerProfile, false, `${path}: no phone in the profile either`);
+        assert.equal(member.user.playerProfile.area, 'Dhanmondi 27', `${path}: the area is public`);
       }
     }
   });
@@ -218,18 +222,19 @@ describe('No response ever contains passwords or tokens', () => {
 });
 
 describe('The visibility rules (src/utils/visibility.js)', () => {
-  const profile = { name: 'P', position: 'Forward', height: 180, weight: null, phone: '01700000000', address: 'Home 1' };
+  const profile = { name: 'P', position: 'Forward', height: 180, weight: null, phone: '01700000000', area: 'Mirpur 10' };
 
-  test('a stranger sees name, position, and height/weight only if set', async () => {
+  test('a stranger sees name, position, and height, weight and area only if set', async () => {
     const { toPublicPlayer } = await import('../src/utils/visibility.js');
 
-    assert.deepEqual(toPublicPlayer(profile, { canSeePhone: false }), { name: 'P', position: 'Forward', height: 180 });
+    assert.deepEqual(toPublicPlayer(profile, { canSeePhone: false }), { name: 'P', position: 'Forward', height: 180, area: 'Mirpur 10' });
+    assert.deepEqual(toPublicPlayer({ ...profile, area: null }), { name: 'P', position: 'Forward', height: 180 });
   });
 
-  test('an accepted teammate also sees the phone, but never the address', async () => {
+  test('an accepted teammate also sees the phone', async () => {
     const { toPublicPlayer } = await import('../src/utils/visibility.js');
 
-    assert.deepEqual(toPublicPlayer(profile, { canSeePhone: true }), { name: 'P', position: 'Forward', height: 180, phone: '01700000000' });
+    assert.deepEqual(toPublicPlayer(profile, { canSeePhone: true }), { name: 'P', position: 'Forward', height: 180, area: 'Mirpur 10', phone: '01700000000' });
   });
 
   test('teammates are only people in the same team with both memberships accepted', async (t) => {
