@@ -10,7 +10,7 @@ import { PlayerExploreStack } from './ExploreStack';
 import { tabNavigatorProps } from './tabs';
 import { teamScreens } from './teamScreens';
 import MyTeamsScreen from '../screens/Team/MyTeamsScreen';
-import CreateTeamScreen from '../screens/Team/CreateTeamScreen';
+import TeamFormScreen from '../screens/Team/TeamFormScreen';
 import InvitesScreen from '../screens/Player/InvitesScreen';
 import PlayerProfileScreen from '../screens/Player/PlayerProfileScreen';
 import PlayerSettingsScreen from '../screens/Player/PlayerSettingsScreen';
@@ -30,8 +30,8 @@ function MyTeamsTab() {
       />
       <MyTeamsStack.Screen
         name="CreateTeam"
-        component={CreateTeamScreen}
-        options={{ title: 'Create Team' }}
+        component={TeamFormScreen}
+        options={{ headerShown: false }}
       />
       {teamScreens(MyTeamsStack)}
     </MyTeamsStack.Navigator>

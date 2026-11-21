@@ -81,10 +81,10 @@ Here's what happens, step by step, when a player creates a team.
 
 **On the phone**
 
-1. The player opens **All Teams** and taps **+ Create Team**.
+1. The player taps **+ Create Team** on **All Teams** (Explore), which opens the form in the My Teams tab.
    File: `IndoorFootballApp/src/screens/Team/TeamsListScreen.js`. It asks the navigator to show the `CreateTeam` screen.
-2. They type a name and description and tap the button.
-   File: `src/screens/Team/CreateTeamScreen.js`. The `onCreate` function checks that the name isn't empty, then calls `api.post('/teams/create', { name, description })`.
+2. They type a name and description and tap **Create team**.
+   File: `src/screens/Team/TeamFormScreen.js` (the same screen edits a team). `checkTeamForm` first checks the same limits as the backend (name 2–40 characters, description at most 200, counted in characters as people see them) and shows any problem under the field. Then it calls `api.post('/teams/create', { name, description })`.
 3. Before the request leaves the phone, the shared API helper adds the login token.
    File: `src/api/api.js`. An **interceptor** (a function that runs on every request) reads the token from storage (`src/utils/storage.js`) and adds the header `Authorization: Bearer <token>`.
 4. The request travels over HTTPS to the ngrok address, which forwards it to the backend on port 4000.
@@ -101,7 +101,7 @@ Here's what happens, step by step, when a player creates a team.
 **Back to the phone**
 
 11. The server replies with status 201 ("created") and the new team as JSON.
-12. `CreateTeamScreen` shows a "Team Created" alert and goes back. All Teams reloads its list every time it comes back into view, so the new team appears.
+12. The form is replaced by the new team's **Team detail** (so Back goes to My Teams). My Teams and All Teams reload whenever they come back into view, so the new team appears there too.
 
 If anything fails, the server replies with an error message and the screen shows it in an alert.
 
@@ -526,7 +526,7 @@ All three are for player accounts only and run under the team lock (feature 1, [
 
 Destructive or important actions ask first, in a dialog with the spec's exact wording (for example "Remove Tanvir Ahmed from Dhanmondi Strikers?"). A captain with other members who taps **Leave team** is told to transfer captaincy first, and the dialog's button opens Transfer captaincy; a captain alone gets "Leave and delete …?". After leaving or deleting, the screen goes back. Every button that sends a request shows a spinner while it runs. After an action the team reloads. If the backend replies 404 (gone) or 409 (the team changed, for example it filled up), an alert says "Something changed" with the backend's message, and the screen reloads. If the team itself is gone, the screen says "This team no longer exists." and goes back. The shared pieces (loading a team, these alerts, the message limit) live in `src/screens/Team/teamCommon.js`.
 
-**Transfer captaincy** (`TransferCaptaincyScreen.js`) lists the members except the captain; picking one asks "Make {name} captain?" and sends `POST /teams/:teamId/transfer`. Until task F1.3, **Invite players** opens the old Add Member screen, and **Edit team** isn't shown.
+**Transfer captaincy** (`TransferCaptaincyScreen.js`) lists the members except the captain; picking one asks "Make {name} captain?" and sends `POST /teams/:teamId/transfer`. **Edit team** (captains, above Leave and Delete) opens the same form as Create team, filled in with the current name and description; saving sends `PATCH /teams/:teamId` and goes back to Team detail, which reloads. Until the next part of task F1.3, **Invite players** opens the old Add Member screen.
 
 ### Join requests
 

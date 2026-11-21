@@ -214,7 +214,7 @@ describe('What each viewer sees', () => {
       ]),
     );
     expect(labels(renderer)).not.toContain('Request to join');
-    expect(labels(renderer)).not.toContain('Edit team'); // until task F1.3
+    expect(labels(renderer)).toContain('Edit team');
   });
 
   test('the captain of a full team: Invite players is disabled with "Team is full (15/15)"', async () => {
@@ -327,6 +327,18 @@ describe('What each viewer sees', () => {
 });
 
 describe('Actions', () => {
+  test('Edit team opens the form with the current name and description', async () => {
+    const { renderer, navigation } = await render(CAPTAIN_VIEW);
+
+    await press(renderer, 'Edit team');
+
+    expect(navigation.navigate).toHaveBeenCalledWith('EditTeam', {
+      teamId: 7,
+      teamName: 'Dhanmondi Strikers',
+      description: 'Weekend 5-a-side crew.',
+    });
+  });
+
   test('Invite players and Transfer captaincy open their screens', async () => {
     const { renderer, navigation } = await render(CAPTAIN_VIEW);
 

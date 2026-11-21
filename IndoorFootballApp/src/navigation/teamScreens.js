@@ -9,6 +9,7 @@ import React from 'react';
 import TeamDetailScreen from '../screens/Team/TeamDetailScreen';
 import RequestToJoinScreen from '../screens/Team/RequestToJoinScreen';
 import TransferCaptaincyScreen from '../screens/Team/TransferCaptaincyScreen';
+import TeamFormScreen from '../screens/Team/TeamFormScreen';
 import AddMemberScreen from '../screens/Team/AddMemberScreen';
 
 // The new screens draw their own back link, so the stack header is hidden for them.
@@ -32,6 +33,13 @@ export function teamScreens(Stack, { readOnly = false } = {}) {
           <Stack.Screen
             name="TransferCaptaincy"
             component={TransferCaptaincyScreen}
+            options={OWN_HEADER}
+          />
+          {/* The team form in edit mode (CreateTeam, the same screen, is in the
+              My Teams stack). */}
+          <Stack.Screen
+            name="EditTeam"
+            component={TeamFormScreen}
             options={OWN_HEADER}
           />
           {/* Interim "Invite players" until the new screen (feature 1, task F1.3). */}

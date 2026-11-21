@@ -351,11 +351,6 @@ function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
         ))}
       </Card>
 
-      {/* TODO(F1.3): the captain's "Edit team" button goes here, above Leave and
-          Delete (docs/features/team-membership.md, section e). It's hidden until the
-          Create / Edit team form exists. "Invite players" above opens the interim Add
-          Member screen until F1.3 builds the new one. */}
-
       {state === 'member' ? (
         <Button
           title="Leave team"
@@ -367,6 +362,19 @@ function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
 
       {state === 'captain' ? (
         <View style={{ gap: spacing.md }}>
+          <Button
+            title="Edit team"
+            variant="secondary"
+            icon="edit"
+            fullWidth
+            onPress={() =>
+              navigation.navigate('EditTeam', {
+                teamId: team.id,
+                teamName: team.name,
+                description: team.description,
+              })
+            }
+          />
           <Button
             title="Leave team"
             variant="danger"
