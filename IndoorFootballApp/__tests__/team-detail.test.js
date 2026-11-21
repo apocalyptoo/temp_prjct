@@ -345,9 +345,9 @@ describe('Actions', () => {
     await press(renderer, 'Invite players');
     await press(renderer, 'Transfer captaincy');
 
-    expect(navigation.navigate).toHaveBeenCalledWith('AddMember', {
+    expect(navigation.navigate).toHaveBeenCalledWith('InvitePlayers', {
       teamId: 7,
-      captainId: 1,
+      teamName: 'Dhanmondi Strikers',
     });
     expect(navigation.navigate).toHaveBeenCalledWith('TransferCaptaincy', {
       teamId: 7,

@@ -10,7 +10,7 @@ import TeamDetailScreen from '../screens/Team/TeamDetailScreen';
 import RequestToJoinScreen from '../screens/Team/RequestToJoinScreen';
 import TransferCaptaincyScreen from '../screens/Team/TransferCaptaincyScreen';
 import TeamFormScreen from '../screens/Team/TeamFormScreen';
-import AddMemberScreen from '../screens/Team/AddMemberScreen';
+import InvitePlayersScreen from '../screens/Team/InvitePlayersScreen';
 
 // The new screens draw their own back link, so the stack header is hidden for them.
 const OWN_HEADER = { headerShown: false };
@@ -42,11 +42,10 @@ export function teamScreens(Stack, { readOnly = false } = {}) {
             component={TeamFormScreen}
             options={OWN_HEADER}
           />
-          {/* Interim "Invite players" until the new screen (feature 1, task F1.3). */}
           <Stack.Screen
-            name="AddMember"
-            component={AddMemberScreen}
-            options={{ title: 'Add Member' }}
+            name="InvitePlayers"
+            component={InvitePlayersScreen}
+            options={OWN_HEADER}
           />
         </>
       )}

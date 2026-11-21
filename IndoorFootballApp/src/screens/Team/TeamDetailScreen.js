@@ -221,12 +221,7 @@ function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
           <Button
             title={isFull ? fullLabel : 'Invite players'}
             disabled={isFull}
-            onPress={() =>
-              navigation.navigate('AddMember', {
-                teamId: team.id,
-                captainId: team.captainId,
-              })
-            }
+            onPress={() => navigation.navigate('InvitePlayers', toParams)}
             style={styles.grow}
           />
           {team.memberCount > 1 ? (
