@@ -29,6 +29,7 @@ What exists today, made secure and polished, plus:
 - Account deletion inside the app, plus a web page for deletion requests (both required by Google Play)
 - Player discovery, with privacy rules for what's visible to whom
 - Team creation, discovery and management, with multiple team memberships
+- Captain can edit the team's name and description
 - Captain invitations and player join requests, with captain approval
 - Leaving a team and transferring captaincy
 - In-app notifications: a Notifications screen with a badge, covering actions needed and updates (no push)
@@ -76,7 +77,7 @@ The current app puts only Profile and Settings in the bottom bar, and hides ever
 | Venue owner | **My Venue · Explore · Notifications · Profile** |
 | Admin | **Dashboard · Reports · Venues · Users · Teams** |
 
-- **My Teams (player):** the player's teams, with a Create Team button. Opens Team detail (members; for captains, pending requests, invite, transfer captaincy; for everyone, leave team).
+- **My Teams (player):** the player's teams, with a Create Team button. Opens Team detail (members; for captains, pending requests, invite, transfer captaincy, edit team; for every member, leave team, though a captain with other members is asked to transfer captaincy first). Team detail's Members card lists every accepted member (no "See all" link). Team detail doesn't show phone numbers; teammates see them on Player detail. Feature spec: [features/team-membership.md](features/team-membership.md).
 - **Explore (player and owner):** three sections at the top, **Teams · Players · Venues**, each with search (venues also filter by area). Opens Team detail, Player detail and Venue detail. For owners, Explore is read-only (no invite or join buttons).
 - **My Venue (owner):** the owner's listing, its status ("Pending review" or "Live"), and an Edit button.
 - **Notifications:** see "Notifications" below. The tab shows the badge.
@@ -145,15 +146,28 @@ _Implementation note:_ each login token carries the account's token version (`Us
 - A team has exactly one **captain** (the creator, unless captaincy is transferred). Everyone else is a **player**. No other team roles in v1.0.
 
 **Invites and join requests**
-- Players can request to join a team; the captain approves or rejects.
-- Captains can invite players; the player accepts or rejects.
+- Players can request to join a team; the captain approves or declines.
+- Captains can invite players; the player accepts or declines.
 - A captain's invitation counts as captain approval.
 - Players cannot approve their own join requests.
 - Invites and join requests **don't expire**. They stay pending until someone acts on them.
 - A player can **cancel their own pending join request**. A captain can **cancel a pending invite** they sent.
 - A player can have only **one pending or active membership per team**.
 - If a captain has already invited a player, that player sees **"Accept invite"** instead of "Request to join".
-- After a request or invite is rejected, the player **can request again**.
+- If a player asks to join a team that has **already invited them**, they join (the invite counts as approval). If a captain invites a player who has **already asked to join**, the request is approved. Both are subject to the team size limit.
+- After a request or invite is declined, the player **can request again**.
+- A member who was **removed** can ask to join again, or be invited again, straight away.
+- The app says **"Decline"** for turning down an invite or a join request (never "Reject").
+
+**Join request message**
+- A join request can carry an **optional message to the captain**, up to **150 characters** (counted like team names; spaces at both ends are removed; a blank message means no message).
+- Only the **captain, the requester and the admin** can see it.
+- It's **deleted** when the request is approved, declined or cancelled.
+- It **can't be edited**. To change it, the player cancels the request and sends a new one.
+- An offensive message is handled by **reporting the player** (see "Administration and moderation").
+
+**Editing a team**
+- The captain can **edit the team's name and description**, with the same rules as creating a team.
 
 **Leaving and captaincy**
 - Any member can **leave** a team at any time.
@@ -164,9 +178,12 @@ _Implementation note:_ each login token carries the account's token version (`Us
 **Team size**
 - A team can have at most **15 accepted members**, captain included.
 - When a team is full, approving a join request or accepting an invite is blocked with a clear message.
+- When a team is full, the captain **can't send new invites**: the invite button is disabled with "Team is full (15/15)", and the backend refuses too.
+- When a team is full, players **can't send join requests** either: the Request to join button is disabled with "Team is full (15/15)", and the backend refuses too.
 - Pending invites and requests don't count toward the limit.
 
 _Implementation notes:_
+- The join request message needs one new optional field on `TeamMember`. It's a schema change and needs approval (team membership backend task).
 - Each membership records how it started: a captain's invite, a player's join request, or the captain's own membership created with the team (`TeamMember.origin`).
 - **"Longest-standing member"** means the member with the **earliest accepted date** (`TeamMember.acceptedAt`, set when a membership becomes accepted; `createdAt` is when the invite or request was made). Existing accepted members got their old created date as the accepted date (the best value available). If two dates are equal, the lower membership id wins.
 - **The captain is stored in one place only:** `Team.captainId`. There's no "captain" member role, so the captain can't be recorded in two places that might disagree. The captain is still an accepted member of the team. A captaincy transfer is a single update of `captainId`.
@@ -263,7 +280,7 @@ _Implementation note:_ the owner profile needs new fields (area, opening hours, 
 - A captain receives a join request
 
 *Updates:*
-- Your join request was approved or rejected
+- Your join request was approved or declined
 - Your invite was accepted or declined (shown to the captain)
 - You were removed from a team
 - You became captain (by a transfer or an automatic handover after account deletion)
@@ -271,7 +288,7 @@ _Implementation note:_ the owner profile needs new fields (area, opening hours, 
 - Your venue was approved (venue owners)
 
 **How it looks**
-- One **Notifications** screen with two sections: **"Needs your action"** (invites and requests, with accept/approve and reject buttons right there) and **"Updates"** (newest first).
+- One **Notifications** screen with two sections: **"Needs your action"** (invites and requests, with accept/approve and decline buttons right there) and **"Updates"** (newest first).
 - A **badge with a number** on the button that opens the screen. The number counts pending actions plus unread updates.
 - Opening the screen marks updates as read. Action items stay until they're handled or cancelled.
 - The screen shows the **most recent 50 updates**. Automatic cleanup of old ones can come later.

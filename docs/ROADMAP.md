@@ -107,9 +107,10 @@ Existing screens keep working inside the new tabs.
 
 Rule: write a short spec in `docs/features/` before building each feature below. Each feature is built backend and screens together, in the order listed.
 
-**Team membership features**
-- [ ] Join request flow: captains see, approve and reject requests. The join endpoint was removed in Phase 1 (item 3) and needs to be rebuilt, recording that the row is a join request, not an invite.
-- [ ] Team membership: record invite vs join request, accepted at date (same migration as invite/request), cancel requests and invites, leave a team, transfer captaincy, 15-member limit, "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership")
+**Team membership features** (spec: [features/team-membership.md](features/team-membership.md); tasks F1.1 backend, F1.2 and F1.3 screens)
+- [ ] Join request flow: captains see, approve and reject requests. The join endpoint was removed in Phase 1 (item 3) and needs to be rebuilt, recording that the row is a join request, not an invite. Includes the optional message to the captain (DECISIONS.md 2026-11-21).
+- [ ] Team membership: cancel requests and invites, leave a team, transfer captaincy, 15-member limit (including no invites when full), "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership"). Recording invite vs join request and the accepted-at date was done in 4.2.
+- [ ] Captain can edit team name and description (same rules as creating a team; DECISIONS.md 2026-11-21)
 
 **Profiles and registration**
 - [ ] Shorter registration and position list, built together with profile editing: short player and owner sign-up forms (DECISIONS.md 2026-11-20), position picker, owner phone and address optional, position enum with mapping of existing values (PRODUCT.md, "Registration"). The position enum is part of this item's migration (DECISIONS.md 2026-11-20, "Phase 4 order").

@@ -336,3 +336,42 @@ The local development database holds only the owner's own test data. Claude Code
 This applies only to the local development database. Once real users exist, a production database is never treated this way.
 **Why:** the data was created only for development, so there's nothing real to protect. Schema changes, migrations and resets stay gated because they shape the real database later, or remove the admin account.
 **Consequence:** the 2026-11-17 rule ("no database resets, destructive migrations or new dependencies without explicit approval") still holds. What changes is that ordinary rows in the local database no longer need approval. Tests still create their own throwaway users and never change existing ones, so they stay independent of the data that happens to be there.
+
+### 2026-11-21: Team membership details for the screens
+Decided while writing the team membership feature spec (`docs/features/team-membership.md`). The rules are in `docs/PRODUCT.md` under "Team membership".
+- **A full team can't send invites.** When a team has 15 accepted members, the captain can't send new invites: the invite button is disabled with "Team is full (15/15)", and the backend refuses too. (Accepting an invite or approving a request was already blocked when the team is full.)
+- **The team page lists every member.** The Members card on Team detail shows every accepted member, with no "See all" link.
+- **The captain can edit the team.** The captain can change the team's name and description, with the same rules as creating a team. Added to the v1.0 scope.
+- **A join request can carry a short message.** Optional, up to 150 characters (counted like team names, trimmed; blank means no message). Only the captain, the requester and the admin can see it. It's deleted when the request is approved, declined or cancelled. An offensive message is handled by reporting the player (moderation feature).
+
+**Why:**
+- A full team that keeps sending invites would only produce invites that can't be accepted.
+- A team has at most 15 members, so one card can show them all, and a "See all" screen would be an extra screen for no gain.
+- Typos and changed plans happen. Without editing, the only fix is deleting the team and inviting everyone again.
+- A message lets the player say who they are ("I play Thursdays with Tanvir"), which helps the captain decide. Deleting it once the request is handled means old messages aren't kept around.
+
+**Alternatives considered:** letting full teams keep inviting (rejected: invites nobody can accept), a short members preview with "See all" as in the mockup (rejected), no join request message (rejected), keeping the message after approval (rejected).
+**Consequence:** the message needs one new optional field on `TeamMember`. That's a schema change and needs approval in the backend task.
+
+### 2026-11-21: Team membership feature spec approved
+The owner approved `docs/features/team-membership.md`: its three defaults (D1–D3), all of Claude Code's proposals (P1–P20, listed in the spec's section k), and these answers to its open questions:
+- **Join requests are blocked when the team is full**, like invites ("Team is full (15/15)"; the backend refuses too).
+- **Asking to join a team that already invited you accepts the invite; inviting a player who already asked to join approves the request.** Both are subject to the 15-member limit.
+- **The app says "Decline"**, never "Reject", for turning down invites and join requests. PRODUCT.md's wording was aligned. API paths keep `reject`.
+- **A removed member can ask to join again, or be invited again, straight away.**
+- **The join request message can't be edited.** The player cancels and sends a new request.
+- **The team page doesn't show phone numbers.** Teammates see them on Player detail (Explore feature).
+- **Every member sees "Leave team"**; for a captain with other members it explains that captaincy must be transferred first. This settles the contradiction between PRODUCT.md's "for everyone, leave team" and the captain rule.
+- **The Join requests header shows a plain count**, not the mockup's "2 new" (nothing records which requests were seen).
+- **No greeting on My Teams** until the "Salam, Rahim" wording is decided.
+- **No admin Team detail screen in this feature.** The admin's Teams tab stays a list with delete.
+
+**Why:**
+- Blocking requests to a full team matches the invite rule, so nobody waits on something that can't be approved.
+- Auto-accepting or auto-approving when both sides already agreed saves a step and can't surprise anyone: the player wanted in, and the captain wanted them.
+- "Decline" is softer than "Reject" for a community app.
+- Rejoining after removal follows the same reasoning as "rejected players can re-request" (2026-11-17): low abuse risk in v1.0.
+- Not editing messages, not showing phones yet, and no admin screen keep this feature small. Phones belong on Player detail, and an admin team screen fits the moderation feature.
+
+**Alternatives considered:** letting requests to a full team wait for a spot (rejected), "Reject" as the button word (rejected), a cooldown after removal (rejected for v1.0), phones on the team page for accepted teammates (rejected), tracking which requests the captain has seen (rejected: needs a schema change for little gain), an admin Team detail screen now (deferred to moderation).
+**Consequence:** the backend task (F1.1) builds exactly the API in the spec, including `TeamMember.message` (schema change, approval still needed when the migration is created).

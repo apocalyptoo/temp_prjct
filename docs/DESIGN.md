@@ -10,8 +10,9 @@ The visual design for v1.0. Every screen follows this file. What screens exist a
 Where the mockups differ from decisions made since (the decisions win):
 
 - Positions show futsal terms (Winger, Pivot). The real list is Goalkeeper, Defender, Midfielder, Forward, Any (PRODUCT.md, "Registration").
-- The members card shows a few members with "See all 11". That isn't decided in PRODUCT.md yet: decide it with the team membership feature.
-- The "Salam, Rahim" greeting wording is still to be confirmed.
+- ~~The members card shows a few members with "See all 11".~~ **Resolved 2026-11-21:** the Members card lists every accepted member, with no "See all" link (DECISIONS.md, "Team membership details for the screens").
+- The Team detail "Join requests" header shows a "2 new" pill. **Decided 2026-11-21:** it shows the plain count ("2"), because nothing records which requests the captain has seen.
+- The "Salam, Rahim" greeting wording is still to be confirmed. Until then, My Teams has no greeting (decided 2026-11-21).
 
 ---
 
