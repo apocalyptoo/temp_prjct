@@ -1,11 +1,11 @@
 // Venue owner: bottom tabs My Venue · Explore · Notifications · Profile (docs/PRODUCT.md,
 // "App structure and navigation"). Each tab has its own stack. Explore is read-only for
-// owners (the team list hides Create Team for them).
+// owners (the team list hides Create Team, and Team detail shows no buttons).
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import ExploreStack from './ExploreStack';
+import { OwnerExploreStack } from './ExploreStack';
 import { tabNavigatorProps } from './tabs';
 import OwnerProfileScreen from '../screens/Owner/OwnerProfileScreen';
 import OwnerNotificationsScreen from '../screens/Owner/OwnerNotificationsScreen';
@@ -66,7 +66,7 @@ export default function OwnerNavigator() {
       />
       <Tab.Screen
         name="ExploreTab"
-        component={ExploreStack}
+        component={OwnerExploreStack}
         options={{ title: 'Explore', tabBarIconName: 'explore' }}
       />
       <Tab.Screen

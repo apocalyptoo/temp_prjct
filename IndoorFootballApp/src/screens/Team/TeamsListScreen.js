@@ -87,29 +87,38 @@ export default function TeamsListScreen({ navigation }) {
           contentContainerStyle={styles.list}
           renderItem={({ item, index }) => (
             <Animated.View entering={FadeInUp.delay(index * 100)}>
-              <LinearGradient
-                colors={['#FFFFFF', '#a1d3f5ff']}
-                style={styles.card} // keep padding, borderRadius, elevation
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate('TeamDetail', { teamId: item.id })
+                }
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${item.name}`}
+                activeOpacity={0.85}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Image
-                    source={require('../../../assets/icons/viewteam.png')}
-                    style={styles.icon}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.teamName, { color: '#1E3A8A' }]}>
-                      {item.name}
-                    </Text>
-                    <Text style={[styles.teamDescription, { color: '#333' }]}>
-                      {item.description}
-                    </Text>
+                <LinearGradient
+                  colors={['#FFFFFF', '#a1d3f5ff']}
+                  style={styles.card} // keep padding, borderRadius, elevation
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Image
+                      source={require('../../../assets/icons/viewteam.png')}
+                      style={styles.icon}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.teamName, { color: '#1E3A8A' }]}>
+                        {item.name}
+                      </Text>
+                      <Text style={[styles.teamDescription, { color: '#333' }]}>
+                        {item.description}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                <Text style={[styles.meta, { color: '#555' }]}>
-                  Captain: {captainName(item)} | Members:{' '}
-                  {item.members?.length || 0}
-                </Text>
-              </LinearGradient>
+                  <Text style={[styles.meta, { color: '#555' }]}>
+                    Captain: {captainName(item)} | Members:{' '}
+                    {item.members?.length || 0}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </Animated.View>
           )}
           ListEmptyComponent={<Text style={styles.empty}>No teams found</Text>}

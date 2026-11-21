@@ -1,399 +1,324 @@
-import React, { useCallback, useContext, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  Image,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { AuthContext } from '../../contexts/AuthContext';
+// Team detail (docs/features/team-membership.md, sections c and e): one team, as the
+// viewer sees it. Params: { teamId }. Opened from My Teams and from Explore → Teams.
+// The backend says where the viewer stands (viewerState: captain, member, invited,
+// requested or none) and sends join requests and pending invites only to the captain.
+import React, { useContext, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import api from '../../api/api';
+import { AuthContext } from '../../contexts/AuthContext';
+import { useTheme } from '../../theme/ThemeProvider';
+import {
+  BackLink,
+  Button,
+  Card,
+  Divider,
+  Icon,
+  IconButton,
+  ListRow,
+  NoticeLine,
+  Pill,
+  Screen,
+  SectionHeader,
+  Text,
+} from '../../components/ui';
+import {
+  TeamLoadState,
+  personName,
+  personPosition,
+  showActionError,
+  useTeam,
+} from './teamCommon';
+
+// The back link names the screen underneath (the mockup's "‹ My Teams").
+const BACK_LABELS = {
+  MyTeams: 'My Teams',
+  Teams: 'All Teams',
+  Invites: 'Invites',
+};
+function backLabel(navigation) {
+  const state = navigation.getState?.();
+  const below = state?.routes?.[state.index - 1]?.name;
+  return BACK_LABELS[below] ?? 'Back';
+}
 
 export default function TeamDetailScreen({ route, navigation }) {
+  const { teamId } = route.params;
   const { user } = useContext(AuthContext);
-  // Starts as the team passed in from My Teams, then is reloaded from the backend.
-  const [team, setTeam] = useState(route.params.team);
-  const [removingId, setRemovingId] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-  const teamId = route.params.team.id;
+  const { spacing } = useTheme();
+  const { team, status, reload, retry } = useTeam(teamId, navigation);
+  // Which action's request is running (one at a time), so its button shows the
+  // loading state and nothing else can be pressed twice.
+  const [busy, setBusy] = useState(null);
 
-  // Reloads this team. The screen is only opened from My Teams, so the viewer is the
-  // captain or a member, and /teams/me includes it (with pendingInvites for the captain).
-  // If it's no longer there (deleted, or you were removed), go back.
-  const loadTeam = useCallback(async () => {
+  // Runs one action, then shows the team as it is now. A 404 or 409 means the screen
+  // was out of date: the alert says so and the team reloads.
+  const run = async (key, request) => {
+    setBusy(key);
     try {
-      const res = await api.get('/teams/me');
-      const fresh = res.data.find(t => t.id === teamId);
-      if (fresh) {
-        setTeam(fresh);
-      } else {
-        Alert.alert(
-          'Team not available',
-          'This team no longer exists, or you are no longer in it.',
-        );
-        navigation.goBack();
-      }
+      await request();
+      await reload();
     } catch (err) {
-      console.error('loadTeam', err?.response?.data || err.message);
+      showActionError(err, { onStale: reload });
+    } finally {
+      setBusy(null);
     }
-  }, [navigation, teamId]);
-
-  // Reload whenever the screen comes into view (for example back from Add Member).
-  useEffect(
-    () => navigation.addListener('focus', loadTeam),
-    [navigation, loadTeam],
-  );
-
-  // Check if the logged-in user is the team's captain (Team.captainId)
-  const isCaptain = user?.id === team.captainId;
-
-  // `members` holds accepted members only. The backend adds `pendingInvites` only for
-  // the captain; they're listed after the members (labelled "pending") but not counted.
-  const members = team.members || [];
-  const listedPeople = [...members, ...(team.pendingInvites || [])];
-
-  // Removes a member, or cancels a pending invite (each has its own backend call),
-  // then reloads.
-  const handleRemovePlayer = (memberId, memberName, isPendingInvite) => {
-    Alert.alert(
-      isPendingInvite ? 'Cancel Invite' : 'Remove Player',
-      isPendingInvite
-        ? `Cancel the invite to "${memberName}"?`
-        : `Are you sure you want to remove "${memberName}" from the team?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: isPendingInvite ? 'Cancel Invite' : 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            setRemovingId(memberId);
-            try {
-              await api.delete(
-                isPendingInvite
-                  ? `/teams/${team.id}/invites/${memberId}`
-                  : `/teams/${team.id}/members/${memberId}`,
-              );
-              Alert.alert(
-                isPendingInvite ? 'Invite cancelled' : 'Removed',
-                isPendingInvite
-                  ? `The invite to ${memberName} has been cancelled.`
-                  : `${memberName} has been removed from the team.`,
-              );
-              await loadTeam();
-            } catch (err) {
-              Alert.alert(
-                'Error',
-                err.response?.data?.error || 'Failed to remove player.',
-              );
-            } finally {
-              setRemovingId(null);
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const handleDeleteTeam = () => {
-    Alert.alert(
-      'Delete Team',
-      `Are you sure you want to delete "${team.name}"? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(true);
-            try {
-              await api.delete(`/teams/${team.id}`);
-              Alert.alert('Deleted', 'Team has been deleted.', [
-                { text: 'OK', onPress: () => navigation.goBack() },
-              ]);
-            } catch (err) {
-              Alert.alert(
-                'Error',
-                err.response?.data?.error || 'Failed to delete team.',
-              );
-              setDeleting(false);
-            }
-          },
-        },
-      ],
-    );
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <Animated.Text
-          entering={FadeInDown.duration(500)}
-          style={styles.headerTitle}
-        >
+    <Screen
+      scroll
+      style={{ gap: spacing.detailGap, paddingBottom: spacing.xxxl }}
+    >
+      <BackLink label={backLabel(navigation)} onPress={navigation.goBack} />
+      {status !== 'ready' ? (
+        <TeamLoadState status={status} onRetry={retry} />
+      ) : (
+        <TeamContent
+          team={team}
+          isPlayer={user?.role === 'PLAYER'}
+          busy={busy}
+          run={run}
+          navigation={navigation}
+        />
+      )}
+    </Screen>
+  );
+}
+
+function TeamContent({ team, isPlayer, busy, run, navigation }) {
+  const { spacing } = useTheme();
+  const state = team.viewerState;
+  const isFull = team.memberCount >= team.maxMembers;
+  const fullLabel = `Team is full (${team.memberCount}/${team.maxMembers})`;
+  const captainRow = team.members.find(row => row.userId === team.captainId);
+  const toParams = { teamId: team.id, teamName: team.name };
+
+  return (
+    <>
+      <View style={{ gap: spacing.xs }}>
+        <View style={[styles.wrapRow, { gap: spacing.xs }]}>
+          <ViewerPill state={state} />
+          <Pill label={`${team.memberCount} / ${team.maxMembers} members`} />
+        </View>
+        <Text variant="title" accessibilityRole="header">
           {team.name}
-        </Animated.Text>
-        {isCaptain && (
-          <View style={styles.ownerBadge}>
-            <Ionicons
-              name="shield-checkmark-outline"
-              size={13}
-              color="#1E3A8A"
-            />
-            <Text style={styles.ownerBadgeText}>You are the captain</Text>
-          </View>
-        )}
-      </LinearGradient>
-
-      {/* Team Info Card */}
-      <Animated.View entering={FadeInUp.delay(200)} style={styles.infoCard}>
-        <Text style={styles.teamDescription}>
-          {team.description || 'No description provided.'}
         </Text>
+        {team.description ? (
+          <Text variant="bodySmall" color="textMuted">
+            {team.description}
+          </Text>
+        ) : null}
+      </View>
 
-        {/* Captain-only action buttons */}
-        {isCaptain && (
-          <View style={styles.ownerActions}>
-            <TouchableOpacity
-              style={styles.addButton}
+      {state === 'captain' ? (
+        <SideBySide>
+          <Button
+            title={isFull ? fullLabel : 'Invite players'}
+            disabled={isFull}
+            onPress={() =>
+              navigation.navigate('AddMember', {
+                teamId: team.id,
+                captainId: team.captainId,
+              })
+            }
+            style={styles.grow}
+          />
+          {team.memberCount > 1 ? (
+            <Button
+              title="Transfer captaincy"
+              variant="secondary"
+              onPress={() => navigation.navigate('TransferCaptaincy', toParams)}
+              style={styles.grow}
+            />
+          ) : null}
+        </SideBySide>
+      ) : null}
+
+      {state === 'invited' ? (
+        <>
+          <NoticeLine
+            strong={`${personName(captainRow)} invited you`}
+            text="to this team"
+          />
+          <SideBySide>
+            <Button
+              title={isFull ? fullLabel : 'Accept invite'}
+              disabled={isFull || busy !== null}
+              loading={busy === 'accept'}
               onPress={() =>
-                navigation.navigate('AddMember', {
-                  teamId: team.id,
-                  captainId: team.captainId,
-                })
+                run('accept', () => api.post(`/teams/${team.id}/accept`))
               }
-            >
-              <Ionicons name="person-add-outline" size={16} color="#fff" />
-              <Text style={styles.addButtonText}>Add Member</Text>
-            </TouchableOpacity>
+              style={styles.grow}
+            />
+            <Button
+              title="Decline"
+              variant="secondary"
+              disabled={busy !== null && busy !== 'decline'}
+              loading={busy === 'decline'}
+              onPress={() =>
+                run('decline', () => api.post(`/teams/${team.id}/reject`))
+              }
+              style={styles.grow}
+            />
+          </SideBySide>
+        </>
+      ) : null}
 
-            <TouchableOpacity
-              style={styles.deleteTeamButton}
-              onPress={handleDeleteTeam}
-              disabled={deleting}
-            >
-              {deleting ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="trash-outline" size={16} color="#fff" />
-                  <Text style={styles.deleteTeamText}>Delete Team</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-      </Animated.View>
+      {state === 'requested' ? (
+        <Card style={{ gap: spacing.cardGap }}>
+          <SectionHeader title="Your request" />
+          <Text color="textMuted">Waiting for the captain</Text>
+          {team.myRequest?.message ? (
+            <Text variant="bodySmall" color="textMuted">
+              {`“${team.myRequest.message}”`}
+            </Text>
+          ) : null}
+          <Button
+            title="Cancel request"
+            variant="secondary"
+            loading={busy === 'cancelRequest'}
+            onPress={() =>
+              run('cancelRequest', () =>
+                api.delete(`/teams/${team.id}/requests/me`),
+              )
+            }
+          />
+        </Card>
+      ) : null}
 
-      {/* Members List */}
-      <FlatList
-        data={listedPeople}
-        keyExtractor={m => String(m.userId || m.id)}
-        contentContainerStyle={styles.list}
-        ListHeaderComponent={
-          <Text style={styles.memberTitle}>Members ({members.length})</Text>
-        }
-        renderItem={({ item, index }) => {
-          const memberUserId = item.userId || item.user?.id;
-          const memberName = item.user?.name || `User ${memberUserId}`;
-          const memberEmail = item.user?.email || '';
-          const isThisCaptain = memberUserId === team.captainId;
+      {state === 'none' && isPlayer ? (
+        <Button
+          title={isFull ? fullLabel : 'Request to join'}
+          disabled={isFull}
+          fullWidth
+          onPress={() => navigation.navigate('RequestToJoin', toParams)}
+        />
+      ) : null}
 
-          return (
-            <Animated.View entering={FadeInUp.delay(index * 80)}>
-              <LinearGradient
-                colors={['#FFFFFF', '#a1d3f5ff']}
-                style={styles.memberCard}
-              >
-                <Image
-                  source={require('../../../assets/icons/profile.png')}
-                  style={styles.avatar}
-                />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <View style={styles.memberNameRow}>
-                    <Text style={styles.memberName}>{memberName}</Text>
-                    {isThisCaptain && (
-                      <View style={styles.captainBadge}>
-                        <Text style={styles.captainText}>Captain</Text>
-                      </View>
-                    )}
-                  </View>
-                  {!!memberEmail && (
-                    <Text style={styles.memberEmail}>{memberEmail}</Text>
-                  )}
-                  <Text style={styles.memberStatus}>
-                    {item.status || 'member'}
-                  </Text>
-                </View>
+      {state === 'captain' && team.joinRequests?.length > 0 ? (
+        <JoinRequestsCard team={team} busy={busy} run={run} />
+      ) : null}
 
-                {/* Remove button — only the captain sees it, and not on their own row */}
-                {isCaptain && !isThisCaptain && (
-                  <TouchableOpacity
-                    style={[
-                      styles.removeBtn,
-                      removingId === memberUserId && styles.removeBtnDisabled,
-                    ]}
-                    onPress={() =>
-                      handleRemovePlayer(
-                        memberUserId,
-                        memberName,
-                        item.status === 'pending',
-                      )
-                    }
-                    disabled={removingId === memberUserId}
-                  >
-                    {removingId === memberUserId ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Ionicons
-                        name="person-remove-outline"
-                        size={16}
-                        color="#fff"
-                      />
-                    )}
-                  </TouchableOpacity>
-                )}
-              </LinearGradient>
-            </Animated.View>
-          );
-        }}
-        ListEmptyComponent={<Text style={styles.empty}>No members yet.</Text>}
-      />
+      {state === 'captain' && team.pendingInvites?.length > 0 ? (
+        <Card>
+          <SectionHeader title="Invited" />
+          {team.pendingInvites.map((row, index) => (
+            <ListRow
+              key={row.userId}
+              name={personName(row)}
+              meta="Invited"
+              last={index === team.pendingInvites.length - 1}
+            />
+          ))}
+        </Card>
+      ) : null}
+
+      <Card>
+        <SectionHeader title="Members" />
+        {team.members.map((row, index) => (
+          <ListRow
+            key={row.userId}
+            name={personName(row)}
+            meta={personPosition(row)}
+            trailing={row.userId === team.captainId ? <CaptainLabel /> : null}
+            last={index === team.members.length - 1}
+          />
+        ))}
+      </Card>
+
+      {/* TODO(F1.3): the captain's "Edit team" button goes here, under the cards
+          (docs/features/team-membership.md, section e). It's hidden until the Create /
+          Edit team form exists. "Invite players" above opens the interim Add Member
+          screen until F1.3 builds the new one. */}
+    </>
+  );
+}
+
+// Where the viewer stands, as a pill; nothing for visitors, venue owners and the admin.
+function ViewerPill({ state }) {
+  if (state === 'captain') return <Pill label="Captain" variant="strong" />;
+  if (state === 'member') return <Pill label="Player" />;
+  if (state === 'invited') return <Pill label="Invited" />;
+  if (state === 'requested') return <Pill label="Request sent" />;
+  return null;
+}
+
+// Two buttons sharing a row (DESIGN.md: a layout, not a component).
+function SideBySide({ children }) {
+  const { spacing } = useTheme();
+  return <View style={[styles.wrapRow, { gap: spacing.md }]}>{children}</View>;
+}
+
+// The captain's row ends with a crown and "Captain" (DESIGN.md section 6).
+function CaptainLabel() {
+  const { colors, spacing, icon } = useTheme();
+  return (
+    <View style={[styles.row, { gap: spacing.xxs }]}>
+      <Icon name="captain" size={icon.sizeSmall} color={colors.accent} />
+      <Text variant="buttonSecondary" color="accent">
+        Captain
+      </Text>
     </View>
   );
 }
 
+// The captain's join requests, oldest first, each with its message under the row.
+function JoinRequestsCard({ team, busy, run }) {
+  const { spacing } = useTheme();
+  const requests = team.joinRequests;
+  return (
+    <Card>
+      <SectionHeader
+        title="Join requests"
+        right={<Pill label={String(requests.length)} />}
+      />
+      {requests.map((row, index) => {
+        const name = personName(row);
+        const last = index === requests.length - 1;
+        const key = `approve-${row.userId}`;
+        return (
+          <View key={row.userId}>
+            {/* The row draws no line of its own, so the message sits above the line. */}
+            <ListRow
+              name={name}
+              meta={personPosition(row)}
+              last
+              trailing={
+                <View style={[styles.row, { gap: spacing.sm }]}>
+                  <IconButton
+                    variant="approve"
+                    accessibilityLabel={`Approve ${name}`}
+                    disabled={busy !== null}
+                    onPress={() =>
+                      run(key, () =>
+                        api.post(
+                          `/teams/${team.id}/requests/${row.userId}/approve`,
+                        ),
+                      )
+                    }
+                  />
+                </View>
+              }
+            />
+            {row.message ? (
+              <Text
+                variant="bodySmall"
+                color="textMuted"
+                style={{ paddingBottom: spacing.md }}
+              >
+                {`“${row.message}”`}
+              </Text>
+            ) : null}
+            {last ? null : <Divider />}
+          </View>
+        );
+      })}
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F1F5F9' },
-
-  header: {
-    paddingTop: 60,
-    paddingBottom: 36,
-    borderBottomLeftRadius: 36,
-    borderBottomRightRadius: 36,
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  ownerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    marginTop: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    gap: 4,
-  },
-  ownerBadgeText: {
-    color: '#1E3A8A',
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-
-  infoCard: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: -20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-  },
-  teamDescription: {
-    fontSize: 14,
-    color: '#444',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-
-  ownerActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  addButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1E3A8A',
-    borderRadius: 12,
-    paddingVertical: 10,
-    gap: 6,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 14,
-    marginLeft: 4,
-  },
-  deleteTeamButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EF4444',
-    borderRadius: 12,
-    paddingVertical: 10,
-    gap: 6,
-  },
-  deleteTeamText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 14,
-    marginLeft: 4,
-  },
-
-  list: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 },
-  memberTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E3A8A',
-    marginBottom: 12,
-  },
-  memberCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 10,
-    elevation: 2,
-  },
-  avatar: { width: 40, height: 40 },
-  memberNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  memberName: { fontWeight: '700', fontSize: 15, color: '#1E3A8A' },
-  captainBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  captainText: { fontSize: 10, fontWeight: '700', color: '#1E3A8A' },
-  memberEmail: { color: '#555', fontSize: 13, marginTop: 2 },
-  memberStatus: { color: '#777', fontSize: 12, marginTop: 2 },
-  removeBtn: {
-    backgroundColor: '#EF4444',
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  removeBtnDisabled: { backgroundColor: '#9CA3AF' },
-  empty: { textAlign: 'center', color: '#777', marginTop: 20 },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  wrapRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+  grow: { flexGrow: 1, flexBasis: 0 },
 });

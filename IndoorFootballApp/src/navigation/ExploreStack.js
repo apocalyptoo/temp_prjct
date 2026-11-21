@@ -1,5 +1,7 @@
 // The Explore tab's stack, shared by players and venue owners: the interim Explore
-// screen and the three lists it opens. The lists keep their old headers until restyled.
+// screen and the three lists it opens, plus the team screens (teamScreens.js), so a
+// team in the list opens Team detail. The lists keep their old headers until restyled.
+// Venue owners get Team detail only (readOnly).
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -8,9 +10,11 @@ import TeamsListScreen from '../screens/Team/TeamsListScreen';
 import PlayersListScreen from '../screens/Player/PlayersListScreen';
 import IndoorsListScreen from '../screens/Owner/IndoorsListScreen';
 
+import { teamScreens } from './teamScreens';
+
 const Stack = createNativeStackNavigator();
 
-export default function ExploreStack() {
+function ExploreStack({ readOnly }) {
   return (
     <Stack.Navigator>
       <Stack.Screen
@@ -33,6 +37,10 @@ export default function ExploreStack() {
         component={IndoorsListScreen}
         options={{ title: 'Registered Indoors' }}
       />
+      {teamScreens(Stack, { readOnly })}
     </Stack.Navigator>
   );
 }
+
+export const PlayerExploreStack = () => <ExploreStack readOnly={false} />;
+export const OwnerExploreStack = () => <ExploreStack readOnly />;

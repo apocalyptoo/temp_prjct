@@ -104,7 +104,7 @@ export default function MyTeamsScreen({ navigation }) {
               <Animated.View entering={FadeInUp.delay(index * 100)}>
                 <TouchableOpacity
                   onPress={() =>
-                    navigation.navigate('TeamDetail', { team: item })
+                    navigation.navigate('TeamDetail', { teamId: item.id })
                   }
                   activeOpacity={0.85}
                 >

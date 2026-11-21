@@ -6,11 +6,10 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { IconButton } from '../components/ui';
-import ExploreStack from './ExploreStack';
+import { PlayerExploreStack } from './ExploreStack';
 import { tabNavigatorProps } from './tabs';
+import { teamScreens } from './teamScreens';
 import MyTeamsScreen from '../screens/Team/MyTeamsScreen';
-import TeamDetailScreen from '../screens/Team/TeamDetailScreen';
-import AddMemberScreen from '../screens/Team/AddMemberScreen';
 import CreateTeamScreen from '../screens/Team/CreateTeamScreen';
 import InvitesScreen from '../screens/Player/InvitesScreen';
 import PlayerProfileScreen from '../screens/Player/PlayerProfileScreen';
@@ -30,20 +29,11 @@ function MyTeamsTab() {
         options={{ title: 'My Teams' }}
       />
       <MyTeamsStack.Screen
-        name="TeamDetail"
-        component={TeamDetailScreen}
-        options={{ title: 'Team Detail' }}
-      />
-      <MyTeamsStack.Screen
-        name="AddMember"
-        component={AddMemberScreen}
-        options={{ title: 'Add Member' }}
-      />
-      <MyTeamsStack.Screen
         name="CreateTeam"
         component={CreateTeamScreen}
         options={{ title: 'Create Team' }}
       />
+      {teamScreens(MyTeamsStack)}
     </MyTeamsStack.Navigator>
   );
 }
@@ -101,7 +91,7 @@ export default function PlayerNavigator() {
       />
       <Tab.Screen
         name="ExploreTab"
-        component={ExploreStack}
+        component={PlayerExploreStack}
         options={{ title: 'Explore', tabBarIconName: 'explore' }}
       />
       <Tab.Screen

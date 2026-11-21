@@ -393,10 +393,12 @@ user.role ADMIN    → AdminNavigator   tabs: Dashboard · Reports · Venues · 
 Each logged-in role gets a **bottom tab bar** (our own `TabBar` component), and **each tab has its own stack**. So when you open a team from My Teams, Team detail is put on top of the My Teams stack and the tab bar stays visible. Each tab remembers where you were: switching to Explore and back keeps you on Team detail. Tapping the tab you're already on takes you back to that tab's first screen.
 
 What each tab holds today:
-- **Player:** My Teams (your teams → team detail → add member; create team), Explore, Notifications (for now the old Invites screen), Profile (with a gear button in the header that opens Settings).
+- **Player:** My Teams (your teams → team detail → add member, transfer captaincy, request to join; create team), Explore, Notifications (for now the old Invites screen), Profile (with a gear button in the header that opens Settings).
 - **Venue owner:** My Venue (the owner profile, which shows the venue listing), Explore (read-only for owners), Notifications (for now just "No notifications yet."), Profile (for now the Settings screen).
 - **Admin:** Dashboard, Reports (for now just "Reports arrive with moderation."), Venues, Users and Teams (the old management screens).
-- **Explore** (players and owners) is for now a simple screen with three rows, Teams, Players and Venues, opening the old lists.
+- **Explore** (players and owners) is for now a simple screen with three rows, Teams, Players and Venues, opening the old lists. Tapping a team in the Teams list opens Team detail.
+
+The team screens (Team detail, Request to join, Transfer captaincy and the interim Add Member) are registered as one group, `teamScreens` in `src/navigation/teamScreens.js`, in every stack that can open a team: the player's My Teams and Explore stacks, and the venue owner's Explore stack, which gets Team detail only. A screen can only open screens in its own stack, which is why each stack needs its own copy.
 
 These "for now" screens are placeholders; the Step 3 features replace them (see PRODUCT.md, "App structure and navigation"). The old screens keep their old look and headers until they're restyled, so the app looks mixed for a while.
 
@@ -484,13 +486,13 @@ Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 3. The invited player sees it in **Invites** (`InvitesScreen.js`, which calls `GET /players/invites`) as "Invited by <captain name> to <team name>". The reply gives each invite's `team.captain` as `{ id, name }`, alongside `team.captainId`: the captain's player name, through the visibility rules (never their email).
 4. **Accept** (`POST /teams/:teamId/accept`) changes the status to `accepted` and records the time in `acceptedAt`, unless the team is full (409 "Team is full (15/15)."; the invite stays pending). **Reject** (`POST /teams/:teamId/reject`) deletes the row. Both only work on a pending invite (never on the player's own join request), and like every membership change they run under the team lock (see "Join requests" below). If there's no pending invite for that player and team, they reply 404 "Invite not found".
 
-The captain can **cancel an invite** (`DELETE /teams/:teamId/invites/:userId`; 404 "Invite not found" if it's already gone), **remove a member** (`DELETE /teams/:teamId/members/:userId`, accepted members only, so it can't delete an invite or a join request by mistake) or delete the whole team (`DELETE /teams/:teamId`). Old app screens: Team detail's "cancel invite" calls the invite route, and "remove" calls the member route.
+The captain can **cancel an invite** (`DELETE /teams/:teamId/invites/:userId`; 404 "Invite not found" if it's already gone), **remove a member** (`DELETE /teams/:teamId/members/:userId`, accepted members only, so it can't delete an invite or a join request by mistake) or delete the whole team (`DELETE /teams/:teamId`). The new Team detail screen gets these in the next step of feature 1.
 
-A pending invite isn't membership yet. In the team lists (`GET /teams` and `GET /teams/me`) each team's `members` holds only accepted members. The team's captain also gets a separate `pendingInvites` list, so they can see who they've invited; nobody else gets it. `TeamDetailScreen` shows the captain those invites under the members, labelled "pending", without counting them; the captain can remove a member or cancel an invite from there. The screen reloads its team from `GET /teams/me` whenever it comes into view and after a removal, so it never shows stale data, and goes back if the team is gone. **My Teams** also reloads whenever it comes into view, so a team deleted in Team Detail disappears straight away. **All Teams** shows each team's captain by name: the captain is always one of the team's accepted members, so the app takes the name from the `members` list the backend already sends. The app calls the team's captain **Captain** everywhere (badges, labels, messages). A player's team count (`GET /players/:id`, `totalTeams`) and the admin's member counts also include only accepted memberships. `pendingInvites` holds invites only, never join requests.
+A pending invite isn't membership yet. In the team lists (`GET /teams` and `GET /teams/me`) each team's `members` holds only accepted members. The team's captain also gets a separate `pendingInvites` list, so they can see who they've invited; nobody else gets it. **My Teams** reloads whenever it comes into view, so a team deleted in Team Detail disappears straight away. **All Teams** shows each team's captain by name: the captain is always one of the team's accepted members, so the app takes the name from the `members` list the backend already sends. The app calls the team's captain **Captain** everywhere (badges, labels, messages). A player's team count (`GET /players/:id`, `totalTeams`) and the admin's member counts also include only accepted memberships. `pendingInvites` holds invites only, never join requests.
 
 ### One team (the team page)
 
-`GET /teams/:teamId` returns one team to any logged-in user (venue owners and the admin too). It's built for the new Team detail screen (feature 1, [features/team-membership.md](features/team-membership.md)); the old screens don't call it yet.
+`GET /teams/:teamId` returns one team to any logged-in user (venue owners and the admin too). It's what the Team detail screen loads (feature 1, [features/team-membership.md](features/team-membership.md)).
 
 - **`viewerState`** says where the viewer stands: `captain`, `member` (accepted), `invited` (a pending invite), `requested` (a pending join request) or `none`. Venue owners and the admin are always `none`, because they can't join teams. The app uses it to pick the buttons to show.
 - **`memberCount`** (accepted members) and **`maxMembers`** (15, `MAX_TEAM_MEMBERS` in `src/utils/membership.js`), so the app never hard-codes the limit.
@@ -511,9 +513,24 @@ All three are for player accounts only and run under the team lock (feature 1, [
 - **Transfer captaincy** (`POST /teams/:teamId/transfer` with `{ userId }`): only the captain, and only to an accepted member of the team (404 "Player not found in this team." otherwise; 400 "You're already the captain." for yourself). It's a single update of `Team.captainId`, the only place the captain is stored, so there's never a moment with two captains or none. The old captain stays in the team as a player. Because of the team lock, a transfer and the new captain leaving at the same moment run one after the other, so the captain is always a member.
 - **Edit team** (`PATCH /teams/:teamId` with `{ name, description }`): only the captain. The same checks and messages as creating a team; the app sends both fields every time, and a missing description is removed. The reply is the updated team, in the same shape as `GET /teams/:teamId`.
 
+### The Team detail screen
+
+`TeamDetailScreen.js` (feature 1, [features/team-membership.md](features/team-membership.md)) shows one team as the viewer sees it. It's opened with `{ teamId }` from **My Teams** and from **Explore → Teams**, and loads `GET /teams/:teamId` every time it comes into view. The backend's `viewerState` decides what's shown:
+
+- **Captain:** "Captain" and "x / 15 members" pills, **Invite players** (disabled and reading "Team is full (15/15)" when full) and **Transfer captaincy** (hidden when the captain is alone), the join requests with their messages and an approve button, the pending invites, and the members.
+- **Member:** a "Player" pill and the members.
+- **Invited:** "{captain} invited you to this team", **Accept invite** (disabled when full) and **Decline**.
+- **Request sent:** a "Your request" card with the message and **Cancel request**.
+- **Any other player:** **Request to join** (disabled when full), which opens the Request to join screen (an optional message, at most 150 characters).
+- **Venue owner:** the same team, read-only, with no buttons.
+
+Every button that sends a request shows a spinner while it runs. After an action the team reloads. If the backend replies 404 (gone) or 409 (the team changed, for example it filled up), an alert says "Something changed" with the backend's message, and the screen reloads. If the team itself is gone, the screen says "This team no longer exists." and goes back. The shared pieces (loading a team, these alerts, the message limit) live in `src/screens/Team/teamCommon.js`.
+
+**Transfer captaincy** (`TransferCaptaincyScreen.js`) lists the members except the captain; picking one asks "Make {name} captain?" and sends `POST /teams/:teamId/transfer`. Until task F1.3, **Invite players** opens the old Add Member screen, and **Edit team** isn't shown.
+
 ### Join requests
 
-A player can ask to join a team; the captain approves or declines (feature 1, [features/team-membership.md](features/team-membership.md)). The new screens for it come in the next app tasks; today's app has no button for it yet. Every one of these actions is for player accounts only (venue owners and the admin get 403).
+A player can ask to join a team; the captain approves or declines (feature 1, [features/team-membership.md](features/team-membership.md)). Team detail's **Request to join** opens the screen that sends it; the captain approves on Team detail. Every one of these actions is for player accounts only (venue owners and the admin get 403).
 
 1. **Ask:** `POST /teams/:teamId/requests` with an optional `message` to the captain (text, spaces at both ends removed, at most 150 characters counted like team names; blank means no message). It adds a `TeamMember` row with status `pending`, origin `request` and the message, and replies 201. It's refused with 409 if the player is already in the team ("You're already in this team."), has already asked ("You've already asked to join this team.") or the team is full ("Team is full (15/15)."). **If the captain has already invited the player, asking accepts the invite instead** (both sides agreed): 200 `{ message: 'Joined team successfully', joined: true }`.
 2. **Cancel:** the player deletes their own request with `DELETE /teams/:teamId/requests/me` (404 "Join request not found" if there's none).
@@ -569,7 +586,7 @@ The mobile app has no config file. Its backend address lives in `IndoorFootballA
 |---|---|
 | Which backend address the app uses | `IndoorFootballApp/src/api/api.js` |
 | A screen's look or behaviour | `IndoorFootballApp/src/screens/<Area>/<Name>Screen.js` |
-| Which screens a role can reach | `IndoorFootballApp/src/navigation/<Role>Navigator.js` (Player, Owner, Admin; shared tab settings in `tabs.js`, the shared Explore tab in `ExploreStack.js`), or `AuthStack.js` when logged out |
+| Which screens a role can reach | `IndoorFootballApp/src/navigation/<Role>Navigator.js` (Player, Owner, Admin; shared tab settings in `tabs.js`, the shared Explore tab in `ExploreStack.js`, the team screens in `teamScreens.js`), or `AuthStack.js` when logged out |
 | What happens on login or logout in the app | `IndoorFootballApp/src/contexts/AuthContext.js` |
 | How the token is saved on the phone | `IndoorFootballApp/src/utils/storage.js` |
 | A backend address (URL path) | `backend/src/routes/<area>Routes.js` |

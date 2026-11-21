@@ -62,9 +62,19 @@ const TEAM = {
   pendingInvites: [],
 };
 
+// GET /teams/:teamId for the new Team detail screen.
+const TEAM_DETAIL = {
+  ...TEAM,
+  memberCount: 1,
+  maxMembers: 15,
+  viewerState: 'none',
+};
+
 // Fake server replies, by path. Anything else gets an empty list.
 const REPLIES = {
   '/teams/me': [TEAM],
+  '/teams': [TEAM],
+  '/teams/1': TEAM_DETAIL,
   '/players/me': {
     id: PLAYER.id,
     email: PLAYER.email,
@@ -151,11 +161,13 @@ async function pressTab(renderer, label) {
   await settle();
 }
 
-// Presses the nearest tappable thing around the given text.
-async function pressText(renderer, text) {
-  const textNode = renderer.root
+// Presses the nearest tappable thing around the given text. last: the last match
+// (screens in other tabs stay mounted, so the same text can show twice).
+async function pressText(renderer, text, { last = false } = {}) {
+  const matches = renderer.root
     .findAllByType(NativeText)
-    .find(node => [].concat(node.props.children).join('') === text);
+    .filter(node => [].concat(node.props.children).join('') === text);
+  const textNode = last ? matches[matches.length - 1] : matches[0];
   let node = textNode;
   while (node && typeof node.props.onPress !== 'function') node = node.parent;
   await ReactTestRenderer.act(() => node.props.onPress());
@@ -163,6 +175,10 @@ async function pressText(renderer, text) {
 }
 
 const current = navigationRef => navigationRef.getCurrentRoute().name;
+const currentTab = navigationRef => {
+  const root = navigationRef.getRootState();
+  return root.routes[root.index].name;
+};
 
 async function goBack(navigationRef) {
   await ReactTestRenderer.act(() => navigationRef.goBack());
@@ -187,11 +203,26 @@ describe('Player navigator', () => {
     // Open a team: Team detail is pushed inside the My Teams tab, and the tab bar stays.
     await pressText(renderer, 'Dhanmondi Strikers');
     expect(current(navigationRef)).toBe('TeamDetail');
+    expect(navigationRef.getCurrentRoute().params).toEqual({ teamId: 1 });
     expect(tabLabels(renderer)).toHaveLength(4);
 
     // Back inside a tab goes back within it.
     await goBack(navigationRef);
     expect(current(navigationRef)).toBe('MyTeams');
+
+    // Explore → Teams → a team opens Team detail inside the Explore tab. (My Teams,
+    // still mounted in its own tab, shows the same team name, so press the last one.)
+    await pressTab(renderer, 'Explore');
+    await pressText(renderer, 'Teams');
+    await pressText(renderer, 'Dhanmondi Strikers', { last: true });
+    expect(current(navigationRef)).toBe('TeamDetail');
+    expect(currentTab(navigationRef)).toBe('ExploreTab');
+    expect(navigationRef.getCurrentRoute().params).toEqual({ teamId: 1 });
+    expect(tabLabels(renderer)).toHaveLength(4);
+    // Pressing Explore again goes back to its first screen.
+    await pressTab(renderer, 'Explore');
+    expect(current(navigationRef)).toBe('Explore');
+    await pressTab(renderer, 'My Teams');
 
     // Explore opens its lists inside the Explore tab.
     await pressTab(renderer, 'Explore');
@@ -254,6 +285,27 @@ describe('Owner navigator', () => {
     await pressText(renderer, 'Venues');
     expect(current(navigationRef)).toBe('Indoors');
     expect(tabLabels(renderer)).toHaveLength(4);
+
+    // Explore → Teams → a team opens the read-only Team detail: no buttons to join.
+    await pressTab(renderer, 'Explore');
+    await pressText(renderer, 'Teams');
+    await pressText(renderer, 'Dhanmondi Strikers');
+    expect(current(navigationRef)).toBe('TeamDetail');
+    expect(currentTab(navigationRef)).toBe('ExploreTab');
+    expect(
+      renderer.root.findAll(
+        node =>
+          node.props.accessibilityLabel === 'Request to join' &&
+          typeof node.props.onPress === 'function',
+      ),
+    ).toHaveLength(0);
+    // Venue owners' Explore stack registers Team detail, but not the player screens.
+    const exploreStack = navigationRef
+      .getRootState()
+      .routes.find(r => r.name === 'ExploreTab').state;
+    expect(exploreStack.routeNames).toContain('TeamDetail');
+    expect(exploreStack.routeNames).not.toContain('RequestToJoin');
+    expect(exploreStack.routeNames).not.toContain('TransferCaptaincy');
 
     await pressTab(renderer, 'Notifications');
     expect(current(navigationRef)).toBe('OwnerNotifications');
