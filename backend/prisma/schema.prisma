@@ -88,6 +88,11 @@ model TeamMember {
   // When the membership became accepted; null while pending. "Longest-standing member"
   // is the earliest acceptedAt, ties to the lower id (DECISIONS.md 2026-11-18).
   acceptedAt DateTime?
+  // A join request's optional message to the captain (at most 150 characters, trimmed;
+  // blank is stored as null). Only on pending join requests: approving clears it, and
+  // rejecting or cancelling deletes the row. Seen only by the captain, the requester and
+  // the admin (docs/PRODUCT.md, "Team membership").
+  message    String?
   team       Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 

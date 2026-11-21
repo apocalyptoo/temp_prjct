@@ -33,7 +33,7 @@ function assertRecent(date, since, what) {
 // Fields a membership row in a reply must not have yet (feature 1 decides) or any more.
 function assertReplyRow(row, where) {
   assert.ok('createdAt' in row, `${where}: has createdAt`);
-  for (const field of ['joinedAt', 'origin', 'acceptedAt', 'role']) {
+  for (const field of ['joinedAt', 'origin', 'acceptedAt', 'message', 'role']) {
     assert.equal(field in row, false, `${where}: no ${field}`);
   }
 }
@@ -46,6 +46,7 @@ describe('Creating a team', () => {
     const team = await createTeam(captain);
 
     const row = await membership(team.id, captain.user.id);
+    assert.equal(row.message, null, 'only join requests carry a message');
     assert.equal(row.origin, 'creator');
     assert.equal(row.status, 'accepted');
     assertRecent(row.acceptedAt, since, 'acceptedAt');

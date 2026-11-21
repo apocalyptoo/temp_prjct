@@ -270,8 +270,9 @@ The tables are described in `backend/prisma/schema.prisma`. Changes to that file
   - **`origin`:** how the membership started: `invite` (the captain invited the player), `request` (the player asked to join; used once join requests are rebuilt) or `creator` (the captain's own row, made with the team).
   - **`createdAt`:** when the invite, request or team was created (this used to be called `joinedAt`, a misleading name).
   - **`acceptedAt`:** when the player actually became a member; empty while pending. The **longest-standing member** is the one with the earliest `acceptedAt` (ties go to the lower row id). It decides who becomes captain when a captain deletes their account.
+  - **`message`:** a join request's optional message to the captain (added by migration `20261121120000_join_request_message`). Empty on every other row. Approving the request clears it; rejecting or cancelling deletes the whole row.
 
-  These three aren't in the API replies yet, except `createdAt`; the team membership feature decides what the app needs. A user can appear only once per team. An index on (user, status) keeps "my teams" and "my invites" fast. The captain also has an `accepted` row, like any member; nothing on the row marks them as captain (that's `Team.captainId`). Only `accepted` rows count as membership: member lists, member counts and a player's number of teams all leave out `pending` rows.
+  `origin`, `acceptedAt` and `message` are left out of API replies (`MEMBERSHIP_FIELDS_NOT_IN_REPLIES` in `src/utils/membership.js`); `createdAt` is included. Only the captain, the requester and the admin will see a message, once the join request endpoints exist. A user can appear only once per team. An index on (user, status) keeps "my teams" and "my invites" fast. The captain also has an `accepted` row, like any member; nothing on the row marks them as captain (that's `Team.captainId`). Only `accepted` rows count as membership: member lists, member counts and a player's number of teams all leave out `pending` rows.
 
 Admins have a User row but no profile.
 
