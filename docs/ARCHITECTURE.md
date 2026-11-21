@@ -1,4 +1,4 @@
-# How Connect Arena Works
+# How ConnectArena Works
 
 A beginner-friendly tour of the app as it exists today. Everything here was checked against the source code. When this file and the code disagree, the code wins: fix this file.
 
@@ -10,7 +10,7 @@ Known bugs and missing features are not explained here. They're tracked in [ROAD
 
 ## 1. The big picture
 
-Connect Arena is a mobile app for indoor football (futsal). Players build teams, venue owners list their indoor fields, and an admin looks after everything.
+ConnectArena is a mobile app for indoor football (futsal). Players build teams, venue owners list their indoor fields, and an admin looks after everything.
 
 The project has two parts that live side by side:
 

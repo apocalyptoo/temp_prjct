@@ -1,4 +1,4 @@
-# Connect Arena
+# ConnectArena
 
 A football community app for indoor football (futsal) players in Bangladesh. Players build profiles, form and join teams, and discover indoor venues; venue owners list their venue; an admin looks after everything. Android first.
 

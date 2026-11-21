@@ -1,10 +1,10 @@
-# Connect Arena: Product Requirements
+# ConnectArena: Product Requirements
 
 What the app should do, what's in each release, the approved business rules, and the decisions that are still open. How the app works *today* is in [ARCHITECTURE.md](ARCHITECTURE.md). The task list is in [ROADMAP.md](ROADMAP.md). The reasons behind decisions are in [DECISIONS.md](DECISIONS.md).
 
 ---
 
-## What Connect Arena is
+## What ConnectArena is
 
 A football community app for indoor football (futsal) players in Bangladesh. Players build profiles, form and join teams, and discover indoor venues. Android first.
 
@@ -23,7 +23,7 @@ A football community app for indoor football (futsal) players in Bangladesh. Pla
 
 What exists today, made secure and polished, plus:
 
-- Player and venue owner registration with a short sign-up form (see "Registration"), email verification, login, persistent login
+- Player and venue owner registration with a short sign-up form and a required Terms of Use and Privacy Policy checkbox (see "Registration"), email verification, login, persistent login
 - Profile editing (players and venue owners)
 - Change password while logged in
 - Account deletion inside the app, plus a web page for deletion requests (both required by Google Play)
@@ -35,7 +35,7 @@ What exists today, made secure and polished, plus:
 - In-app notifications: a Notifications screen with a badge, covering actions needed and updates (no push)
 - Venue discovery (search by name, filter by area) and basic venue listing management
 - Admin review of new venues before they appear in discovery
-- Moderation (required by Google Play for user-generated content): reporting, blocking, Terms of Use acceptance, and admin suspension and report handling
+- Moderation (required by Google Play for user-generated content): reporting, blocking, and admin suspension and report handling (Terms of Use acceptance is part of registration)
 - Security and privacy fixes
 - UI and visual improvements
 
@@ -81,8 +81,8 @@ The current app puts only Profile and Settings in the bottom bar, and hides ever
 - **Explore (player and owner):** three sections at the top, **Teams · Players · Venues**, each with search (venues also filter by area). Opens Team detail, Player detail and Venue detail. For owners, Explore is read-only (no invite or join buttons).
 - **My Venue (owner):** the owner's listing, its status ("Pending review" or "Live"), and an Edit button.
 - **Notifications:** see "Notifications" below. The tab shows the badge.
-- **Profile:** the user's own profile, with a gear icon for **Settings**.
-- **Settings:** Edit profile · Change password · Blocked players · Terms & Privacy · Contact support · Log out · **Delete account** (last, in red).
+- **Profile:** the user's own profile, with a gear icon for **Settings**. For a venue owner it shows the account (venue name, "Venue owner", email) and a link to My Venue, where the listing itself lives.
+- **Settings:** Edit profile (for venue owners, **Edit venue**) · Change password · Blocked players · Terms & Privacy · Contact support · Log out · **Delete account** (last, in red).
 - **Player detail:** public profile fields (see "Profile visibility"), plus **Invite to my team** (for captains), **Report** and **Block**.
 - **Admin Dashboard:** counts, plus highlighted "open reports" and "venues waiting for review". Admin screens prioritise clarity over styling.
 - **v1.1:** a **Matches** tab is added for players.
@@ -121,11 +121,33 @@ Sign-up asks only for what the core flows need. Everything else is filled in lat
 
 **Terms checkbox**
 - Required on both forms, with links to the Terms of Use and Privacy Policy (see "Administration and moderation" → "Terms of Use").
+- Built with the profiles and registration feature, because both sign-up forms are rebuilt there (moved from the moderation feature on 2026-11-22). The backend refuses a sign-up without it and records when the user agreed.
 
 _Implementation notes:_
 - `OwnerProfile.phone` and `OwnerProfile.address` become **optional**. Player phone and position stay required.
 - Position becomes an **enum**. Existing free-text values are mapped: obvious matches (case-insensitive, for example "GK" or "goalkeeper" → Goalkeeper, "striker" → Forward) map to their value, everything else to Any. The full mapping is shown to the owner before the migration runs.
 - Both are schema changes in the profiles and registration migration and need approval (DECISIONS.md 2026-11-20, "Phase 4 order").
+
+### Profiles (v1.0)
+
+Decided 2026-11-22 (DECISIONS.md, "Profiles and registration details"). Feature spec: [features/profiles-and-registration.md](features/profiles-and-registration.md).
+
+**Area**
+- **Free text with suggestions.** Players type their area. Common areas are suggested as they type, and tapping one fills the field. Any other text is allowed.
+- Stored as typed, with spaces at both ends removed and spaces inside tidied, within a length limit (set in the feature spec).
+- The field tells players not to enter a full address (see "Profile visibility").
+- **Filtering by area** (Explore, venues) ignores upper and lower case and matches part of the text, so "dhanmondi" finds "Dhanmondi 27".
+- The same suggestion list is reused for venue areas (venues feature).
+
+**Phone numbers**
+- A phone number must look like a **Bangladeshi mobile number**: `01`, then a digit from 3 to 9, then 8 more digits (11 digits in all, for example 01712345678).
+- This applies at sign-up and on edit, and is checked by the backend and the app.
+- Existing test data that doesn't match is listed to the owner before the rule or the migration is built, so the owner can decide what happens to it.
+- This includes **venue phones** whenever one is given: mobile numbers only, no landlines, in v1.0 (decided 2026-11-22). Allowing landlines later needs no migration, only a changed check.
+
+**Email address**
+- The email **can't be changed in v1.0**. It's shown read-only (on the player's Edit profile and the owner's profile).
+- Changing it later needs a confirmation link sent to the new address and a notice sent to the old one.
 
 ### Login sessions (v1.0)
 
@@ -133,7 +155,7 @@ _Implementation notes:_
 - **Log out** removes the login from that phone only. There's no "log out of all devices" button in v1.0.
 - These events log the account out **on every device**:
   - **Password reset** (the "Forgot password" email link).
-  - **Password change while logged in.** The phone that made the change stays logged in.
+  - **Password change while logged in.** The phone that made the change stays logged in, and a short notice is emailed to the account's address ("your password was changed; if this wasn't you, use Forgot password"), with no link in it.
   - **Suspension** by the admin. A suspended user loses access at once.
 
 _Implementation note:_ each login token carries the account's token version (`User.tokenVersion`). The events above increase that number, which cancels every older token.
@@ -233,7 +255,7 @@ _Implementation note:_ deletion involves several steps, so they must all succeed
 | Phone | Only **accepted teammates** (people in at least one team with them, both accepted), plus the admin |
 | Email | Only the player themselves and the admin |
 
-- The player address field becomes **"Area"** (for example "Dhanmondi" or "Mirpur"). It isn't asked at sign-up (see "Registration"). The Edit profile screen tells players not to enter a full address.
+- The player address field becomes **"Area"** (for example "Dhanmondi" or "Mirpur"). It isn't asked at sign-up (see "Registration"). The Edit profile screen tells players not to enter a full address. How Area is entered and filtered: see "Profiles".
 
 **Venue listings**
 - Everything on an approved venue listing (see "Venue owners" below) is visible to **any logged-in user**. It's a business listing, so the venue phone and address are meant to be public.
@@ -299,7 +321,7 @@ _Implementation note:_ the owner profile needs new fields (area, opening hours, 
 
 **Not in v1.0**
 - **No push notifications** (planned for v1.1).
-- **No email notifications.** Email is only for account emails: verification, password reset and deletion confirmation.
+- **No email notifications.** Email is only for account emails: verification, password reset, the password-changed notice and deletion confirmation.
 
 _Implementation note:_ "Needs your action" items come from pending invites and join requests that already exist in the data. "Updates" need a new notifications table (with read/unread). This is a schema change and needs approval.
 
@@ -334,7 +356,7 @@ _Implementation note:_ "Needs your action" items come from pending invites and j
 **Terms of Use**
 - At registration the user **must tick a box** agreeing to the Terms of Use and Privacy Policy, with links to both.
 - The terms list what's not allowed: offensive names or content, fake profiles or venues, harassment, spam.
-- The terms text is written in the deployment phase. The checkbox and links are built in v1.0.
+- The terms text is written in the deployment phase. The checkbox and links are built in v1.0, with the profiles and registration feature (see "Registration").
 
 **Support email**
 - One dedicated support email address (not the owner's personal email). It's shown on the suspension message, in Settings, and on the Play Store listing.

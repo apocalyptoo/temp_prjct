@@ -1,4 +1,4 @@
-# Connect Arena: Roadmap and Tracker
+# ConnectArena: Roadmap and Tracker
 
 This is the master plan and task tracker. Tick a box (`[x]`) when an item is done. Add new items to the right phase as they come up. What's in each release (scope) comes from `PRODUCT.md`. Decisions and their reasons go in `DECISIONS.md`, not here.
 
@@ -112,15 +112,16 @@ Rule: write a short spec in `docs/features/` before building each feature below.
 - [x] Team membership: cancel requests and invites, leave a team, transfer captaincy, 15-member limit (including no invites when full), "Accept invite" instead of "Request to join" (PRODUCT.md, "Team membership"). Recording invite vs join request and the accepted-at date was done in 4.2. (done 2026-11-22: endpoints under the team-row lock with `tests/team-limit.test.js` in F1.1; the new Team detail with every viewer state and dialog, Transfer captaincy, Invite players, My Teams and the Invites screen in F1.2 and F1.3)
 - [x] Captain can edit team name and description (same rules as creating a team; DECISIONS.md 2026-11-21) (done 2026-11-22: `PATCH /teams/:teamId` in F1.1; the team form's edit mode and Team detail's Edit team button in F1.3)
 
-**Profiles and registration**
-- [ ] Shorter registration and position list, built together with profile editing: short player and owner sign-up forms (DECISIONS.md 2026-11-20), position picker, owner phone and address optional, position enum with mapping of existing values (PRODUCT.md, "Registration"). The position enum is part of this item's migration (DECISIONS.md 2026-11-20, "Phase 4 order").
-- [ ] Rename the player address field to "Area" (keep existing values) (PRODUCT.md, "Profile visibility")
-- [ ] Profile editing (players and venue owners), including a proper owner Profile tab (it shows the Settings screen for now)
+**Profiles and registration** (spec: [features/profiles-and-registration.md](features/profiles-and-registration.md), approved 2026-11-22; tasks F2.1 backend, F2.2 sign-up and auth screens, F2.3 player profile, Settings and Change password, F2.4 venue owner screens)
+- [ ] Shorter registration and position list, built together with profile editing: short player and owner sign-up forms (DECISIONS.md 2026-11-20), position picker, owner phone and address optional, position enum with mapping of existing values (PRODUCT.md, "Registration"), Bangladeshi mobile phone rule at sign-up and on edit (PRODUCT.md, "Profiles"; DECISIONS.md 2026-11-22). The position enum is part of this item's migration (DECISIONS.md 2026-11-20, "Phase 4 order").
+- [ ] Rename the player address field to "Area" (keep existing values), free text with suggestions (PRODUCT.md, "Profile visibility" and "Profiles")
+- [ ] Profile editing (players and venue owners), including a proper owner Profile tab (it shows the Settings screen for now). The email is shown read-only (DECISIONS.md 2026-11-22).
 - [ ] Change password while logged in. It logs the account out on every other device: increase `tokenVersion` and reply with a fresh token, so the phone that made the change stays logged in (DECISIONS.md 2026-11-20, "Which events log out every device").
+- [ ] Terms of Use and Privacy Policy checkbox on both sign-up forms, with links to the two pages (moved here from Moderation, DECISIONS.md 2026-11-22; PRODUCT.md, "Registration")
+- [ ] Validate owner website URLs (http/https only) on the backend and before `Linking.openURL` (moved here from Venues, because the venue edit form is built in this feature; spec D3, approved 2026-11-22)
 
 **Venues**
 - [ ] Venue listing: add area, opening hours and pricing info fields; admin approval ("Pending review"), only when address, area and phone are filled in (enforced by the backend); missing-fields checklist on My Venue; venue search by name and filter by area (PRODUCT.md, "Venue owners")
-- [ ] Validate owner website URLs (http/https only) on the backend and before `Linking.openURL`
 - [ ] Venue discovery polish
 - [ ] Explore tab: Teams · Players · Venues sections, each with search; venues also filter by area (PRODUCT.md, "App structure and navigation"). Replaces the interim Explore screen with three rows.
 
@@ -131,7 +132,7 @@ Rule: write a short spec in `docs/features/` before building each feature below.
 - [ ] Notifications screen ("Needs your action" + "Updates"), badge, read/unread (PRODUCT.md, "Notifications"). Replaces the interim Notifications tabs (the player's Invites screen, the owner's empty state) and sets the tab's `tabBarBadge`.
 
 **Moderation**
-- [ ] Moderation: Report button and admin Reports screen (replacing the interim Reports tab); Block and unblock (Settings → Blocked players); suspend and unsuspend users (suspending increases `tokenVersion`, so the user is logged out on every device at once); Terms of Use and Privacy Policy checkbox at registration (PRODUCT.md, "Administration and moderation")
+- [ ] Moderation: Report button and admin Reports screen (replacing the interim Reports tab); Block and unblock (Settings → Blocked players); suspend and unsuspend users (suspending increases `tokenVersion`, so the user is logged out on every device at once) (PRODUCT.md, "Administration and moderation"). The Terms of Use checkbox moved to Profiles and registration (DECISIONS.md 2026-11-22).
 
 **Pagination**
 - [ ] Pagination on list endpoints (with the Explore lists)

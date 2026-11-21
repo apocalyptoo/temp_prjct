@@ -1,4 +1,4 @@
-# Connect Arena: Design System ("Floodlight")
+# ConnectArena: Design System ("Floodlight")
 
 The visual design for v1.0. Every screen follows this file. What screens exist and how navigation works is in [PRODUCT.md](PRODUCT.md) under "App structure and navigation".
 

@@ -375,3 +375,43 @@ The owner approved `docs/features/team-membership.md`: its three defaults (D1–
 
 **Alternatives considered:** letting requests to a full team wait for a spot (rejected), "Reject" as the button word (rejected), a cooldown after removal (rejected for v1.0), phones on the team page for accepted teammates (rejected), tracking which requests the captain has seen (rejected: needs a schema change for little gain), an admin Team detail screen now (deferred to moderation).
 **Consequence:** the backend task (F1.1) builds exactly the API in the spec, including `TeamMember.message` (schema change, approval still needed when the migration is created).
+
+### 2026-11-22: Profiles and registration details
+Decided by the owner before the profiles and registration feature spec (`docs/features/profiles-and-registration.md`). The rules are in `docs/PRODUCT.md` under "Profiles" and "Registration".
+- **Area is free text with suggestions.** Players type their area, and common areas are suggested as they type. It's stored as typed (spaces at both ends removed, spaces inside tidied, within a length limit set in the spec). Filtering by area (Explore, venues) ignores upper and lower case and matches part of the text, so "dhanmondi" finds "Dhanmondi 27". The same suggestion list is reused for venue areas in the venues feature. The field tells players not to enter a full address.
+- **The Terms of Use and Privacy Policy checkbox moves from the moderation feature into the profiles and registration feature**, because both sign-up forms are rebuilt there.
+- **The email can't be changed in v1.0.** It's shown read-only. Changing it later needs a confirmation link sent to the new address and a notice sent to the old one.
+- **Phone numbers must look like a Bangladeshi mobile number:** `01`, then a digit from 3 to 9, then 8 more digits (11 digits in all). This applies at sign-up and on edit, on the backend and in the app. Existing test data that doesn't match is listed before any migration or rule change, so the owner can decide what happens to it. (Whether venue phones may also be landlines is an open question in the spec.)
+
+**Why:**
+- Free text keeps every real neighbourhood possible ("Mirpur DOHS", "Uttara Sector 10") without maintaining a complete list, while suggestions keep the common names spelled the same way. Matching part of the text, ignoring case, means small differences in how people type an area don't hide them from each other.
+- Building the checkbox with the new sign-up forms means the forms are built once, complete, instead of being opened again in the moderation feature.
+- Changing an email safely needs a confirmation link and a notice to the old address, otherwise a stolen login could take over the account for good. That's more than v1.0 needs.
+- The old rule (any 11 digits) let numbers through that can't be a phone. Every Bangladeshi mobile number has this shape, and teammates rely on the number to reach each other.
+
+**Alternatives considered:** a fixed list of areas to pick from (rejected: can't cover every neighbourhood), plain free text with no suggestions (rejected: the same area spelled many ways), exact-match area filtering (rejected: "Dhanmondi" wouldn't find "Dhanmondi 27"), keeping the checkbox in the moderation feature (rejected: the forms would be rebuilt twice), changing the email in v1.0 (deferred), keeping the 11-digit rule (rejected).
+**Consequence:** the phone check and its message change at sign-up, and the new edit endpoints use the same check. The ROADMAP moderation item no longer includes the checkbox.
+
+### 2026-11-22: Profiles and registration feature spec approved
+The owner approved `docs/features/profiles-and-registration.md`: its five defaults (D1–D5), all of Claude Code's proposals (P1–P32, listed in the spec's section k), and these answers to its open questions:
+- **Venue phones are mobile only**, like players: no landlines in v1.0.
+- **The five stored phone numbers that don't match the new rule** (local test data) are changed to valid made-up mobile numbers at the start of the backend task.
+- **An owner's Settings row reads "Edit venue"** and opens the venue edit screen.
+- **The owner's Profile tab shows the account** (venue name, "Venue owner", email) and links to My Venue.
+- **A password change emails a short notice** to the account's address, with no link in it. PRODUCT.md's list of account emails now includes it.
+- **The area suggestion list** starts with the spec's list of Dhaka areas, nearby towns and other cities.
+- **Messages whose rule changes are replaced** with suitable new ones (the phone message, and "Venue name is required" for owners). Every other existing message keeps its words, as decided on 2026-11-20.
+- **Areas and names aren't capitalised automatically.** They're stored as typed.
+- **The app's name is written "ConnectArena"**, as the app already shows it. The docs' titles were changed from "Connect Arena".
+
+**Why:**
+- Mobile only: small venues mostly answer a mobile, players call from mobiles, and one rule is simpler. Allowing landlines later is only a changed check, no migration.
+- Fixing the test phones keeps those accounts usable and means every stored phone matches the rule from the start.
+- "Edit venue" says what the row opens; owners have no other profile fields. Showing the account on the owner's Profile tab gives it its own job without repeating My Venue.
+- The notice email is how the real owner of a stolen account finds out. It has no link because a link in a "your account changed" email is what phishing copies.
+- A message that describes a rule that no longer exists confuses people. Keeping messages word for word was meant to stop accidental changes, not to keep wrong ones.
+- Automatic capitals can spoil names like "DOHS".
+- "ConnectArena": the owner's preference.
+
+**Alternatives considered:** landlines for venues (deferred), deleting or keeping the non-matching test phones (rejected), "Edit profile" opening the venue editor (rejected), no password-changed email (rejected), keeping the old messages (rejected), automatic capitals (rejected), "Connect Arena" (rejected by the owner).
+**Consequence:** the backend task (F2.1) builds exactly the API in the spec. The migration still needs the owner's approval when it's created.
