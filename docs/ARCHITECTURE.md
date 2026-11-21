@@ -151,14 +151,14 @@ Three terms used in this layout:
 | Prefix | Route file | What it handles |
 |---|---|---|
 | `/auth` | `authRoutes.js` | Register, log in, verify email, forgot/reset password (no login needed), and `GET /auth/me`: who is logged in (needs a token) |
-| `/players` | `playerRoutes.js` | My player profile, my pending invites, list all players, a player's stats |
+| `/players` | `playerRoutes.js` | My player profile, my pending invites, my pending join requests, list all players, a player's stats |
 | `/owners` | `ownerRoutes.js` | My owner profile, list all registered venues |
-| `/teams` | `teamRoutes.js` | Create, list, my teams, invite, accept, reject, remove member, delete team |
+| `/teams` | `teamRoutes.js` | Create, list, my teams, one team, invite, accept, reject, remove member, delete team |
 | `/admin` | `adminRoutes.js` | Stats, list/delete users, list/delete teams, list/delete venues (admins only). Deleting users only works on player and owner accounts, deleting venues only on owner accounts (404 "Venue not found" otherwise), and an admin account, including your own, gets 403 |
 
 There's also `GET /`, which replies "API running" so you can check the server is up.
 
-Route order matters in `playerRoutes.js`: `/me` and `/invites` come before `/:id`. Otherwise Express would treat the word "me" as a player id.
+Route order matters in `playerRoutes.js`: `/me`, `/invites` and `/requests` come before `/:id`. Otherwise Express would treat the word "me" as a player id. For the same reason `GET /teams/me` comes before `GET /teams/:teamId` in `teamRoutes.js`.
 
 ### How login works
 
@@ -486,7 +486,22 @@ Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 
 The captain can also remove a member (`DELETE /teams/:teamId/members/:userId`) or delete the whole team (`DELETE /teams/:teamId`).
 
-A pending invite isn't membership yet. In the team lists (`GET /teams` and `GET /teams/me`) each team's `members` holds only accepted members. The team's captain also gets a separate `pendingInvites` list, so they can see who they've invited; nobody else gets it. `TeamDetailScreen` shows the captain those invites under the members, labelled "pending", without counting them; the captain can remove a member or cancel an invite from there. The screen reloads its team from `GET /teams/me` whenever it comes into view and after a removal, so it never shows stale data, and goes back if the team is gone. **My Teams** also reloads whenever it comes into view, so a team deleted in Team Detail disappears straight away. **All Teams** shows each team's captain by name: the captain is always one of the team's accepted members, so the app takes the name from the `members` list the backend already sends. The app calls the team's captain **Captain** everywhere (badges, labels, messages). A player's team count (`GET /players/:id`, `totalTeams`) and the admin's member counts also include only accepted memberships.
+A pending invite isn't membership yet. In the team lists (`GET /teams` and `GET /teams/me`) each team's `members` holds only accepted members. The team's captain also gets a separate `pendingInvites` list, so they can see who they've invited; nobody else gets it. `TeamDetailScreen` shows the captain those invites under the members, labelled "pending", without counting them; the captain can remove a member or cancel an invite from there. The screen reloads its team from `GET /teams/me` whenever it comes into view and after a removal, so it never shows stale data, and goes back if the team is gone. **My Teams** also reloads whenever it comes into view, so a team deleted in Team Detail disappears straight away. **All Teams** shows each team's captain by name: the captain is always one of the team's accepted members, so the app takes the name from the `members` list the backend already sends. The app calls the team's captain **Captain** everywhere (badges, labels, messages). A player's team count (`GET /players/:id`, `totalTeams`) and the admin's member counts also include only accepted memberships. `pendingInvites` holds invites only, never join requests.
+
+### One team (the team page)
+
+`GET /teams/:teamId` returns one team to any logged-in user (venue owners and the admin too). It's built for the new Team detail screen (feature 1, [features/team-membership.md](features/team-membership.md)); the old screens don't call it yet.
+
+- **`viewerState`** says where the viewer stands: `captain`, `member` (accepted), `invited` (a pending invite), `requested` (a pending join request) or `none`. Venue owners and the admin are always `none`, because they can't join teams. The app uses it to pick the buttons to show.
+- **`memberCount`** (accepted members) and **`maxMembers`** (15, `MAX_TEAM_MEMBERS` in `src/utils/membership.js`), so the app never hard-codes the limit.
+- **`members`**: accepted members only, the captain first, then the longest-standing (earliest `acceptedAt`, ties to the lower row id). Each person goes through the visibility rules, so other people's email, phone and address are left out; their name and position are included.
+- **`joinRequests`** (oldest first, each with its `message`) and **`pendingInvites`** (newest first): only for the captain and the admin. Nobody else gets these fields.
+- **`myRequest`** (`{ createdAt, message }`): only for the player whose join request is pending, so they can see what they sent.
+- 400 "Invalid team id", 404 "Team not found".
+
+The shaping is done by `toTeamDetail` in `teamController.js`; the team lists use `toTeamListItem`. **My Teams** (`GET /teams/me`) also gives each team `memberCount` and `maxMembers`, and the captain gets `joinRequestCount` (the number of join requests waiting). `GET /players/requests` lists the player's own pending join requests (newest first, with their message and the team's member count); only player accounts may call it. `GET /players/invites` lists invites only (never the player's own requests), and each team carries `memberCount` and `maxMembers`. `GET /players` gives each player their public position in `playerProfile`.
+
+**The join request message** is private: only the team's captain, the player who sent it and the admin ever get it in a reply. Every other reply leaves it out (`MEMBERSHIP_FIELDS_NOT_IN_REPLIES`).
 
 ### Join requests
 

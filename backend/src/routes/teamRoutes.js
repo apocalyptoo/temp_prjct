@@ -6,6 +6,7 @@ import {
   acceptInvite,
   rejectInvite,
   getMyTeams,
+  getTeam,
   removePlayer,
   deleteTeam,
 } from '../controllers/teamController.js';
@@ -22,7 +23,8 @@ router.post('/:teamId/accept', verifyToken, playersOnly, acceptInvite);
 router.post('/:teamId/reject', verifyToken, playersOnly, rejectInvite);
 router.delete('/:teamId/members/:userId', verifyToken, removePlayer); 
 router.delete('/:teamId', verifyToken, deleteTeam);                   
-router.get('/me', verifyToken, getMyTeams);
+router.get('/me', verifyToken, getMyTeams); // must be above /:teamId
+router.get('/:teamId', verifyToken, getTeam);
 router.get('/', verifyToken, getTeams);
 
 export default router;

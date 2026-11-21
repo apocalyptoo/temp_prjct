@@ -5,7 +5,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { BASE_URL, createLoggedInPlayer, createLoggedInUser, postJson } from './helpers.js';
+import { prisma, BASE_URL, createLoggedInPlayer, createLoggedInUser, postJson } from './helpers.js';
 
 const getJson = async (path, jwt) => {
   const res = await fetch(BASE_URL + path, { headers: { Authorization: `Bearer ${jwt}` } });
@@ -88,6 +88,25 @@ describe('Member lists contain only accepted members', () => {
     const seen = findTeam(await getJson('/admin/teams', admin.jwt), team.id);
 
     assert.equal(seen.memberCount, 2);
+  });
+});
+
+describe('GET /players/invites', () => {
+  test('lists invites only, never the player\'s own join requests, with the team\'s member count', async (t) => {
+    const { invitee, team } = await setUpTeam(t);
+    const otherCaptain = await createLoggedInPlayer(t);
+    const otherTeam = await (await postJson('/teams/create', { name: 'Asked To Join' }, otherCaptain.jwt)).json();
+    await prisma.teamMember.create({
+      data: { teamId: otherTeam.id, userId: invitee.user.id, status: 'pending', origin: 'request', message: 'Hi' },
+    });
+
+    const invites = await getJson('/players/invites', invitee.jwt);
+
+    assert.deepEqual(invites.map((i) => i.teamId), [team.id]);
+    assert.equal(invites[0].team.memberCount, 2, 'accepted members only');
+    assert.equal(invites[0].team.maxMembers, 15);
+    assert.equal('_count' in invites[0].team, false);
+    assert.equal('message' in invites[0], false);
   });
 });
 

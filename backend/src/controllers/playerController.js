@@ -1,7 +1,13 @@
 import { prisma } from '../db.js';
 import { viewerFrom, toVisibleUser, toPlayerStats } from '../utils/visibility.js';
 import { parseId } from '../utils/ids.js';
-import { MEMBERSHIP_FIELDS_NOT_IN_REPLIES } from '../utils/membership.js';
+import { MEMBERSHIP_FIELDS_NOT_IN_REPLIES, MAX_TEAM_MEMBERS } from '../utils/membership.js';
+
+// Counts a team's accepted members in the same query (pending rows aren't members).
+const ACCEPTED_MEMBER_COUNT = { _count: { select: { members: { where: { status: 'accepted' } } } } };
+
+// A team's member count and limit, for lists of invites and requests.
+const withCounts = ({ _count, ...team }) => ({ ...team, memberCount: _count.members, maxMembers: MAX_TEAM_MEMBERS });
 
 export const listPlayers = async (req, res, next) => {
   try {
@@ -15,18 +21,25 @@ export const listPlayers = async (req, res, next) => {
         email: true,
         createdAt: true,
         playerProfile: {
-          select: { name: true },
+          select: { name: true, position: true },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    // flatten to match frontend expecting {id, name, email}; the visibility rules then
-    // drop the email for everyone except yourself (and the admin)
+    // { id, name, email, playerProfile } (the app reads id and name); the visibility
+    // rules then drop the email for everyone except yourself (and the admin). The
+    // position is public and sits in playerProfile, the same shape as team members.
     const viewer = viewerFrom(req);
     const result = players.map((p) =>
       toVisibleUser(
-        { id: p.id, email: p.email, createdAt: p.createdAt, name: p.playerProfile?.name || 'Unknown' },
+        {
+          id: p.id,
+          email: p.email,
+          createdAt: p.createdAt,
+          name: p.playerProfile?.name || 'Unknown',
+          playerProfile: p.playerProfile,
+        },
         viewer
       )
     );
@@ -73,16 +86,17 @@ export const getMyPlayerProfile = async (req, res, next) => {
     return next(err);
   }
 };
-// NEW: get pending invites for current user
+// The viewer's pending invites (not their own join requests), newest first.
 export const getPendingInvites = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const invites = await prisma.teamMember.findMany({
-      where: { userId, status: "pending" },
+      where: { userId, status: 'pending', origin: 'invite' },
       omit: MEMBERSHIP_FIELDS_NOT_IN_REPLIES,
       include: {
         team: {
           include: {
+            ...ACCEPTED_MEMBER_COUNT,
             // The team's captain is always a player, so the name comes from their
             // player profile.
             captain: {
@@ -104,7 +118,7 @@ export const getPendingInvites = async (req, res, next) => {
         return {
           ...invite,
           team: {
-            ...invite.team,
+            ...withCounts(invite.team),
             captain: toVisibleUser({ id: captain.id, name: captain.playerProfile?.name || 'Unknown' }, viewer),
           },
         };
@@ -115,6 +129,27 @@ export const getPendingInvites = async (req, res, next) => {
   }
 };
 
+
+// The viewer's own pending join requests, newest first, each with their message (the
+// requester may see their own) and how full the team is (GET /players/requests).
+export const getMyRequests = async (req, res, next) => {
+  try {
+    const requests = await prisma.teamMember.findMany({
+      where: { userId: req.user.id, status: 'pending', origin: 'request' },
+      select: {
+        id: true,
+        teamId: true,
+        createdAt: true,
+        message: true,
+        team: { select: { id: true, name: true, ...ACCEPTED_MEMBER_COUNT } },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    res.json(requests.map((request) => ({ ...request, team: withCounts(request.team) })));
+  } catch (err) {
+    return next(err);
+  }
+};
 
 //  get player stats
 export const getPlayerStats = async (req, res, next) => {
