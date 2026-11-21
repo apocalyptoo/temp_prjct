@@ -152,7 +152,7 @@ Three terms used in this layout:
 |---|---|---|
 | `/auth` | `authRoutes.js` | Register, log in, verify email, forgot/reset password (no login needed), and `GET /auth/me`: who is logged in (needs a token) |
 | `/players` | `playerRoutes.js` | My player profile and Edit profile (`PATCH /players/me`), my pending invites, my pending join requests, list all players, a player's stats |
-| `/owners` | `ownerRoutes.js` | My owner profile, list all registered venues |
+| `/owners` | `ownerRoutes.js` | My owner profile and editing my venue listing (`PATCH /owners/me`), list all registered venues |
 | `/teams` | `teamRoutes.js` | Create, list, my teams, one team, edit team, invite, cancel invite, accept, reject, join requests (ask, cancel, approve, decline), remove member, leave, transfer captaincy, delete team |
 | `/admin` | `adminRoutes.js` | Stats, list/delete users, list/delete teams, list/delete venues (admins only). Deleting users only works on player and owner accounts, deleting venues only on owner accounts (404 "Venue not found" otherwise), and an admin account, including your own, gets 403 |
 
@@ -186,7 +186,7 @@ There are four layers of checks:
 - **Logged in?** `verifyToken` runs on every route except `/auth`.
 - **Admin?** The `isAdmin` middleware runs on every `/admin` route. It rejects anyone whose token role isn't `ADMIN`.
 - **Player?** The `playersOnly` middleware runs on every team action: creating, editing and deleting a team, inviting, accepting, rejecting, the join request actions, removing a member, cancelling an invite, leaving and transferring captaincy. Venue owner and admin accounts get a 403 saying only player accounts can create or join teams.
-- **Only this role?** `onlyRole(role, message)` guards a route for one kind of account, before the request body is checked. Edit profile (`PATCH /players/me`) uses it, so a venue owner or the admin gets 403 "Players only" whatever they send.
+- **Only this role?** `onlyRole(role, message)` guards a route for one kind of account, before the request body is checked. Edit profile (`PATCH /players/me`) uses it, so a venue owner or the admin gets 403 "Players only" whatever they send; editing a venue listing (`PATCH /owners/me`) gives anyone but a venue owner 403 "Owners only".
 - **Everything else** is checked inside the controllers. For example, `GET /players/me` refuses non-players, and inviting, removing or deleting in a team is refused unless you created that team.
 
 Known security problems in these checks: see [ROADMAP.md](ROADMAP.md), Phase 1.
@@ -465,6 +465,15 @@ A player changes their details with `PATCH /players/me` (the Edit profile screen
 2. Only player accounts may do this: anyone else gets 403 "Players only", checked before the fields are.
 3. `updatePlayerProfileSchema` (`src/validation/playerSchemas.js`) checks the fields with the same rules as sign-up (`src/validation/profileFields.js`): a name of 2–50 characters, a Bangladeshi mobile number, a position from the list, height 100–250 cm and weight 30–200 kg (numbers, optional), and an area. The area is tidied first (spaces at both ends removed, and every run of spaces inside made one space) and must then be 2–40 characters; the letters stay as typed.
 4. The profile is updated in one step, and the reply is the player's own profile, the same as `GET /players/me`. The new name shows straight away in `GET /auth/me` and in team lists. The email can't be changed here (not in v1.0).
+
+### Editing a venue listing
+
+A venue owner fills in or changes their listing with `PATCH /owners/me` (the Edit venue screen arrives with task F2.4). A new owner signs up with only the venue name, so this is where the rest of the listing comes from.
+
+1. The app sends every field each time: venue name, phone, address, website and description. Only the venue name is required; an optional field that's left out, empty, only spaces or null is cleared.
+2. Only venue owner accounts may do this: anyone else gets 403 "Owners only", checked before the fields are.
+3. `updateVenueSchema` (`src/validation/ownerSchemas.js`) checks the fields: a venue name of 2–60 characters; a phone, if given, that's a Bangladeshi mobile number (no landlines in v1.0); an address of at most 200 characters; a website of at most 200 characters that is a real `http://` or `https://` link (`isWebLink` in `src/utils/links.js`: so "www.arena.com" or "javascript:…" are refused); and a description of at most 500. Spaces at both ends of each text are removed.
+4. The listing is updated in one step, and the reply is the owner's own profile, the same as `GET /owners/me`. The venue lists show the new details straight away.
 
 ### Resending the verification email
 
