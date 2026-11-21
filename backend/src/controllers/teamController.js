@@ -64,37 +64,41 @@ export const createTeam = async (req, res, next) => {
 };
 
 // ── Invite player (captain only) ──
+// A full team can't invite (docs/PRODUCT.md, "Team size"). Inviting a player who has
+// already asked to join approves their request instead (both sides agreed).
 export const invitePlayer = async (req, res, next) => {
   try {
     const teamId = parseId(req.params.teamId);
     if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
     // A real positive whole number, not a string, an object or a decimal (inviteSchema).
     const { userId } = req.valid.body;
-    const inviterId = req.user.id;
 
-    const team = await prisma.team.findUnique({ where: { id: teamId } });
-    if (!team) return res.status(404).json({ error: 'Team not found' });
+    const reply = await withLockedTeam(teamId, async (tx, team) => {
+      if (team.captainId !== req.user.id) return [403, { error: 'Only the team captain can invite players.' }];
+      if ((await countMembers(tx, teamId)) >= MAX_TEAM_MEMBERS) return teamFull();
 
-    if (team.captainId !== inviterId) {
-      return res.status(403).json({ error: 'Only the team captain can invite players.' });
-    }
+      // Only existing PLAYER accounts can be invited. An unknown id, or a venue owner or
+      // admin account, gets the same 404 (instead of a database error).
+      const invitee = await tx.user.findUnique({ where: { id: userId }, select: { role: true } });
+      if (!invitee || invitee.role !== 'PLAYER') return [404, { error: 'Player not found' }];
 
-    // Only existing PLAYER accounts can be invited. An unknown id, or a venue owner or
-    // admin account, gets the same 404 (instead of a database error).
-    const invitee = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    if (!invitee || invitee.role !== 'PLAYER') return res.status(404).json({ error: 'Player not found' });
+      const existing = await findRow(tx, teamId, userId);
+      if (existing && isPendingRequest(existing)) {
+        await tx.teamMember.update({
+          where: { id: existing.id },
+          data: { status: 'accepted', acceptedAt: new Date(), message: null },
+        });
+        return [200, { message: 'Request approved', joined: true }];
+      }
+      if (existing) return [400, { error: 'Player is already invited or in the team.' }];
 
-    const existing = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId } },
+      const invite = await tx.teamMember.create({
+        data: { teamId, userId, status: 'pending', origin: 'invite' },
+        omit: MEMBERSHIP_FIELDS_NOT_IN_REPLIES,
+      });
+      return [201, invite];
     });
-    if (existing) return res.status(400).json({ error: 'Player is already invited or in the team.' });
-
-    const invite = await prisma.teamMember.create({
-      data: { teamId, userId, status: 'pending', origin: 'invite' },
-      omit: MEMBERSHIP_FIELDS_NOT_IN_REPLIES,
-    });
-
-    res.status(201).json(invite);
+    return sendReply(res, reply);
   } catch (error) {
     return next(error);
   }
@@ -161,41 +165,44 @@ export const deleteTeam = async (req, res, next) => {
 };
 
 // ── Accept invite ──
+// Only a pending invite can be accepted, never the player's own join request (players
+// can't approve their own requests). A full team blocks it; the invite stays pending.
 export const acceptInvite = async (req, res, next) => {
   try {
     const teamId = parseId(req.params.teamId);
     if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
     const userId = req.user.id;
 
-    // Only a pending invite can be accepted, never the player's own join request
-    // (players can't approve their own requests).
-    const { count } = await prisma.teamMember.updateMany({
-      where: { teamId, userId, status: 'pending', origin: 'invite' },
-      data: { status: 'accepted', acceptedAt: new Date() },
+    const reply = await withLockedTeam(teamId, async (tx) => {
+      const own = await findRow(tx, teamId, userId);
+      if (!own || !isPendingInvite(own)) return [404, { error: 'Invite not found' }];
+      if ((await countMembers(tx, teamId)) >= MAX_TEAM_MEMBERS) return teamFull();
+      await tx.teamMember.update({ where: { id: own.id }, data: { status: 'accepted', acceptedAt: new Date() } });
+      return [200, { message: 'Joined team successfully' }];
     });
-    if (count === 0) return res.status(404).json({ error: 'Invite not found' });
-
-    res.status(200).json({ message: 'Joined team successfully' });
+    return sendReply(res, reply);
   } catch (error) {
     return next(error);
   }
 };
 
 // ── Reject invite ──
+// Only a pending invite can be rejected, so this can't remove an accepted membership
+// (including the captain's own) or the player's own join request.
 export const rejectInvite = async (req, res, next) => {
   try {
     const teamId = parseId(req.params.teamId);
     if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
     const userId = req.user.id;
 
-    // Only a pending invite can be rejected, so this can't remove an accepted membership
-    // (including the captain's own) or the player's own join request.
-    const { count } = await prisma.teamMember.deleteMany({
-      where: { teamId, userId, status: 'pending', origin: 'invite' },
+    const reply = await withLockedTeam(teamId, async (tx) => {
+      const { count } = await tx.teamMember.deleteMany({
+        where: { teamId, userId, status: 'pending', origin: 'invite' },
+      });
+      if (count === 0) return [404, { error: 'Invite not found' }];
+      return [200, { message: 'Invite rejected' }];
     });
-    if (count === 0) return res.status(404).json({ error: 'Invite not found' });
-
-    res.status(200).json({ message: 'Invite rejected' });
+    return sendReply(res, reply);
   } catch (error) {
     return next(error);
   }

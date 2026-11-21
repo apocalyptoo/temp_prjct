@@ -82,6 +82,54 @@ describe('A full team (15 accepted members)', () => {
     assert.equal(declined.status, 200);
   });
 
+  test('the captain cannot invite (checked before the player is looked up)', async (t) => {
+    const { captain, team } = await teamWithMembers(t, MAX);
+    const player = await createLoggedInPlayer(t);
+
+    const res = await postJson(`/teams/${team.id}/invite`, { userId: player.user.id }, captain.jwt);
+    const unknown = await postJson(`/teams/${team.id}/invite`, { userId: 2147483647 }, captain.jwt);
+
+    assert.equal(res.status, 409);
+    assert.deepEqual(await res.json(), FULL);
+    assert.equal(await membership(team.id, player.user.id), null);
+    assert.equal(unknown.status, 409, 'full comes before "Player not found"');
+  });
+
+  test("inviting a player who asked to join doesn't approve them into a full team", async (t) => {
+    const { captain, team } = await teamWithMembers(t, MAX);
+    const [player] = await requesters(t, team, 1);
+
+    const res = await postJson(`/teams/${team.id}/invite`, { userId: player.user.id }, captain.jwt);
+
+    assert.equal(res.status, 409);
+    assert.deepEqual(await res.json(), FULL);
+    assert.equal((await membership(team.id, player.user.id)).status, 'pending');
+  });
+
+  test('an invited player cannot accept; the invite stays pending, and can still be rejected', async (t) => {
+    const { team } = await teamWithMembers(t, MAX);
+    const player = await createLoggedInPlayer(t);
+    await prisma.teamMember.create({ data: { teamId: team.id, userId: player.user.id, status: 'pending', origin: 'invite' } });
+
+    const res = await postJson(`/teams/${team.id}/accept`, {}, player.jwt);
+
+    assert.equal(res.status, 409);
+    assert.deepEqual(await res.json(), FULL);
+    assert.equal((await membership(team.id, player.user.id)).status, 'pending');
+    assert.equal(await memberCount(team.id), MAX);
+    assert.equal((await postJson(`/teams/${team.id}/reject`, {}, player.jwt)).status, 200);
+  });
+
+  test('a non-captain gets 403, not the full message', async (t) => {
+    const { team } = await teamWithMembers(t, MAX);
+    const outsider = await createLoggedInPlayer(t);
+
+    const res = await postJson(`/teams/${team.id}/invite`, { userId: outsider.user.id }, outsider.jwt);
+
+    assert.equal(res.status, 403);
+    assert.deepEqual(await res.json(), { error: 'Only the team captain can invite players.' });
+  });
+
   test('with 14 members the last place can still be filled', async (t) => {
     const { captain, team } = await teamWithMembers(t, MAX - 1);
     const [player] = await requesters(t, team, 1);

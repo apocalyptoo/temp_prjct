@@ -81,6 +81,36 @@ describe('Accept and reject act on invites only, never on join requests', () => 
   });
 });
 
+describe('Inviting a player who already asked to join', () => {
+  test('approves their request: they become a member and the message is deleted', async (t) => {
+    const { captain, outsider, team } = await setUpTeamAndOutsider(t);
+    assert.equal((await postJson(`/teams/${team.id}/requests`, { message: 'hi' }, outsider.jwt)).status, 201);
+
+    const res = await postJson(`/teams/${team.id}/invite`, { userId: outsider.user.id }, captain.jwt);
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { message: 'Request approved', joined: true });
+    const row = await membership(team.id, outsider.user.id);
+    assert.equal(row.status, 'accepted');
+    assert.equal(row.origin, 'request');
+    assert.ok(row.acceptedAt);
+    assert.equal(row.message, null);
+  });
+
+  test('inviting someone already invited or already a member still gets 400', async (t) => {
+    const { captain, outsider, team } = await setUpTeamAndOutsider(t);
+    await postJson(`/teams/${team.id}/invite`, { userId: outsider.user.id }, captain.jwt);
+
+    const again = await postJson(`/teams/${team.id}/invite`, { userId: outsider.user.id }, captain.jwt);
+    const self = await postJson(`/teams/${team.id}/invite`, { userId: captain.user.id }, captain.jwt);
+
+    for (const res of [again, self]) {
+      assert.equal(res.status, 400);
+      assert.deepEqual(await res.json(), { error: 'Player is already invited or in the team.' });
+    }
+  });
+});
+
 describe('Invite input checks', () => {
   test('rejects a userId that is not a positive integer', async (t) => {
     const { captain, team } = await setUpTeamAndOutsider(t);
