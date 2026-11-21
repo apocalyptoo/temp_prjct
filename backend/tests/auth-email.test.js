@@ -24,6 +24,7 @@ const validPlayer = (email) => ({
   password: 'Valid-pass-123!',
   role: 'PLAYER',
   profileData: { phone: '01700000000', position: 'Forward' },
+  acceptedTerms: true,
 });
 
 describe('POST /auth/login', () => {

@@ -16,12 +16,12 @@ const getJson = async (path, jwt) => {
   return res.json();
 };
 
-// A logged-in player with a profile (name, phone, position, address), so the tests can
+// A logged-in player with a profile (name, phone, position), so the tests can
 // check which profile fields other people see.
 const playerNamed = (t, name, position = 'Defender') =>
   createLoggedInUser(t, {
     role: 'PLAYER',
-    playerProfile: { create: { name, phone: '01711111111', position, address: 'House 1, Road 2' } },
+    playerProfile: { create: { name, phone: '01711111111', position } },
   });
 
 // A team with every kind of row: the captain, an accepted member, a pending invite and
@@ -150,7 +150,7 @@ describe('GET /teams/:teamId: rows and people', () => {
     assert.deepEqual(ids(seen.members), [captain.user.id, early.user.id, tieB.user.id, tieA.user.id, late.user.id]);
   });
 
-  test("other people's email, phone and address are never in the reply; positions are", async (t) => {
+  test("other people's email and phone are never in the reply; positions are", async (t) => {
     const { team, member, captain } = await setUpTeam(t);
 
     const seen = await getJson(`/teams/${team.id}`, member.jwt);
@@ -161,7 +161,6 @@ describe('GET /teams/:teamId: rows and people', () => {
     assert.equal('email' in captainRow.user, false);
     const text = JSON.stringify(seen);
     assert.doesNotMatch(text, /01711111111/, 'no phone numbers');
-    assert.doesNotMatch(text, /House 1/, 'no addresses');
     assert.doesNotMatch(text, new RegExp(captain.user.email), "no other player's email");
   });
 

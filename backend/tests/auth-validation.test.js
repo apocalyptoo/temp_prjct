@@ -1,6 +1,8 @@
 // Tests the zod request checks on the /auth routes (src/validation/authSchemas.js):
 // wrong types get 400 with a message (never 500), the limits added in Task 3.2, and
-// unknown fields being ignored. Safety rules are in helpers.js.
+// unknown fields being ignored. The short sign-up forms of feature 2 (Terms, phone
+// rule, position list) are tested in registration-short.test.js. Safety rules are in
+// helpers.js.
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,15 +25,15 @@ const PASSWORD_RULE_MESSAGE =
 const PASSWORD_TOO_LONG =
   'Password must be at most 72 characters (emoji and non-English letters count as more than one)';
 
-// Wrong-type values for a field that should be text, and for one that should be a number.
+// Wrong-type values for a field that should be text.
 const NOT_TEXT = [{ not: '' }, ['01712345678'], 12345, true];
-const NOT_NUMBER = ['170', { gt: 0 }, [170], true];
 
 const validPlayer = (overrides = {}, profile = {}) => ({
   email: testEmail(),
   password: 'Valid-pass-123!',
   role: 'PLAYER',
   name: 'Test Player',
+  acceptedTerms: true,
   ...overrides,
   profileData: { phone: '01700000000', position: 'Forward', ...profile },
 });
@@ -40,8 +42,9 @@ const validOwner = (overrides = {}, profile = {}) => ({
   email: testEmail(),
   password: 'Valid-pass-123!',
   role: 'OWNER',
+  acceptedTerms: true,
   ...overrides,
-  profileData: { indoorName: 'Test Arena', phone: '01700000000', address: 'Dhanmondi, Dhaka', ...profile },
+  profileData: { indoorName: 'Test Arena', ...profile },
 });
 
 // Sends a registration, and deletes the account afterwards if one was made.
@@ -76,7 +79,7 @@ describe('The three bodies that used to give 500 now get a clear 400', () => {
   test('profileData.phone as an array', async (t) => {
     const reply = await register(t, validPlayer({}, { phone: ['01712345678'] }));
     assert.equal(reply.status, 400);
-    assert.equal(reply.body.error, 'Phone number must be exactly 11 digits');
+    assert.equal(reply.body.error, 'Enter a Bangladeshi mobile number: 11 digits starting with 01, like 01712345678');
   });
 
   test('name as an object', async (t) => {
@@ -88,7 +91,7 @@ describe('The three bodies that used to give 500 now get a clear 400', () => {
   test('profileData.position as a number', async (t) => {
     const reply = await register(t, validPlayer({}, { position: 7 }));
     assert.equal(reply.status, 400);
-    assert.equal(reply.body.error, 'Position must be text');
+    assert.equal(reply.body.error, 'Position must be Goalkeeper, Defender, Midfielder, Forward or Any');
   });
 });
 
@@ -103,20 +106,15 @@ describe('Wrong types in every field get 400 with a message, never 500', () => {
   });
 
   test('POST /auth/register, player profile fields', async (t) => {
-    for (const field of ['phone', 'position', 'address']) {
+    for (const field of ['phone', 'position']) {
       for (const value of NOT_TEXT) {
-        assertClear400(await register(t, validPlayer({}, { [field]: value })), `${field} = ${JSON.stringify(value)}`);
-      }
-    }
-    for (const field of ['height', 'weight']) {
-      for (const value of NOT_NUMBER) {
         assertClear400(await register(t, validPlayer({}, { [field]: value })), `${field} = ${JSON.stringify(value)}`);
       }
     }
   });
 
   test('POST /auth/register, venue owner profile fields', async (t) => {
-    for (const field of ['indoorName', 'phone', 'address', 'description', 'website']) {
+    for (const field of ['indoorName']) {
       for (const value of NOT_TEXT) {
         assertClear400(await register(t, validOwner({}, { [field]: value })), `${field} = ${JSON.stringify(value)}`);
       }
@@ -185,18 +183,6 @@ describe('Register: new limits, each just inside and just outside', () => {
       'Name must be between 2 and 50 characters',
     ],
     [
-      'position, 30 characters',
-      validPlayer({}, { position: 'p'.repeat(30) }),
-      validPlayer({}, { position: 'p'.repeat(31) }),
-      'Position must be at most 30 characters',
-    ],
-    [
-      'player address, 100 characters',
-      validPlayer({}, { address: 'a'.repeat(100) }),
-      validPlayer({}, { address: 'a'.repeat(101) }),
-      'Address must be at most 100 characters',
-    ],
-    [
       'venue name, 2 characters',
       validOwner({}, { indoorName: 'AB' }),
       validOwner({}, { indoorName: 'A' }),
@@ -207,24 +193,6 @@ describe('Register: new limits, each just inside and just outside', () => {
       validOwner({}, { indoorName: 'v'.repeat(60) }),
       validOwner({}, { indoorName: 'v'.repeat(61) }),
       'Venue name must be between 2 and 60 characters',
-    ],
-    [
-      'venue address, 200 characters',
-      validOwner({}, { address: 'a'.repeat(200) }),
-      validOwner({}, { address: 'a'.repeat(201) }),
-      'Address must be at most 200 characters',
-    ],
-    [
-      'venue description, 500 characters',
-      validOwner({}, { description: 'd'.repeat(500) }),
-      validOwner({}, { description: 'd'.repeat(501) }),
-      'Description must be at most 500 characters',
-    ],
-    [
-      'venue website, 200 characters',
-      validOwner({}, { website: 'https://' + 'w'.repeat(192) }),
-      validOwner({}, { website: 'https://' + 'w'.repeat(193) }),
-      'Website must be at most 200 characters',
     ],
     [
       'password, 72 bytes',
@@ -256,15 +224,6 @@ describe('Register: new limits, each just inside and just outside', () => {
     });
   }
 
-  test('height and weight must be numbers; the old ranges still apply', async (t) => {
-    assert.equal((await register(t, validPlayer({}, { height: 100, weight: 200 }))).status, 201);
-    assert.equal((await register(t, validPlayer({}, { height: 250, weight: 30 }))).status, 201);
-    assert.equal((await register(t, validPlayer({}, { height: '170' }))).body.error, 'Height must be a number');
-    assert.equal((await register(t, validPlayer({}, { weight: '70' }))).body.error, 'Weight must be a number');
-    assert.equal((await register(t, validPlayer({}, { height: 99.9 }))).body.error, 'Height must be between 100 and 250 cm');
-    assert.equal((await register(t, validPlayer({}, { weight: 200.5 }))).body.error, 'Weight must be between 30 and 200 kg');
-  });
-
   test('an email that does not look like an email address is refused', async (t) => {
     for (const email of ['not-an-email', 'someone@', 'a b@example.com', 'someone@example']) {
       const reply = await register(t, validPlayer({ email }));
@@ -278,7 +237,7 @@ describe('Register: unknown fields are ignored, values are cleaned', () => {
   test('extra fields (like the ones the app sends) are ignored, not stored and not rejected', async (t) => {
     const body = validPlayer(
       { verified: true, isAdmin: true, resetToken: 'x' },
-      { name: 'Copy Of Name', extra: 'ignored', height: 180 }
+      { name: 'Copy Of Name', extra: 'ignored' }
     );
     const reply = await register(t, body);
     assert.equal(reply.status, 201, JSON.stringify(reply.body));
@@ -287,7 +246,6 @@ describe('Register: unknown fields are ignored, values are cleaned', () => {
     assert.equal(user.verified, false, 'verified can only change through the email link');
     assert.equal(user.resetToken, null);
     assert.equal(user.playerProfile.name, 'Test Player', 'the top-level name is the one stored');
-    assert.equal(user.playerProfile.height, 180);
   });
 
   test('a venue owner registration with a top-level name (as the app sends) works', async (t) => {
@@ -296,24 +254,20 @@ describe('Register: unknown fields are ignored, values are cleaned', () => {
     assert.equal(reply.status, 201, JSON.stringify(reply.body));
   });
 
-  test('player name and position are trimmed; an empty address becomes null', async (t) => {
-    const body = validPlayer({ name: '  Padded Name  ' }, { position: ' Defender ', address: '' });
+  test('the player name is trimmed', async (t) => {
+    const body = validPlayer({ name: '  Padded Name  ' });
     assert.equal((await register(t, body)).status, 201);
 
     const { playerProfile } = await prisma.user.findUnique({ where: { email: body.email }, include: { playerProfile: true } });
     assert.equal(playerProfile.name, 'Padded Name');
-    assert.equal(playerProfile.position, 'Defender');
-    assert.equal(playerProfile.address, null);
   });
 
-  test('venue name is trimmed; empty description and website become null', async (t) => {
-    const body = validOwner({}, { indoorName: '  Spaced Arena ', description: '', website: '' });
+  test('the venue name is trimmed', async (t) => {
+    const body = validOwner({}, { indoorName: '  Spaced Arena ' });
     assert.equal((await register(t, body)).status, 201);
 
     const { ownerProfile } = await prisma.user.findUnique({ where: { email: body.email }, include: { ownerProfile: true } });
     assert.equal(ownerProfile.indoorName, 'Spaced Arena');
-    assert.equal(ownerProfile.description, null);
-    assert.equal(ownerProfile.website, null);
   });
 });
 

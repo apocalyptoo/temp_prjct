@@ -32,6 +32,7 @@ describe('The database stores only hashes', () => {
     const res = await postJson('/auth/register', {
       name: 'Test Player', email, password: 'Valid-pass-123!', role: 'PLAYER',
       profileData: { phone: '01700000000', position: 'Forward' },
+      acceptedTerms: true,
     });
     assert.equal(res.status, 201);
 

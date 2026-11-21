@@ -71,7 +71,7 @@ export const getMyPlayerProfile = async (req, res, next) => {
             position: true,
             height: true,
             weight: true,
-            address: true,
+            area: true,
           },
         },
       },

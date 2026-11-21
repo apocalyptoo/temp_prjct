@@ -37,7 +37,8 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync('no-such-user-timing-placeholder', 1
 export const register = async (req, res, next) => {
   // Already checked and cleaned by registerSchema (src/validation/authSchemas.js): the
   // email is normalised, the role is PLAYER or OWNER, the password passes the strength
-  // rule, and profileData has only the fields of that role, with the right types.
+  // rule, profileData has only the short form's fields for that role, and the Terms
+  // box was ticked (acceptedTerms is exactly true).
   const { email, password, role, name, profileData } = req.valid.body;
 
   try {
@@ -60,34 +61,16 @@ export const register = async (req, res, next) => {
         verifyToken: hashToken(verifyToken),
         verifyTokenExpires: new Date(Date.now() + VERIFY_LINK_LIFETIME_MS),
 
+        // When the user ticked "I agree to the Terms of Use and Privacy Policy".
+        termsAcceptedAt: new Date(),
+
+        // The short sign-up forms (docs/PRODUCT.md, "Registration"): everything else is
+        // filled in later on Edit profile or My Venue.
         ...(role === 'PLAYER'
-          ? {
-              playerProfile: {
-                create: {
-                  name, // stored in PlayerProfile.name
-                  phone: profileData.phone,
-                  position: profileData.position,
-                  height: profileData.height, // a number or null
-                  weight: profileData.weight, // a number or null
-                  address: profileData.address, // text or null
-                },
-              },
-            }
+          ? { playerProfile: { create: { name, phone: profileData.phone, position: profileData.position } } }
           : {}),
 
-        ...(role === 'OWNER'
-          ? {
-              ownerProfile: {
-                create: {
-                  indoorName: profileData.indoorName, // stored in OwnerProfile.indoorName
-                  phone: profileData.phone,
-                  address: profileData.address,
-                  description: profileData.description, // text or null
-                  website: profileData.website, // text or null
-                },
-              },
-            }
-          : {}),
+        ...(role === 'OWNER' ? { ownerProfile: { create: { indoorName: profileData.indoorName } } } : {}),
       },
       select: {
         id: true,

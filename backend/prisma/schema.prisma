@@ -23,6 +23,10 @@ model User {
   // Every login token carries this number (the `tv` claim). Increasing it cancels all
   // of the account's tokens, which logs it out on every device (DECISIONS.md 2026-11-20).
   tokenVersion       Int       @default(0)
+  // When the user ticked "I agree to the Terms of Use and Privacy Policy" at sign-up.
+  // Null for accounts made before the checkbox existed (all test data) and for the
+  // admin made by the script (docs/features/profiles-and-registration.md, P7).
+  termsAcceptedAt    DateTime?
 
   playerProfile PlayerProfile?
   ownerProfile  OwnerProfile?
@@ -41,10 +45,12 @@ model PlayerProfile {
   userId   Int     @unique
   name     String
   phone    String
-  position String
+  position Position
   height   Float?
   weight   Float?
-  address  String?
+  // The player's general area ("Dhanmondi 27"), never a full address. Public to
+  // logged-in users (docs/PRODUCT.md, "Profiles" and "Profile visibility").
+  area     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -53,8 +59,9 @@ model OwnerProfile {
   id          Int     @id @default(autoincrement())
   userId      Int     @unique
   indoorName  String
-  phone       String
-  address     String
+  // Optional since the short owner sign-up: filled in later on My Venue.
+  phone       String?
+  address     String?
   description String?
   website     String?
 
@@ -111,6 +118,16 @@ enum MembershipOrigin {
   invite
   request
   creator
+}
+
+// Spelled exactly as the app shows them; the API sends and accepts these words
+// (docs/features/profiles-and-registration.md, P1).
+enum Position {
+  Goalkeeper
+  Defender
+  Midfielder
+  Forward
+  Any
 }
 
 enum Role {

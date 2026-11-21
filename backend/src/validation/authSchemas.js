@@ -3,26 +3,20 @@ import { z } from 'zod';
 import { normalizeEmail } from '../utils/email.js';
 import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '../utils/password.js';
 import { isWellFormedToken } from '../utils/tokens.js';
-import { byteCount, charCount, inStages, isFilled, optionalText, requiredText } from './common.js';
+import { byteCount, inStages, isFilled } from './common.js';
+import { playerName, position, requiredPhone, venueName } from './profileFields.js';
 
 // ── Limits ──
 export const MAX_EMAIL_LENGTH = 254; // the longest address email systems accept
 export const MAX_PASSWORD_BYTES = 72; // bcrypt ignores everything after 72 bytes
-export const PLAYER_NAME = { min: 2, max: 50 };
-export const POSITION_MAX = 30;
-export const PLAYER_ADDRESS_MAX = 100;
-export const VENUE_NAME = { min: 2, max: 60 };
-export const VENUE_ADDRESS_MAX = 200;
-export const VENUE_DESCRIPTION_MAX = 500;
-export const VENUE_WEBSITE_MAX = 200;
 
 // ── Messages (the app shows `error` in an alert) ──
 export const INVALID_LOGIN = 'Invalid email or password';
 export const INVALID_RESET_LINK = 'Invalid or expired token';
 const REGISTER_REQUIRED = 'Email, password, role, and profileData are required';
 const PLAYER_REQUIRED = 'PLAYER profile requires phone and position';
-const OWNER_REQUIRED = 'OWNER profile requires indoorName, phone, and address';
-const PHONE_DIGITS = 'Phone number must be exactly 11 digits';
+const VENUE_NAME_REQUIRED = 'Venue name is required';
+export const TERMS_REQUIRED = 'Please accept the Terms of Use and Privacy Policy';
 const RESET_REQUIRED = 'Token and new password required';
 const EMAIL_REQUIRED = 'Email is required';
 export const PASSWORD_TOO_LONG = `Password must be at most ${MAX_PASSWORD_BYTES} characters (emoji and non-English letters count as more than one)`;
@@ -34,32 +28,21 @@ const normalisedEmail = (message) =>
   z.custom((value) => normalizeEmail(value) !== null, { error: message }).transform(normalizeEmail);
 
 // The shared strength rule from utils/password.js, plus bcrypt's 72-byte limit.
-const newPassword = z
+export const newPassword = z
   .custom(isStrongPassword, { error: PASSWORD_RULE_MESSAGE })
   .refine((password) => byteCount(password) <= MAX_PASSWORD_BYTES, { error: PASSWORD_TOO_LONG });
 
-// 11 digits, as text. Missing gets the profile's "requires" message.
-const phone = (requiredMessage) =>
-  z.string({ error: (issue) => (isFilled(issue.input) ? PHONE_DIGITS : requiredMessage) }).refine(
-    (text) => text !== '',
-    { error: requiredMessage },
-  ).refine((text) => /^\d{11}$/.test(text), { error: PHONE_DIGITS });
-
-const lengthBetween = ({ min, max }) => (text) => charCount(text) >= min && charCount(text) <= max;
-
-// A number in a range, or missing/null. Numbers only: "170" (text) is refused.
-const optionalMeasurement = ({ min, max, notNumber, outOfRange }) =>
-  z
-    .number({ error: notNumber })
-    .refine((n) => n >= min && n <= max, { error: outOfRange })
-    .nullable()
-    .optional()
-    .transform((n) => n ?? null);
+// "I agree to the Terms of Use and Privacy Policy": exactly true (not "true", not 1).
+// It's the last key of each role's object, so a request with other problems still gets
+// the message it got before (spec P9).
+const acceptedTerms = z.literal(true, { error: TERMS_REQUIRED });
 
 // ── POST /auth/register ──
-// The checks run in stages, in the same order as before zod, so a request with several
-// problems still gets the same message: required fields, then role, then email and
-// password, then the role's profile fields.
+// The short sign-up forms (docs/PRODUCT.md, "Registration"). The checks run in stages,
+// in the same order as before, so a request with several problems still gets the same
+// message: required fields, then role, then email and password, then the role's
+// profile fields, and the Terms last. Fields the short forms no longer have (height,
+// weight, address, the venue's phone, address, description and website) are ignored.
 
 const registerRequired = z.looseObject(
   {
@@ -88,70 +71,23 @@ const playerRegistration = z.object({
   email: z.string(),
   password: z.string(),
   role: z.literal('PLAYER'),
-  name: requiredText({ required: 'Name is required for PLAYER', notText: 'Name must be text' }).refine(
-    lengthBetween(PLAYER_NAME),
-    { error: `Name must be between ${PLAYER_NAME.min} and ${PLAYER_NAME.max} characters` },
-  ),
+  name: playerName('Name is required for PLAYER'),
   profileData: z.object(
     {
-      phone: phone(PLAYER_REQUIRED),
-      position: requiredText({ required: PLAYER_REQUIRED, notText: 'Position must be text' }).refine(
-        (text) => charCount(text) <= POSITION_MAX,
-        { error: `Position must be at most ${POSITION_MAX} characters` },
-      ),
-      height: optionalMeasurement({
-        min: 100,
-        max: 250,
-        notNumber: 'Height must be a number',
-        outOfRange: 'Height must be between 100 and 250 cm',
-      }),
-      weight: optionalMeasurement({
-        min: 30,
-        max: 200,
-        notNumber: 'Weight must be a number',
-        outOfRange: 'Weight must be between 30 and 200 kg',
-      }),
-      address: optionalText({
-        max: PLAYER_ADDRESS_MAX,
-        notText: 'Address must be text',
-        tooLong: `Address must be at most ${PLAYER_ADDRESS_MAX} characters`,
-      }),
+      phone: requiredPhone(PLAYER_REQUIRED),
+      position: position(PLAYER_REQUIRED),
     },
     { error: PLAYER_REQUIRED },
   ),
+  acceptedTerms,
 });
 
 const ownerRegistration = z.object({
   email: z.string(),
   password: z.string(),
   role: z.literal('OWNER'),
-  profileData: z.object(
-    {
-      indoorName: requiredText({ required: OWNER_REQUIRED, notText: 'Venue name must be text' }).refine(
-        lengthBetween(VENUE_NAME),
-        { error: `Venue name must be between ${VENUE_NAME.min} and ${VENUE_NAME.max} characters` },
-      ),
-      phone: phone(OWNER_REQUIRED),
-      // Required, but stored as sent (not trimmed), as before.
-      address: z
-        .string({ error: (issue) => (isFilled(issue.input) ? 'Address must be text' : OWNER_REQUIRED) })
-        .refine((text) => text !== '', { error: OWNER_REQUIRED })
-        .refine((text) => charCount(text) <= VENUE_ADDRESS_MAX, {
-          error: `Address must be at most ${VENUE_ADDRESS_MAX} characters`,
-        }),
-      description: optionalText({
-        max: VENUE_DESCRIPTION_MAX,
-        notText: 'Description must be text',
-        tooLong: `Description must be at most ${VENUE_DESCRIPTION_MAX} characters`,
-      }),
-      website: optionalText({
-        max: VENUE_WEBSITE_MAX,
-        notText: 'Website must be text',
-        tooLong: `Website must be at most ${VENUE_WEBSITE_MAX} characters`,
-      }),
-    },
-    { error: OWNER_REQUIRED },
-  ),
+  profileData: z.object({ indoorName: venueName(VENUE_NAME_REQUIRED) }, { error: VENUE_NAME_REQUIRED }),
+  acceptedTerms,
 });
 
 export const registerSchema = inStages(

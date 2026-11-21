@@ -69,6 +69,7 @@ describe('POST /auth/register password rules (item 6)', () => {
       password: ARRAY_PASSWORD,
       role: 'PLAYER',
       profileData: { phone: '01700000000', position: 'Forward' },
+      acceptedTerms: true,
     });
 
     assert.equal(res.status, 400);

@@ -220,7 +220,7 @@ So every request that sends data is checked **before** its controller runs:
 
 - The rules are written as **schemas** with the **zod** library, in `src/validation/`: one file per router (`authSchemas.js`, `teamSchemas.js`), plus small shared helpers in `common.js`. A schema says, field by field, what's allowed: "name: text, trimmed, 2 to 50 characters", "height: a number from 100 to 250, or nothing".
 - Each route lists its schema, for example `validate({ body: registerSchema })`. The checker in `src/middleware/validate.js` runs after the rate limits and login checks, and before the controller.
-- If something is wrong, the reply is 400 with **one** short message, the first problem found, such as `{ "error": "Phone number must be exactly 11 digits" }`. The app shows it in an alert.
+- If something is wrong, the reply is 400 with **one** short message, the first problem found, such as `{ "error": "Venue name is required" }`. The app shows it in an alert.
 - If everything is fine, the checked and cleaned values (trimmed, emails lowercased, empty optional fields turned into "nothing") go on `req.valid`. Controllers read only from there, never straight from the request.
 - **Fields the rules don't mention are ignored**, not refused. The app sends a few extras, and they're simply dropped.
 - **Login is the exception to "one clear message":** any badly shaped login gets the same "Invalid email or password" as a wrong password, so login never reveals anything.
@@ -262,9 +262,11 @@ The tables are described in `backend/prisma/schema.prisma`. Changes to that file
 
 ### The tables in plain words
 
-- **User:** one row per account. Holds the email, the hashed password, the role (`PLAYER`, `OWNER` or `ADMIN`), whether the email is verified, and temporary tokens for email verification and password reset, each with an expiry time. The tokens are stored only as SHA-256 hashes (see "Tokens are stored hashed" in section 4), and both token columns have an index so lookups stay fast. It also holds a **token version** (`tokenVersion`, a number starting at 0). Every login token carries a copy of it. Increasing it cancels all of that account's login tokens at once, which logs the account out on every phone (see "How login works" in section 4).
-- **PlayerProfile:** extra details for a player: name, phone, playing position, and optional height, weight and address. Each player has exactly one.
-- **OwnerProfile:** extra details for a venue owner: indoor (venue) name, phone, address, and optional description and website. Each owner has exactly one.
+- **User:** one row per account. Holds the email, the hashed password, the role (`PLAYER`, `OWNER` or `ADMIN`), whether the email is verified, and temporary tokens for email verification and password reset, each with an expiry time. The tokens are stored only as SHA-256 hashes (see "Tokens are stored hashed" in section 4), and both token columns have an index so lookups stay fast. It also holds a **token version** (`tokenVersion`, a number starting at 0). Every login token carries a copy of it. Increasing it cancels all of that account's login tokens at once, which logs the account out on every phone (see "How login works" in section 4). **`termsAcceptedAt`** records when the user ticked "I agree to the Terms of Use and Privacy Policy" at sign-up; it's empty for accounts made before the checkbox existed and for the admin.
+- **PlayerProfile:** extra details for a player: name, phone, playing position, and optional height, weight and **area** (their neighbourhood, like "Dhanmondi 27", never a full address). The position is one of a fixed list: Goalkeeper, Defender, Midfielder, Forward or Any. Each player has exactly one.
+- **OwnerProfile:** extra details for a venue owner: indoor (venue) name, and optional phone, address, description and website (a new owner signs up with only the venue name and fills in the rest later). Each owner has exactly one.
+
+The migration `20261121204305_profiles_registration` made these profile changes. It was written by hand so nothing was lost: the old free-text positions were converted to the list (for example "gk" became Goalkeeper and "ATT" became Forward; anything unclear became Any), and the old player `address` column was renamed to `area` with its values kept.
 - **Team:** a team's name, optional description, its captain (`captainId`), and when it was created. The creator becomes the captain. `captainId` is the only place the captain is recorded, so a team can never have two captains or none. It has an index, so finding a player's teams stays fast.
 - **TeamMember:** links a user to a team. It has a `status`, which can only be `pending` (invited but not yet in) or `accepted` (in the team); the database refuses any other value. It also records:
   - **`origin`:** how the membership started: `invite` (the captain invited the player), `request` (the player asked to join) or `creator` (the captain's own row, made with the team).
@@ -440,17 +442,18 @@ When any request that carried the token gets a 401 (for example the token's 30 d
 
 ### Registration and email verification
 
-1. On the Login screen, the user taps **Signup**, picks Player or Owner, and fills in the form (`PlayerRegisterScreen.js` or `OwnerRegisterScreen.js`). The screen checks required fields, an 11-digit phone number, height and weight ranges (players only) and that the two passwords match. It doesn't check password strength; the backend does that.
-2. The app sends `POST /auth/register` with email, password, role and the profile details.
+1. On the Login screen, the user taps **Signup**, picks Player or Owner, and fills in the form (`PlayerRegisterScreen.js` or `OwnerRegisterScreen.js`). _Until task F2.2 rebuilds these screens, sign-up from the app fails: the old screens don't send the Terms of Use agreement the backend now requires, and the backend never assumes it._
+2. The app sends `POST /auth/register` with email, password, role, the short profile details and `acceptedTerms: true` (the ticked Terms box).
 3. Before the controller runs, `registerSchema` (`src/validation/authSchemas.js`) checks the request (see "How requests are checked"). Every field must be the right type, and the checks run in this order, so a request with several problems gets the first one's message:
    - email, password, role and profile details are all there ("Email, password, role, and profileData are required")
    - the role is PLAYER or OWNER
    - the email is lowercased and trimmed (`normalizeEmail` in `src/utils/email.js`, so `Test@Example.com ` and `test@example.com` are the same account; login, forgot password, resend verification and the admin script do the same), looks like an email address, and is at most 254 characters
    - the password passes the strength rule (at least 8 characters with upper case, lower case, a number and a symbol) and is at most 72 bytes
-   - the profile: for a player, a name of 2–50 characters, an 11-digit phone, a position of at most 30 characters, height 100–250 cm and weight 30–200 kg (numbers, optional), and an address of at most 100 characters (optional). For a venue owner, a venue name of 2–60 characters, an 11-digit phone, an address of at most 200 characters, and optional description (at most 500) and website (at most 200). Names and position are trimmed; an empty optional field is saved as nothing.
+   - the profile (the short sign-up forms): for a player, a name of 2–50 characters, a Bangladeshi mobile number (01, then a digit from 3 to 9, then 8 more digits, like 01712345678) and a position from the list (Goalkeeper, Defender, Midfielder, Forward, Any, spelled exactly like that). For a venue owner, only a venue name of 2–60 characters. Names are trimmed. Anything else the app sends (an old form's height or address, say) is ignored.
+   - last, the Terms box: `acceptedTerms` must be exactly `true` ("Please accept the Terms of Use and Privacy Policy").
 
    Then the controller checks that the email is new ("Email already registered").
-4. It saves the User and their profile in a single step, with `verified` set to false. It also saves the hash of a new random verification token and an expiry 24 hours away.
+4. It saves the User and their profile in a single step, with `verified` set to false and `termsAcceptedAt` set to now. It also saves the hash of a new random verification token and an expiry 24 hours away.
 5. It emails a link containing the token itself to `BACKEND_PUBLIC_URL/auth/verify?token=…` through Gmail. If sending fails, the account still exists, so the reply is still a success (201). It says "Account created, but we couldn't send the verification email. Use 'Resend verification email' on the login screen." The error is logged on the server.
 6. Clicking the link opens the backend in a browser. If the token isn't shaped like one the backend makes (64 lowercase hex characters), it shows an "Invalid or expired link" page without touching the database. It shows the same page if no user has that token's hash, or if the link is more than 24 hours old, with a hint to request a new email from the app's login screen. Otherwise it marks the user verified, clears the token and its expiry, and shows an "Email verified" page telling them they can now log in in the app.
 
@@ -595,7 +598,7 @@ The mobile app has no config file. Its backend address lives in `IndoorFootballA
 | The rate limits (how many tries, how long) | `backend/src/middleware/rateLimits.js` |
 | What clients see when something goes wrong | `backend/src/middleware/errorHandler.js` |
 | Security headers (helmet) or the trust proxy setting | `backend/src/server.js` |
-| Registration rules (required fields, lengths, phone, height, weight) | `backend/src/validation/authSchemas.js` (`registerSchema`), plus the register screens |
+| Registration rules (required fields, lengths, phone, position, Terms) | `backend/src/validation/authSchemas.js` (`registerSchema`) and the shared profile fields in `backend/src/validation/profileFields.js`, plus the register screens |
 | The password strength rule (registration, reset and the admin script) | `backend/src/utils/password.js` |
 | How emails are lowercased and trimmed | `backend/src/utils/email.js` |
 | What deleting a user or a team removes | `backend/src/utils/deletion.js` |

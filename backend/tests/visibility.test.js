@@ -29,12 +29,12 @@ function allKeys(value, keys = new Set()) {
   return keys;
 }
 
-// A player with a full profile (phone and an address that might be a home address).
+// A player with a full profile (phone and an area).
 const playerWithProfile = (t, extra = {}) =>
   createLoggedInUser(t, {
     role: 'PLAYER',
     playerProfile: {
-      create: { name: 'Test Player', phone: '01700000000', position: 'Forward', height: 175, weight: null, address: '12 Private Road, Dhaka' },
+      create: { name: 'Test Player', phone: '01700000000', position: 'Forward', height: 175, weight: null, area: 'Dhanmondi 27' },
     },
     ...extra,
   });
@@ -125,14 +125,14 @@ describe('Other users never see email, phone or address', () => {
 });
 
 describe('Yourself and the admin see everything', () => {
-  test('GET /players/me shows your own email, phone and address', async (t) => {
+  test('GET /players/me shows your own email, phone and area', async (t) => {
     const player = await playerWithProfile(t);
 
     const me = await get('/players/me', player.jwt);
 
     assert.equal(me.email, player.user.email);
     assert.equal(me.playerProfile.phone, '01700000000');
-    assert.equal(me.playerProfile.address, '12 Private Road, Dhaka');
+    assert.equal(me.playerProfile.area, 'Dhanmondi 27');
   });
 
   test('admin routes still return emails and venue details', async (t) => {

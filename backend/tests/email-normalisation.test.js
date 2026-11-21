@@ -15,6 +15,7 @@ const registerPlayer = (email) =>
   postJson('/auth/register', {
     name: 'Case Test', email, password: PASSWORD, role: 'PLAYER',
     profileData: { phone: '01700000000', position: 'Forward' },
+    acceptedTerms: true,
   });
 
 // A made-up address in two spellings: the stored (lowercase) one, and a messy one with

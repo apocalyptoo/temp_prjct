@@ -20,6 +20,7 @@ describe('Registration when the email fails to send', () => {
     const res = await postJson('/auth/register', {
       name: 'Test Player', email, password: 'Valid-pass-123!', role: 'PLAYER',
       profileData: { phone: '01700000000', position: 'Forward' },
+      acceptedTerms: true,
     });
     const body = await res.json();
 

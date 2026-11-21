@@ -24,13 +24,3 @@ export const requiredText = ({ required, notText }) =>
     .string({ error: (issue) => (isFilled(issue.input) ? notText : required) })
     .trim()
     .refine((text) => text !== '', { error: required });
-
-// Optional text: missing, null or '' becomes null; anything else must be text of at
-// most `max` characters. Not trimmed (the stored value stays as sent).
-export const optionalText = ({ max, notText, tooLong }) =>
-  z
-    .preprocess(
-      (value) => (value === '' || value === undefined ? null : value),
-      z.string({ error: notText }).nullable(),
-    )
-    .refine((text) => text === null || charCount(text) <= max, { error: tooLong });
