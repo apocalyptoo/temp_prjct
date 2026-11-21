@@ -11,13 +11,11 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
 import api from '../../api/api';
 import { AuthContext } from '../../contexts/AuthContext';
 
 export default function OwnerProfileScreen() {
   const { user } = useContext(AuthContext);
-  const navigation = useNavigation();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -76,25 +74,6 @@ export default function OwnerProfileScreen() {
           <Text style={styles.badgeText}>Indoor Owner</Text>
         </View>
       </LinearGradient>
-
-      {/* ── Quick Actions ── */}
-      <View style={styles.actionsRow}>
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate('AllTeams')}
-        >
-          <Ionicons name="people-outline" size={24} color="#1E3A8A" />
-          <Text style={styles.actionLabel}>Teams</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate('Indoors')}
-        >
-          <Ionicons name="business-outline" size={24} color="#1E3A8A" />
-          <Text style={styles.actionLabel}>Indoors</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* ── Contact Info Card ── */}
       <View style={styles.section}>
@@ -222,28 +201,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginLeft: 4,
-  },
-
-  // Quick Actions
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginHorizontal: 16,
-    marginTop: -20,
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    paddingVertical: 16,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  actionBtn: { alignItems: 'center', gap: 6 },
-  actionLabel: {
-    fontSize: 12,
-    color: '#1E3A8A',
-    fontWeight: '600',
-    marginTop: 4,
   },
 
   // Sections

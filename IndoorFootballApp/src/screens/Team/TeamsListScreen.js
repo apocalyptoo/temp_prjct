@@ -59,7 +59,14 @@ export default function TeamsListScreen({ navigation }) {
         {canCreateTeam && (
           <TouchableOpacity
             style={styles.createButton}
-            onPress={() => navigation.navigate('CreateTeam')}
+            // Create Team lives in the My Teams tab; initial: false keeps My Teams
+            // under it, so going back after creating shows the new team there.
+            onPress={() =>
+              navigation.navigate('MyTeamsTab', {
+                screen: 'CreateTeam',
+                initial: false,
+              })
+            }
           >
             <Text style={styles.createButtonText}>+ Create Team</Text>
           </TouchableOpacity>

@@ -88,6 +88,12 @@ The current app puts only Profile and Settings in the bottom bar, and hides ever
 
 **Language:** English only in v1.0.
 
+**Interim screens (until their Step 3 feature):** the bottom tabs exist now (ROADMAP Step 2), but some tabs show stand-ins:
+- Player and owner **Explore**: three rows (Teams, Players, Venues) opening the old lists. Replaced by the Explore feature (sections with search; venues also filter by area).
+- Player **Notifications**: the old Invites screen. Owner **Notifications**: "No notifications yet." Both replaced by the Notifications feature.
+- Owner **Profile**: the Settings screen. Replaced by a proper owner profile with profile editing.
+- Admin **Reports**: "Reports arrive with moderation." Replaced by the moderation feature.
+
 **New screens in v1.0:** Notifications, Edit profile, Change password, Delete account, Blocked players, Player detail, Venue detail, report form, suspension message, Terms checkbox at registration, admin Reports, admin Pending venues. Team detail gains pending requests, Leave team and Transfer captaincy.
 
 **Visual design:** the "Floodlight" look (dark, with a neon-lime accent). The full design system is in `docs/DESIGN.md`. All visual values live in theme tokens, so the look can change later without touching screens.

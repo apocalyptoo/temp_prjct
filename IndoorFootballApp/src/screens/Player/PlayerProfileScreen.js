@@ -5,18 +5,15 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  TouchableOpacity,
   RefreshControl,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
 import api from '../../api/api';
 import { AuthContext } from '../../contexts/AuthContext';
 
 export default function PlayerProfileScreen() {
   const { user } = useContext(AuthContext);
-  const navigation = useNavigation();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -77,49 +74,6 @@ export default function PlayerProfileScreen() {
           <Text style={styles.badgeText}>Player</Text>
         </View>
       </LinearGradient>
-
-      {/* ── Quick Actions ── */}
-      <View style={styles.actionsRow}>
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate('Teams')}
-        >
-          <Ionicons name="people-outline" size={24} color="#1E3A8A" />
-          <Text style={styles.actionLabel}>Teams</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate('MyTeams')}
-        >
-          <Ionicons name="shield-outline" size={24} color="#1E3A8A" />
-          <Text style={styles.actionLabel}>My Teams</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate('Players')}
-        >
-          <Ionicons name="person-outline" size={24} color="#1E3A8A" />
-          <Text style={styles.actionLabel}>Players</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate('Invites')}
-        >
-          <Ionicons name="mail-outline" size={24} color="#1E3A8A" />
-          <Text style={styles.actionLabel}>Invites</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate('Indoors')}
-        >
-          <Ionicons name="business-outline" size={24} color="#1E3A8A" />
-          <Text style={styles.actionLabel}>Indoors</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* ── Player Info Card ── */}
       <View style={styles.section}>
@@ -268,28 +222,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginLeft: 4,
-  },
-
-  // Quick Actions
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginHorizontal: 16,
-    marginTop: -20,
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    paddingVertical: 16,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  actionBtn: { alignItems: 'center' },
-  actionLabel: {
-    fontSize: 11,
-    color: '#1E3A8A',
-    fontWeight: '600',
-    marginTop: 4,
   },
 
   // Sections

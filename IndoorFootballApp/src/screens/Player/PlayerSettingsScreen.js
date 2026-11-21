@@ -104,7 +104,8 @@ export default function PlayerSettingsScreen({ navigation }) {
             icon="person-outline"
             label="Profile"
             sublabel="View your profile info"
-            onPress={() => navigation.navigate('PlayerProfile')}
+            // Settings is opened from Profile, so going back shows the profile.
+            onPress={() => navigation.goBack()}
           />
           <View style={styles.divider} />
           <SettingsItem

@@ -1,0 +1,304 @@
+/* eslint-env jest */
+// Smoke tests for the bottom-tab navigators (src/navigation): one per role. Each renders
+// the real navigator with a signed-in user and a fake API, checks the tab labels,
+// switches tabs through our TabBar, opens a pushed screen, and checks what Android's
+// back button does (React Navigation calls goBack when it can, else the app closes).
+
+import React from 'react';
+import { Text as NativeText } from 'react-native';
+import ReactTestRenderer from 'react-test-renderer';
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+} from '@react-navigation/native';
+import { ThemeProvider } from '../src/theme/ThemeProvider';
+import { AuthContext } from '../src/contexts/AuthContext';
+import PlayerNavigator from '../src/navigation/PlayerNavigator';
+import OwnerNavigator from '../src/navigation/OwnerNavigator';
+import AdminNavigator from '../src/navigation/AdminNavigator';
+import api from '../src/api/api';
+
+jest.mock('../src/api/api', () => ({
+  __esModule: true,
+  default: { get: jest.fn(), post: jest.fn(), delete: jest.fn() },
+  setSessionExpiredHandler: jest.fn(),
+}));
+
+const PLAYER = {
+  id: 10,
+  name: 'Rahim Uddin',
+  email: 'rahim@example.com',
+  role: 'PLAYER',
+};
+const OWNER = {
+  id: 20,
+  name: 'Arena One',
+  email: 'arena@example.com',
+  role: 'OWNER',
+};
+const ADMIN = {
+  id: 30,
+  name: 'Admin',
+  email: 'admin@example.com',
+  role: 'ADMIN',
+};
+
+const TEAM = {
+  id: 1,
+  name: 'Dhanmondi Strikers',
+  description: 'Weekend crew',
+  captainId: PLAYER.id,
+  createdAt: '2026-11-20T10:00:00.000Z',
+  members: [
+    {
+      id: 1,
+      teamId: 1,
+      userId: PLAYER.id,
+      status: 'accepted',
+      createdAt: '2026-11-20T10:00:00.000Z',
+      user: { id: PLAYER.id, name: PLAYER.name },
+    },
+  ],
+  pendingInvites: [],
+};
+
+// Fake server replies, by path. Anything else gets an empty list.
+const REPLIES = {
+  '/teams/me': [TEAM],
+  '/players/me': {
+    id: PLAYER.id,
+    email: PLAYER.email,
+    playerProfile: {
+      name: PLAYER.name,
+      phone: '01700000000',
+      position: 'Midfielder',
+    },
+  },
+  '/owners/me': {
+    userId: OWNER.id,
+    indoorName: 'Arena One',
+    phone: '01800000000',
+    address: 'Road 1',
+  },
+  '/admin/stats': {
+    totalUsers: 3,
+    totalPlayers: 1,
+    totalOwners: 1,
+    totalTeams: 1,
+  },
+};
+
+// The old screens update their state after their (fake) loads finish, which React
+// reports as "not wrapped in act(...)". That message is noise here; every other error
+// still shows.
+const realConsoleError = console.error;
+beforeAll(() => {
+  jest.spyOn(console, 'error').mockImplementation((...args) => {
+    if (String(args[0]).includes('not wrapped in act')) return;
+    realConsoleError(...args);
+  });
+});
+afterAll(() => console.error.mockRestore());
+
+beforeEach(() => {
+  api.get.mockImplementation(path =>
+    Promise.resolve({ data: REPLIES[path] ?? [] }),
+  );
+});
+
+// Lets pending fetches, their state updates and focus effects finish.
+const settle = () =>
+  ReactTestRenderer.act(async () => {
+    for (let i = 0; i < 5; i += 1) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+  });
+
+async function renderNavigator(Navigator, user) {
+  const navigationRef = createNavigationContainerRef();
+  let renderer;
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(
+      <ThemeProvider>
+        <AuthContext.Provider value={{ user, logout: jest.fn() }}>
+          <NavigationContainer ref={navigationRef}>
+            <Navigator />
+          </NavigationContainer>
+        </AuthContext.Provider>
+      </ThemeProvider>,
+    );
+  });
+  await settle();
+  return { renderer, navigationRef };
+}
+
+// The tab buttons in our TabBar, by label.
+const tabButtons = renderer =>
+  renderer.root.findAll(
+    node =>
+      node.props.accessibilityRole === 'tab' &&
+      typeof node.props.onPress === 'function' &&
+      typeof node.props.onLongPress === 'function',
+  );
+const tabLabels = renderer =>
+  tabButtons(renderer).map(tab => tab.props.accessibilityLabel);
+
+async function pressTab(renderer, label) {
+  const tab = tabButtons(renderer).find(
+    t => t.props.accessibilityLabel === label,
+  );
+  await ReactTestRenderer.act(() => tab.props.onPress());
+  await settle();
+}
+
+// Presses the nearest tappable thing around the given text.
+async function pressText(renderer, text) {
+  const textNode = renderer.root
+    .findAllByType(NativeText)
+    .find(node => [].concat(node.props.children).join('') === text);
+  let node = textNode;
+  while (node && typeof node.props.onPress !== 'function') node = node.parent;
+  await ReactTestRenderer.act(() => node.props.onPress());
+  await settle();
+}
+
+const current = navigationRef => navigationRef.getCurrentRoute().name;
+
+async function goBack(navigationRef) {
+  await ReactTestRenderer.act(() => navigationRef.goBack());
+  await settle();
+}
+
+describe('Player navigator', () => {
+  test('tabs, a pushed screen with the tab bar still shown, and Android back', async () => {
+    const { renderer, navigationRef } = await renderNavigator(
+      PlayerNavigator,
+      PLAYER,
+    );
+
+    expect(tabLabels(renderer)).toEqual([
+      'My Teams',
+      'Explore',
+      'Notifications',
+      'Profile',
+    ]);
+    expect(current(navigationRef)).toBe('MyTeams');
+
+    // Open a team: Team detail is pushed inside the My Teams tab, and the tab bar stays.
+    await pressText(renderer, 'Dhanmondi Strikers');
+    expect(current(navigationRef)).toBe('TeamDetail');
+    expect(tabLabels(renderer)).toHaveLength(4);
+
+    // Back inside a tab goes back within it.
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('MyTeams');
+
+    // Explore opens its lists inside the Explore tab.
+    await pressTab(renderer, 'Explore');
+    expect(current(navigationRef)).toBe('Explore');
+    await pressText(renderer, 'Players');
+    expect(current(navigationRef)).toBe('Players');
+
+    // Pressing the tab you're on goes back to its first screen.
+    await pressTab(renderer, 'Explore');
+    expect(current(navigationRef)).toBe('Explore');
+
+    // From the first screen of another tab, back goes to the first tab…
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('MyTeams');
+    // …and from there there's nothing to go back to, so Android leaves the app.
+    expect(navigationRef.canGoBack()).toBe(false);
+
+    // "+ Create Team" on the team list (Explore tab) jumps to Create Team in the
+    // My Teams tab, with My Teams under it, so going back lands on My Teams.
+    await pressTab(renderer, 'Explore');
+    await pressText(renderer, 'Teams');
+    expect(current(navigationRef)).toBe('Teams');
+    await pressText(renderer, '+ Create Team');
+    expect(current(navigationRef)).toBe('CreateTeam');
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('MyTeams');
+
+    // Notifications shows the invites screen; Profile has the Settings gear.
+    await pressTab(renderer, 'Notifications');
+    expect(current(navigationRef)).toBe('Invites');
+    await pressTab(renderer, 'Profile');
+    expect(current(navigationRef)).toBe('PlayerProfile');
+    const gear = renderer.root.findAll(
+      node =>
+        node.props.accessibilityLabel === 'Settings' &&
+        typeof node.props.onPress === 'function',
+    )[0];
+    await ReactTestRenderer.act(() => gear.props.onPress());
+    await settle();
+    expect(current(navigationRef)).toBe('PlayerSettings');
+  });
+});
+
+describe('Owner navigator', () => {
+  test('tabs, Explore lists and the interim screens', async () => {
+    const { renderer, navigationRef } = await renderNavigator(
+      OwnerNavigator,
+      OWNER,
+    );
+
+    expect(tabLabels(renderer)).toEqual([
+      'My Venue',
+      'Explore',
+      'Notifications',
+      'Profile',
+    ]);
+    expect(current(navigationRef)).toBe('OwnerProfile');
+
+    await pressTab(renderer, 'Explore');
+    await pressText(renderer, 'Venues');
+    expect(current(navigationRef)).toBe('Indoors');
+    expect(tabLabels(renderer)).toHaveLength(4);
+
+    await pressTab(renderer, 'Notifications');
+    expect(current(navigationRef)).toBe('OwnerNotifications');
+    expect(
+      renderer.root
+        .findAllByType(NativeText)
+        .some(node => node.props.children === 'No notifications yet.'),
+    ).toBe(true);
+
+    await pressTab(renderer, 'Profile');
+    expect(current(navigationRef)).toBe('OwnerSettings');
+
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('OwnerProfile');
+  });
+});
+
+describe('Admin navigator', () => {
+  test('five tabs, each opening its screen', async () => {
+    const { renderer, navigationRef } = await renderNavigator(
+      AdminNavigator,
+      ADMIN,
+    );
+
+    expect(tabLabels(renderer)).toEqual([
+      'Dashboard',
+      'Reports',
+      'Venues',
+      'Users',
+      'Teams',
+    ]);
+    expect(current(navigationRef)).toBe('AdminDashboard');
+
+    const expected = {
+      Reports: 'AdminReports',
+      Venues: 'ManageIndoors',
+      Users: 'ManageUsers',
+      Teams: 'ManageTeams',
+    };
+    for (const [label, route] of Object.entries(expected)) {
+      await pressTab(renderer, label);
+      expect([label, current(navigationRef)]).toEqual([label, route]);
+    }
+
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('AdminDashboard');
+  });
+});

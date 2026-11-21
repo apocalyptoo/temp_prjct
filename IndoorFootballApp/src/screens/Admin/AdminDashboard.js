@@ -25,23 +25,7 @@ const StatCard = ({ icon, label, value, color = '#1E3A8A' }) => (
   </View>
 );
 
-const ActionBtn = ({ icon, label, onPress }) => (
-  <TouchableOpacity
-    style={styles.actionBtn}
-    onPress={onPress}
-    activeOpacity={0.8}
-  >
-    <LinearGradient
-      colors={['#FFFFFF', '#a1d3f5ff']}
-      style={styles.actionGradient}
-    >
-      <Ionicons name={icon} size={32} color="#1E3A8A" />
-      <Text style={styles.actionLabel}>{label}</Text>
-    </LinearGradient>
-  </TouchableOpacity>
-);
-
-export default function AdminDashboard({ navigation }) {
+export default function AdminDashboard() {
   const { logout, user } = useContext(AuthContext);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -150,28 +134,6 @@ export default function AdminDashboard({ navigation }) {
         )}
       </View>
 
-      {/* ── Action Grid ── */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Management</Text>
-        <View style={styles.actionGrid}>
-          <ActionBtn
-            icon="people-outline"
-            label="Users"
-            onPress={() => navigation.navigate('ManageUsers')}
-          />
-          <ActionBtn
-            icon="people-circle-outline"
-            label="Teams"
-            onPress={() => navigation.navigate('ManageTeams')}
-          />
-          <ActionBtn
-            icon="business-outline"
-            label="Indoors"
-            onPress={() => navigation.navigate('ManageIndoors')}
-          />
-        </View>
-      </View>
-
       <View style={{ height: 40 }} />
     </ScrollView>
   );
@@ -275,31 +237,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginBottom: 12,
     marginLeft: 4,
-  },
-  actionGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  actionBtn: {
-    flex: 1,
-    borderRadius: 18,
-    overflow: 'hidden',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-  },
-  actionGradient: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
-    borderRadius: 18,
-  },
-  actionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1E3A8A',
-    marginTop: 8,
   },
 });

@@ -327,7 +327,8 @@ IndoorFootballApp/
 │   ├── contexts/        AuthContext.js: who is logged in
 │   ├── navigation/      which screens exist for each role
 │   ├── screens/         one file per screen, grouped by area
-│   │   (Auth, Player, Owner, Team, Admin; Dev holds the developer-only UI gallery)
+│   │   (Auth, Player, Owner, Team, Admin; Shared holds the Explore screen; Dev holds
+│   │   the developer-only UI gallery)
 │   ├── theme/           the look: colours, fonts, sizes (see "The theme" below)
 │   └── utils/storage.js saves and reads the login token
 ├── android/             the native Android project
@@ -353,7 +354,7 @@ The status bar always shows white icons on the dark background, whatever the pho
 
 Screens are built from ready-made pieces in `src/components/ui/`, so each piece looks the same everywhere and is styled in one place. A screen imports them from one place: `import { Screen, Text, Button } from '../../components/ui';`.
 
-- **Layout and text:** `Screen` (the dark background, side padding, room for the status bar, optional scrolling), `Text` (every piece of text, with a style name such as `body` or `display`), `ScreenHeader`, `SectionHeader`, `Divider`.
+- **Layout and text:** `Screen` (the dark background, side padding, room for the status bar, optional scrolling), `Text` (every piece of text, with a style name such as `body` or `display`), `ScreenHeader`, `SectionHeader`, `Divider`, `TabBar` (the bottom tab bar).
 - **Actions:** `Button` (main, secondary or danger; with a `loading` state that shows a spinner and ignores taps while a request runs), `IconButton` (approve, reject or plain), `TextLink`, `BackLink`.
 - **Content:** `Card`, `ListRow`, `Avatar` (initials in a circle), `Pill`, `Badge`, `NoticeLine` ("● 2 join requests waiting for you"), `EmptyState`, `Icon`.
 - **Forms and questions:** `TextField` (label, error message, password show/hide), `ConfirmDialog` ("Delete this team?" with Cancel and Confirm).
@@ -383,12 +384,22 @@ The login state lives in a **context** (`AuthContext.js`). A React context is a 
 
 ```
 no user logged in  → AuthStack        (Login, role choice, Player/Owner register, Forgot password)
-user.role PLAYER   → PlayerNavigator
-user.role OWNER    → OwnerNavigator
-user.role ADMIN    → AdminStack       (Dashboard, Manage Users/Teams/Indoors)
+user.role PLAYER   → PlayerNavigator  tabs: My Teams · Explore · Notifications · Profile
+user.role OWNER    → OwnerNavigator   tabs: My Venue · Explore · Notifications · Profile
+user.role ADMIN    → AdminNavigator   tabs: Dashboard · Reports · Venues · Users · Teams
 ```
 
-Player and Owner use the same pattern: a stack whose first screen is a tab bar with **Profile** and **Settings**. The Profile screen has buttons that push other screens onto the stack. Players get Teams, My Teams, Players, Invites and Indoors. Owners get Teams and Indoors.
+Each logged-in role gets a **bottom tab bar** (our own `TabBar` component), and **each tab has its own stack**. So when you open a team from My Teams, Team detail is put on top of the My Teams stack and the tab bar stays visible. Each tab remembers where you were: switching to Explore and back keeps you on Team detail. Tapping the tab you're already on takes you back to that tab's first screen.
+
+What each tab holds today:
+- **Player:** My Teams (your teams → team detail → add member; create team), Explore, Notifications (for now the old Invites screen), Profile (with a gear button in the header that opens Settings).
+- **Venue owner:** My Venue (the owner profile, which shows the venue listing), Explore (read-only for owners), Notifications (for now just "No notifications yet."), Profile (for now the Settings screen).
+- **Admin:** Dashboard, Reports (for now just "Reports arrive with moderation."), Venues, Users and Teams (the old management screens).
+- **Explore** (players and owners) is for now a simple screen with three rows, Teams, Players and Venues, opening the old lists.
+
+These "for now" screens are placeholders; the Step 3 features replace them (see PRODUCT.md, "App structure and navigation"). The old screens keep their old look and headers until they're restyled, so the app looks mixed for a while.
+
+**Android back button:** inside a tab it goes back one screen in that tab. On the first screen of any other tab, it goes to the first tab. On the first tab's first screen, it leaves the app.
 
 Because the screen set swaps as soon as `user` changes, logging in or out instantly moves you to the right part of the app.
 
@@ -523,7 +534,7 @@ The mobile app has no config file. Its backend address lives in `IndoorFootballA
 |---|---|
 | Which backend address the app uses | `IndoorFootballApp/src/api/api.js` |
 | A screen's look or behaviour | `IndoorFootballApp/src/screens/<Area>/<Name>Screen.js` |
-| Which screens a role can reach | `IndoorFootballApp/src/navigation/<Role>Navigator.js` (or `AdminStack.js`, `AuthStack.js`) |
+| Which screens a role can reach | `IndoorFootballApp/src/navigation/<Role>Navigator.js` (Player, Owner, Admin; shared tab settings in `tabs.js`, the shared Explore tab in `ExploreStack.js`), or `AuthStack.js` when logged out |
 | What happens on login or logout in the app | `IndoorFootballApp/src/contexts/AuthContext.js` |
 | How the token is saved on the phone | `IndoorFootballApp/src/utils/storage.js` |
 | A backend address (URL path) | `backend/src/routes/<area>Routes.js` |

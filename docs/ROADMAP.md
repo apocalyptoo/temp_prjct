@@ -101,7 +101,7 @@ Existing screens keep working inside the new tabs.
 - [x] 4.5 Shared components in `src/components/ui/` (DESIGN.md sections 2 and 6). The shared Button has a loading state (spinner, taps blocked while a request runs). Every button that sends a request uses it. Today the register, forgot-password and resend buttons give no feedback, and a second tap on Register gets 'Email already registered'. (done 2026-11-21: 19 components, tests in `__tests__/components-*.test.js` including a guard against raw colours and font names, and a dev-only UI gallery. The register, forgot-password and resend screens start using the loading Button when they're restyled or rebuilt in Step 3; until then they still give no feedback)
 - [x] Add Barlow Condensed and Inter font files (done 2026-11-20 with 4.3: static .ttf files from Google Fonts in `IndoorFootballApp/assets/fonts/`, copied by hand into the Android assets)
 - [x] The Android window theme (`AppTheme`, DayNight) follows the phone's setting, so a white window can show at launch before the first screen. Make it dark (found in 4.3; not fixed there). (done 2026-11-21: `windowBackground` and `statusBarColor` are `@color/app_background`, the same as `bg`; the parent stays DayNight, see the item at the end of Step 4; the start-up views now paint the theme background)
-- [ ] Rebuild navigation as bottom tabs per role, as described in PRODUCT.md
+- [x] 4.6 Rebuild navigation as bottom tabs per role, as described in PRODUCT.md (done 2026-11-21: `TabBar` component, a stack per tab, interim Explore, Notifications, owner Profile and admin Reports screens listed in PRODUCT.md; `__tests__/navigation.test.js`)
 
 ### Step 3: Features, one at a time
 
@@ -114,22 +114,23 @@ Rule: write a short spec in `docs/features/` before building each feature below.
 **Profiles and registration**
 - [ ] Shorter registration and position list, built together with profile editing: short player and owner sign-up forms (DECISIONS.md 2026-11-20), position picker, owner phone and address optional, position enum with mapping of existing values (PRODUCT.md, "Registration"). The position enum is part of this item's migration (DECISIONS.md 2026-11-20, "Phase 4 order").
 - [ ] Rename the player address field to "Area" (keep existing values) (PRODUCT.md, "Profile visibility")
-- [ ] Profile editing (players and venue owners)
+- [ ] Profile editing (players and venue owners), including a proper owner Profile tab (it shows the Settings screen for now)
 - [ ] Change password while logged in. It logs the account out on every other device: increase `tokenVersion` and reply with a fresh token, so the phone that made the change stays logged in (DECISIONS.md 2026-11-20, "Which events log out every device").
 
 **Venues**
 - [ ] Venue listing: add area, opening hours and pricing info fields; admin approval ("Pending review"), only when address, area and phone are filled in (enforced by the backend); missing-fields checklist on My Venue; venue search by name and filter by area (PRODUCT.md, "Venue owners")
 - [ ] Validate owner website URLs (http/https only) on the backend and before `Linking.openURL`
 - [ ] Venue discovery polish
+- [ ] Explore tab: Teams · Players · Venues sections, each with search; venues also filter by area (PRODUCT.md, "App structure and navigation"). Replaces the interim Explore screen with three rows.
 
 **Account deletion**
 - [ ] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion")
 
 **Notifications**
-- [ ] Notifications screen ("Needs your action" + "Updates"), badge, read/unread (PRODUCT.md, "Notifications")
+- [ ] Notifications screen ("Needs your action" + "Updates"), badge, read/unread (PRODUCT.md, "Notifications"). Replaces the interim Notifications tabs (the player's Invites screen, the owner's empty state) and sets the tab's `tabBarBadge`.
 
 **Moderation**
-- [ ] Moderation: Report button and admin Reports screen; Block and unblock (Settings → Blocked players); suspend and unsuspend users (suspending increases `tokenVersion`, so the user is logged out on every device at once); Terms of Use and Privacy Policy checkbox at registration (PRODUCT.md, "Administration and moderation")
+- [ ] Moderation: Report button and admin Reports screen (replacing the interim Reports tab); Block and unblock (Settings → Blocked players); suspend and unsuspend users (suspending increases `tokenVersion`, so the user is logged out on every device at once); Terms of Use and Privacy Policy checkbox at registration (PRODUCT.md, "Administration and moderation")
 
 **Pagination**
 - [ ] Pagination on list endpoints (with the Explore lists)

@@ -7,7 +7,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import AuthStack from './AuthStack';
 import PlayerNavigator from './PlayerNavigator';
 import OwnerNavigator from './OwnerNavigator';
-import AdminStack from './AdminStack';
+import AdminNavigator from './AdminNavigator';
 import {
   StartupLoading,
   ServerUnreachable,
@@ -55,7 +55,7 @@ export default function AppNavigator() {
       ) : user.role === 'OWNER' ? (
         <OwnerNavigator />
       ) : user.role === 'ADMIN' ? (
-        <AdminStack />
+        <AdminNavigator />
       ) : null}
     </NavigationContainer>
   );

@@ -1,73 +1,84 @@
+// Venue owner: bottom tabs My Venue · Explore · Notifications · Profile (docs/PRODUCT.md,
+// "App structure and navigation"). Each tab has its own stack. Explore is read-only for
+// owners (the team list hides Create Team for them).
 import React from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import ExploreStack from './ExploreStack';
+import { tabNavigatorProps } from './tabs';
 import OwnerProfileScreen from '../screens/Owner/OwnerProfileScreen';
+import OwnerNotificationsScreen from '../screens/Owner/OwnerNotificationsScreen';
 import OwnerSettingsScreen from '../screens/Owner/OwnerSettingsScreen';
-import IndoorsListScreen from '../screens/Owner/IndoorsListScreen';
-import TeamsListScreen from '../screens/Team/TeamsListScreen';
 
-const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+const MyVenueStack = createNativeStackNavigator();
+const NotificationsStack = createNativeStackNavigator();
+const ProfileStack = createNativeStackNavigator();
 
-// ── Tabs (private to this file) ──
-function OwnerTabs() {
+// The owner profile screen shows the venue listing.
+function MyVenueTab() {
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarActiveTintColor: '#1E3A8A',
-        tabBarInactiveTintColor: '#aaa',
-        tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopWidth: 0,
-          elevation: 10,
-          height: 60,
-          paddingBottom: 8,
-        },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        tabBarIcon: ({ color, size }) => {
-          let iconName;
-          if (route.name === 'OwnerProfile') iconName = 'person-circle-outline';
-          if (route.name === 'OwnerSettings') iconName = 'settings-outline';
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-      })}
-    >
-      <Tab.Screen
+    <MyVenueStack.Navigator>
+      <MyVenueStack.Screen
         name="OwnerProfile"
         component={OwnerProfileScreen}
-        options={{ title: 'Profile' }}
+        options={{ headerShown: false }}
       />
-      <Tab.Screen
-        name="OwnerSettings"
-        component={OwnerSettingsScreen}
-        options={{ title: 'Settings' }}
-      />
-    </Tab.Navigator>
+    </MyVenueStack.Navigator>
   );
 }
 
-// ── Stack (exported) ──
-export default function OwnerNavigator() {
+// Interim: an empty state until the real Notifications screen (Step 3).
+function NotificationsTab() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: true }}>
-      <Stack.Screen
-        name="OwnerTabs"
-        component={OwnerTabs}
+    <NotificationsStack.Navigator>
+      <NotificationsStack.Screen
+        name="OwnerNotifications"
+        component={OwnerNotificationsScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen
-        name="AllTeams"
-        component={TeamsListScreen}
-        options={{ title: 'All Teams' }}
+    </NotificationsStack.Navigator>
+  );
+}
+
+// Interim: the Settings screen, until profile editing gives owners a real profile
+// (Step 3).
+function ProfileTab() {
+  return (
+    <ProfileStack.Navigator>
+      <ProfileStack.Screen
+        name="OwnerSettings"
+        component={OwnerSettingsScreen}
+        options={{ headerShown: false }}
       />
-      <Stack.Screen
-        name="Indoors"
-        component={IndoorsListScreen}
-        options={{ title: 'Registered Indoors' }}
+    </ProfileStack.Navigator>
+  );
+}
+
+export default function OwnerNavigator() {
+  return (
+    <Tab.Navigator {...tabNavigatorProps}>
+      <Tab.Screen
+        name="MyVenueTab"
+        component={MyVenueTab}
+        options={{ title: 'My Venue', tabBarIconName: 'venue' }}
       />
-    </Stack.Navigator>
+      <Tab.Screen
+        name="ExploreTab"
+        component={ExploreStack}
+        options={{ title: 'Explore', tabBarIconName: 'explore' }}
+      />
+      <Tab.Screen
+        name="NotificationsTab"
+        component={NotificationsTab}
+        options={{ title: 'Notifications', tabBarIconName: 'notifications' }}
+      />
+      <Tab.Screen
+        name="ProfileTab"
+        component={ProfileTab}
+        options={{ title: 'Profile', tabBarIconName: 'profile' }}
+      />
+    </Tab.Navigator>
   );
 }
