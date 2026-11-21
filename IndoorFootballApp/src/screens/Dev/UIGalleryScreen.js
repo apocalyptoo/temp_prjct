@@ -22,6 +22,7 @@ import {
   Screen,
   ScreenHeader,
   SectionHeader,
+  TabBar,
   Text,
   TextField,
   TextLink,
@@ -46,6 +47,47 @@ const TRICKY_NAMES = [
   '👨‍👩‍👧',
   '',
 ];
+
+// A player's tabs, with a stand-in for React Navigation so the bar can be tried here.
+const GALLERY_TABS = [
+  { name: 'MyTeamsTab', title: 'My Teams', icon: 'teams' },
+  { name: 'ExploreTab', title: 'Explore', icon: 'explore' },
+  { name: 'NotificationsTab', title: 'Notifications', icon: 'notifications' },
+  { name: 'ProfileTab', title: 'Profile', icon: 'profile' },
+];
+const NO_INSETS = { top: 0, bottom: 0, left: 0, right: 0 };
+
+function GalleryTabBar({ badge, initialIndex = 0 }) {
+  const [index, setIndex] = useState(initialIndex);
+  const routes = GALLERY_TABS.map(tab => ({ key: tab.name, name: tab.name }));
+  const descriptors = Object.fromEntries(
+    GALLERY_TABS.map(tab => [
+      tab.name,
+      {
+        options: {
+          title: tab.title,
+          tabBarIconName: tab.icon,
+          tabBarBadge: tab.name === 'NotificationsTab' ? badge : undefined,
+        },
+      },
+    ]),
+  );
+  const navigation = {
+    emit: () => ({ defaultPrevented: false }),
+    dispatch: action => {
+      const next = routes.findIndex(r => r.name === action.payload?.name);
+      if (next >= 0) setIndex(next);
+    },
+  };
+  return (
+    <TabBar
+      state={{ key: 'gallery-tabs', index, routes }}
+      descriptors={descriptors}
+      navigation={navigation}
+      insets={NO_INSETS}
+    />
+  );
+}
 
 function Section({ title, children }) {
   const { spacing } = useTheme();
@@ -240,6 +282,11 @@ export default function UIGalleryScreen({ navigation }) {
               disabled
             />
           </Row>
+        </Section>
+
+        <Section title="Tab bar">
+          <GalleryTabBar />
+          <GalleryTabBar badge={3} initialIndex={2} />
         </Section>
 
         <Section title="Pills and badges">
