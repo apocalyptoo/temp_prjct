@@ -153,7 +153,7 @@ Three terms used in this layout:
 | `/auth` | `authRoutes.js` | Register, log in, verify email, forgot/reset password (no login needed), and `GET /auth/me`: who is logged in (needs a token) |
 | `/players` | `playerRoutes.js` | My player profile, my pending invites, my pending join requests, list all players, a player's stats |
 | `/owners` | `ownerRoutes.js` | My owner profile, list all registered venues |
-| `/teams` | `teamRoutes.js` | Create, list, my teams, one team, invite, accept, reject, join requests (ask, cancel, approve, decline), remove member, delete team |
+| `/teams` | `teamRoutes.js` | Create, list, my teams, one team, invite, cancel invite, accept, reject, join requests (ask, cancel, approve, decline), remove member, delete team |
 | `/admin` | `adminRoutes.js` | Stats, list/delete users, list/delete teams, list/delete venues (admins only). Deleting users only works on player and owner accounts, deleting venues only on owner accounts (404 "Venue not found" otherwise), and an admin account, including your own, gets 403 |
 
 There's also `GET /`, which replies "API running" so you can check the server is up.
@@ -185,7 +185,7 @@ There are four layers of checks:
 
 - **Logged in?** `verifyToken` runs on every route except `/auth`.
 - **Admin?** The `isAdmin` middleware runs on every `/admin` route. It rejects anyone whose token role isn't `ADMIN`.
-- **Player?** The `playersOnly` middleware runs on creating a team, inviting, accepting and rejecting. Venue owner and admin accounts get a 403 saying only player accounts can create or join teams.
+- **Player?** The `playersOnly` middleware runs on every team action: creating a team, inviting, accepting, rejecting, the join request actions, removing a member and cancelling an invite. Venue owner and admin accounts get a 403 saying only player accounts can create or join teams.
 - **Everything else** is checked inside the controllers. For example, `/players/me` refuses non-players, and inviting, removing or deleting in a team is refused unless you created that team.
 
 Known security problems in these checks: see [ROADMAP.md](ROADMAP.md), Phase 1.
@@ -484,7 +484,7 @@ Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 3. The invited player sees it in **Invites** (`InvitesScreen.js`, which calls `GET /players/invites`) as "Invited by <captain name> to <team name>". The reply gives each invite's `team.captain` as `{ id, name }`, alongside `team.captainId`: the captain's player name, through the visibility rules (never their email).
 4. **Accept** (`POST /teams/:teamId/accept`) changes the status to `accepted` and records the time in `acceptedAt`, unless the team is full (409 "Team is full (15/15)."; the invite stays pending). **Reject** (`POST /teams/:teamId/reject`) deletes the row. Both only work on a pending invite (never on the player's own join request), and like every membership change they run under the team lock (see "Join requests" below). If there's no pending invite for that player and team, they reply 404 "Invite not found".
 
-The captain can also remove a member (`DELETE /teams/:teamId/members/:userId`) or delete the whole team (`DELETE /teams/:teamId`).
+The captain can **cancel an invite** (`DELETE /teams/:teamId/invites/:userId`; 404 "Invite not found" if it's already gone), **remove a member** (`DELETE /teams/:teamId/members/:userId`, accepted members only, so it can't delete an invite or a join request by mistake) or delete the whole team (`DELETE /teams/:teamId`). Old app screens: Team detail's "cancel invite" calls the invite route, and "remove" calls the member route.
 
 A pending invite isn't membership yet. In the team lists (`GET /teams` and `GET /teams/me`) each team's `members` holds only accepted members. The team's captain also gets a separate `pendingInvites` list, so they can see who they've invited; nobody else gets it. `TeamDetailScreen` shows the captain those invites under the members, labelled "pending", without counting them; the captain can remove a member or cancel an invite from there. The screen reloads its team from `GET /teams/me` whenever it comes into view and after a removal, so it never shows stale data, and goes back if the team is gone. **My Teams** also reloads whenever it comes into view, so a team deleted in Team Detail disappears straight away. **All Teams** shows each team's captain by name: the captain is always one of the team's accepted members, so the app takes the name from the `members` list the backend already sends. The app calls the team's captain **Captain** everywhere (badges, labels, messages). A player's team count (`GET /players/:id`, `totalTeams`) and the admin's member counts also include only accepted memberships. `pendingInvites` holds invites only, never join requests.
 

@@ -26,7 +26,7 @@ describe('Bad team ids get 400', () => {
     }
   });
 
-  test('remove player with a bad team id or a bad player id', async (t) => {
+  test('remove player and cancel invite with a bad team id or a bad player id', async (t) => {
     const captain = await createLoggedInPlayer(t);
     const member = await createLoggedInPlayer(t);
     const team = await (await postJson('/teams/create', { name: 'Id Test' }, captain.jwt)).json();
@@ -34,11 +34,13 @@ describe('Bad team ids get 400', () => {
     await postJson(`/teams/${team.id}/accept`, {}, member.jwt);
 
     for (const badId of BAD_IDS) {
-      const badTeam = await sendDelete(`/teams/${badId}/members/${member.user.id}`, captain.jwt);
-      const badUser = await sendDelete(`/teams/${team.id}/members/${badId}`, captain.jwt);
-      assert.equal(badTeam.status, 400, `team id ${badId}`);
-      assert.equal(badUser.status, 400, `player id ${badId}`);
-      assert.equal((await badUser.json()).error, 'Invalid player id');
+      for (const kind of ['members', 'invites']) {
+        const badTeam = await sendDelete(`/teams/${badId}/${kind}/${member.user.id}`, captain.jwt);
+        const badUser = await sendDelete(`/teams/${team.id}/${kind}/${badId}`, captain.jwt);
+        assert.equal(badTeam.status, 400, `${kind}: team id ${badId}`);
+        assert.equal(badUser.status, 400, `${kind}: player id ${badId}`);
+        assert.equal((await badUser.json()).error, 'Invalid player id');
+      }
     }
     const row = await prisma.teamMember.findUnique({
       where: { teamId_userId: { teamId: team.id, userId: member.user.id } },

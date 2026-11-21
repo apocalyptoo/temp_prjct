@@ -58,7 +58,8 @@ export default function TeamDetailScreen({ route, navigation }) {
   const members = team.members || [];
   const listedPeople = [...members, ...(team.pendingInvites || [])];
 
-  // Removes a member, or cancels a pending invite (same backend call), then reloads.
+  // Removes a member, or cancels a pending invite (each has its own backend call),
+  // then reloads.
   const handleRemovePlayer = (memberId, memberName, isPendingInvite) => {
     Alert.alert(
       isPendingInvite ? 'Cancel Invite' : 'Remove Player',
@@ -73,7 +74,11 @@ export default function TeamDetailScreen({ route, navigation }) {
           onPress: async () => {
             setRemovingId(memberId);
             try {
-              await api.delete(`/teams/${team.id}/members/${memberId}`);
+              await api.delete(
+                isPendingInvite
+                  ? `/teams/${team.id}/invites/${memberId}`
+                  : `/teams/${team.id}/members/${memberId}`,
+              );
               Alert.alert(
                 isPendingInvite ? 'Invite cancelled' : 'Removed',
                 isPendingInvite

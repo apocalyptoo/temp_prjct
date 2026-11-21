@@ -1,9 +1,9 @@
-// Tests DELETE /teams/:teamId/members/:userId (removePlayer in teamController.js) as it
-// behaves today. Bad ids are covered in route-ids.test.js. Safety rules are in helpers.js.
+// Tests DELETE /teams/:teamId/members/:userId (removePlayer: accepted members only) and
+// DELETE /teams/:teamId/invites/:userId (cancelInvite) in teamController.js. Bad ids are covered in route-ids.test.js. Safety rules are in helpers.js.
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { prisma, BASE_URL, createLoggedInPlayer, postJson } from './helpers.js';
+import { prisma, BASE_URL, createLoggedInPlayer, createLoggedInUser, postJson } from './helpers.js';
 
 const sendDelete = (path, jwt) =>
   fetch(BASE_URL + path, { method: 'DELETE', headers: { Authorization: `Bearer ${jwt}` } });
@@ -37,18 +37,87 @@ describe('The captain removes players', () => {
     assert.equal((await membership(team.id, captain.user.id))?.status, 'accepted', 'the captain stays');
   });
 
-  test('the same route cancels a pending invite (same reply)', async (t) => {
+  test('a pending invite is not a member: 404, and the invite stays', async (t) => {
     const { team, captain, invitee } = await teamWithMembers(t);
-    assert.equal((await membership(team.id, invitee.user.id))?.status, 'pending');
 
     const res = await sendDelete(`/teams/${team.id}/members/${invitee.user.id}`, captain.jwt);
 
+    assert.equal(res.status, 404);
+    assert.deepEqual(await res.json(), { error: 'Player not found in this team.' });
+    assert.equal((await membership(team.id, invitee.user.id))?.status, 'pending');
+  });
+
+  test('a pending join request is not a member either: 404, and the request stays', async (t) => {
+    const { team, captain } = await teamWithMembers(t);
+    const requester = await createLoggedInPlayer(t);
+    assert.equal((await postJson(`/teams/${team.id}/requests`, { message: 'hi' }, requester.jwt)).status, 201);
+
+    const res = await sendDelete(`/teams/${team.id}/members/${requester.user.id}`, captain.jwt);
+
+    assert.equal(res.status, 404);
+    const row = await membership(team.id, requester.user.id);
+    assert.equal(row?.origin, 'request');
+    assert.equal(row?.message, 'hi');
+  });
+});
+
+describe('The captain cancels an invite (DELETE /teams/:teamId/invites/:userId)', () => {
+  test('cancelling deletes the invite, which can no longer be accepted', async (t) => {
+    const { team, captain, invitee } = await teamWithMembers(t);
+
+    const res = await sendDelete(`/teams/${team.id}/invites/${invitee.user.id}`, captain.jwt);
+
     assert.equal(res.status, 200);
-    assert.deepEqual(await res.json(), { message: 'Player removed successfully.' });
+    assert.deepEqual(await res.json(), { message: 'Invite cancelled' });
     assert.equal(await membership(team.id, invitee.user.id), null);
     const accept = await postJson(`/teams/${team.id}/accept`, {}, invitee.jwt);
     assert.equal(accept.status, 404, 'the cancelled invite can no longer be accepted');
   });
+
+  test('only invites: a member, a join request, nobody or an already cancelled invite get 404', async (t) => {
+    const { team, captain, member, invitee } = await teamWithMembers(t);
+    const requester = await createLoggedInPlayer(t);
+    await postJson(`/teams/${team.id}/requests`, {}, requester.jwt);
+    await sendDelete(`/teams/${team.id}/invites/${invitee.user.id}`, captain.jwt);
+
+    for (const userId of [member.user.id, requester.user.id, captain.user.id, invitee.user.id, 2147483647]) {
+      const res = await sendDelete(`/teams/${team.id}/invites/${userId}`, captain.jwt);
+      assert.equal(res.status, 404, `user ${userId}`);
+      assert.deepEqual(await res.json(), { error: 'Invite not found' });
+    }
+    assert.equal((await membership(team.id, member.user.id))?.status, 'accepted');
+    assert.equal((await membership(team.id, requester.user.id))?.origin, 'request');
+  });
+
+  test('a non-captain gets 403; an unknown team 404', async (t) => {
+    const { team, member, invitee, captain } = await teamWithMembers(t);
+
+    const res = await sendDelete(`/teams/${team.id}/invites/${invitee.user.id}`, member.jwt);
+    const unknown = await sendDelete(`/teams/2147483647/invites/${invitee.user.id}`, captain.jwt);
+
+    assert.equal(res.status, 403);
+    assert.deepEqual(await res.json(), { error: 'Only the team captain can cancel invites.' });
+    assert.equal((await membership(team.id, invitee.user.id))?.status, 'pending');
+    assert.equal(unknown.status, 404);
+    assert.deepEqual(await unknown.json(), { error: 'Team not found' });
+  });
+});
+
+describe('Only players remove members or cancel invites', () => {
+  for (const role of ['OWNER', 'ADMIN']) {
+    test(`a ${role} account gets the players-only 403`, async (t) => {
+      const { team, member, invitee } = await teamWithMembers(t);
+      const account = await createLoggedInUser(t, { role });
+
+      for (const path of [`/teams/${team.id}/members/${member.user.id}`, `/teams/${team.id}/invites/${invitee.user.id}`]) {
+        const res = await sendDelete(path, account.jwt);
+        assert.equal(res.status, 403, path);
+        assert.match((await res.json()).error, /only player accounts/i);
+      }
+      assert.equal((await membership(team.id, member.user.id))?.status, 'accepted');
+      assert.equal((await membership(team.id, invitee.user.id))?.status, 'pending');
+    });
+  }
 });
 
 describe('Who can remove', () => {

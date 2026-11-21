@@ -12,6 +12,7 @@ import {
   approveRequest,
   rejectRequest,
   removePlayer,
+  cancelInvite,
   deleteTeam,
 } from '../controllers/teamController.js';
 import { verifyToken, playersOnly } from '../middleware/auth.js';
@@ -29,7 +30,8 @@ router.post('/:teamId/requests', verifyToken, playersOnly, validate({ body: join
 router.delete('/:teamId/requests/me', verifyToken, playersOnly, cancelMyRequest);
 router.post('/:teamId/requests/:userId/approve', verifyToken, playersOnly, approveRequest);
 router.post('/:teamId/requests/:userId/reject', verifyToken, playersOnly, rejectRequest);
-router.delete('/:teamId/members/:userId', verifyToken, removePlayer); 
+router.delete('/:teamId/members/:userId', verifyToken, playersOnly, removePlayer);
+router.delete('/:teamId/invites/:userId', verifyToken, playersOnly, cancelInvite);
 router.delete('/:teamId', verifyToken, deleteTeam);                   
 router.get('/me', verifyToken, getMyTeams); // must be above /:teamId
 router.get('/:teamId', verifyToken, getTeam);

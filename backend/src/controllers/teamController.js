@@ -104,7 +104,9 @@ export const invitePlayer = async (req, res, next) => {
   }
 };
 
-// ── Remove player (captain only) ──
+// ── Remove a member (captain only) ──
+// Removes an accepted member. Pending invites are cancelled with cancelInvite, and join
+// requests are declined with rejectRequest, so this never touches a pending row.
 export const removePlayer = async (req, res, next) => {
   try {
     const teamId = parseId(req.params.teamId);
@@ -113,29 +115,37 @@ export const removePlayer = async (req, res, next) => {
     if (userId === null) return res.status(400).json({ error: 'Invalid player id' });
     const requesterId = req.user.id;
 
-    const team = await prisma.team.findUnique({ where: { id: teamId } });
-    if (!team) return res.status(404).json({ error: 'Team not found' });
+    const reply = await withLockedTeam(teamId, async (tx, team) => {
+      if (team.captainId !== requesterId) return [403, { error: 'Only the team captain can remove players.' }];
+      if (userId === requesterId) return [400, { error: 'The team captain cannot remove themselves.' }];
 
-    // Only the team captain can remove players
-    if (team.captainId !== requesterId) {
-      return res.status(403).json({ error: 'Only the team captain can remove players.' });
-    }
-
-    // The captain cannot remove themselves
-    if (userId === requesterId) {
-      return res.status(400).json({ error: 'The team captain cannot remove themselves.' });
-    }
-
-    const member = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId } },
+      const { count } = await tx.teamMember.deleteMany({ where: { teamId, userId, status: 'accepted' } });
+      if (count === 0) return [404, { error: 'Player not found in this team.' }];
+      return [200, { message: 'Player removed successfully.' }];
     });
-    if (!member) return res.status(404).json({ error: 'Player not found in this team.' });
+    return sendReply(res, reply);
+  } catch (error) {
+    return next(error);
+  }
+};
 
-    await prisma.teamMember.delete({
-      where: { teamId_userId: { teamId, userId } },
+// ── Cancel an invite (captain only) ──
+export const cancelInvite = async (req, res, next) => {
+  try {
+    const teamId = parseId(req.params.teamId);
+    if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
+    const userId = parseId(req.params.userId);
+    if (userId === null) return res.status(400).json({ error: 'Invalid player id' });
+
+    const reply = await withLockedTeam(teamId, async (tx, team) => {
+      if (team.captainId !== req.user.id) return [403, { error: 'Only the team captain can cancel invites.' }];
+      const { count } = await tx.teamMember.deleteMany({
+        where: { teamId, userId, status: 'pending', origin: 'invite' },
+      });
+      if (count === 0) return [404, { error: 'Invite not found' }];
+      return [200, { message: 'Invite cancelled' }];
     });
-
-    return res.json({ message: 'Player removed successfully.' });
+    return sendReply(res, reply);
   } catch (error) {
     return next(error);
   }
