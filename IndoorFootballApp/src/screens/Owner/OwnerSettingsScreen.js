@@ -110,7 +110,7 @@ export default function OwnerSettingsScreen({ navigation }) {
             sublabel="View your profile info"
             // The owner's profile (with the venue listing) is the My Venue tab.
             onPress={() =>
-              navigation.navigate('MyVenueTab', { screen: 'OwnerProfile' })
+              navigation.navigate('MyVenueTab', { screen: 'MyVenue' })
             }
           />
           <View style={styles.divider} />

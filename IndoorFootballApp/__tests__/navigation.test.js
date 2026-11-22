@@ -88,10 +88,16 @@ const REPLIES = {
     },
   },
   '/owners/me': {
-    userId: OWNER.id,
-    indoorName: 'Arena One',
-    phone: '01800000000',
-    address: 'Road 1',
+    id: OWNER.id,
+    email: OWNER.email,
+    role: 'OWNER',
+    ownerProfile: {
+      indoorName: 'Arena One',
+      phone: '01800000000',
+      address: 'Road 1',
+      website: null,
+      description: null,
+    },
   },
   '/admin/stats': {
     totalUsers: 3,
@@ -282,7 +288,14 @@ describe('Owner navigator', () => {
       'Notifications',
       'Profile',
     ]);
-    expect(current(navigationRef)).toBe('OwnerProfile');
+    expect(current(navigationRef)).toBe('MyVenue');
+
+    // My Venue's Edit venue opens the form inside the My Venue tab; back returns.
+    await pressText(renderer, 'Edit venue');
+    expect(current(navigationRef)).toBe('EditVenue');
+    expect(currentTab(navigationRef)).toBe('MyVenueTab');
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('MyVenue');
 
     await pressTab(renderer, 'Explore');
     await pressText(renderer, 'Venues');
@@ -322,7 +335,7 @@ describe('Owner navigator', () => {
     expect(current(navigationRef)).toBe('OwnerSettings');
 
     await goBack(navigationRef);
-    expect(current(navigationRef)).toBe('OwnerProfile');
+    expect(current(navigationRef)).toBe('MyVenue');
   });
 });
 

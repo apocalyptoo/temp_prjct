@@ -77,8 +77,8 @@ describe('Icon', () => {
   });
 
   test('every name in the map renders', async () => {
-    // 42 names; venues and venue share one Lucide icon (41 icons in all).
-    expect(ICON_NAMES).toHaveLength(42);
+    // 43 names; venues and venue share one Lucide icon (42 icons in all).
+    expect(ICON_NAMES).toHaveLength(43);
     for (const name of ICON_NAMES) {
       const renderer = await render(<Icon name={name} />);
       expect({ name, rendered: renderer.toJSON() !== null }).toEqual({

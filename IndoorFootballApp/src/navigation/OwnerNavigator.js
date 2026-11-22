@@ -7,7 +7,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { OwnerExploreStack } from './ExploreStack';
 import { tabNavigatorProps } from './tabs';
-import OwnerProfileScreen from '../screens/Owner/OwnerProfileScreen';
+import MyVenueScreen from '../screens/Owner/MyVenueScreen';
+import EditVenueScreen from '../screens/Owner/EditVenueScreen';
 import OwnerNotificationsScreen from '../screens/Owner/OwnerNotificationsScreen';
 import OwnerSettingsScreen from '../screens/Owner/OwnerSettingsScreen';
 
@@ -16,13 +17,18 @@ const MyVenueStack = createNativeStackNavigator();
 const NotificationsStack = createNativeStackNavigator();
 const ProfileStack = createNativeStackNavigator();
 
-// The owner profile screen shows the venue listing.
+// My Venue shows the listing; Edit venue edits it. Both draw their own header.
 function MyVenueTab() {
   return (
     <MyVenueStack.Navigator>
       <MyVenueStack.Screen
-        name="OwnerProfile"
-        component={OwnerProfileScreen}
+        name="MyVenue"
+        component={MyVenueScreen}
+        options={{ headerShown: false }}
+      />
+      <MyVenueStack.Screen
+        name="EditVenue"
+        component={EditVenueScreen}
         options={{ headerShown: false }}
       />
     </MyVenueStack.Navigator>

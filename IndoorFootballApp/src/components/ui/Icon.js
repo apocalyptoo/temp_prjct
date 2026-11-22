@@ -41,6 +41,7 @@ import Settings from 'lucide-react-native/icons/settings';
 import ShieldAlert from 'lucide-react-native/icons/shield-alert';
 import ShieldCheck from 'lucide-react-native/icons/shield-check';
 import Shirt from 'lucide-react-native/icons/shirt';
+import TextLines from 'lucide-react-native/icons/text';
 import Trash2 from 'lucide-react-native/icons/trash-2';
 import TriangleAlert from 'lucide-react-native/icons/triangle-alert';
 import User from 'lucide-react-native/icons/user';
@@ -96,6 +97,7 @@ const ICONS = {
   weight: Weight,
   terms: FileText, // the Terms of Use page
   privacy: ShieldCheck, // the Privacy Policy page
+  description: TextLines, // a venue's description (Lucide "Text")
   // states
   success: CircleCheck,
   warning: TriangleAlert,
