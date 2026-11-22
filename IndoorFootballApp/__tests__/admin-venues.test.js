@@ -1,7 +1,7 @@
 /* eslint-env jest */
-// Tests for the admin's venue screens (docs/features/venues.md, sections e and h): the
-// Venues tab list and the review screen (approve, the note, move back to review,
-// delete).
+// Tests for the admin's venue screens and Dashboard (docs/features/venues.md, sections e
+// and h): the Venues tab list, the review screen (approve, the note, move back to
+// review, delete) and the Dashboard's waiting count.
 
 import React from 'react';
 import { Alert, Text as NativeText, TextInput } from 'react-native';
@@ -16,6 +16,9 @@ import AdminVenueScreen, {
   NOTE_HELPER,
   NOTE_LABEL,
 } from '../src/screens/Admin/AdminVenueScreen';
+import AdminDashboard, {
+  WAITING_LABEL,
+} from '../src/screens/Admin/AdminDashboard';
 import {
   liveSinceText,
   missingText,
@@ -23,7 +26,7 @@ import {
   noteProblem,
   shortDate,
 } from '../src/screens/Admin/adminVenueCommon';
-import { ConfirmDialog, Pill } from '../src/components/ui';
+import { Badge, ConfirmDialog, Pill } from '../src/components/ui';
 import { NOT_ADDED } from '../src/screens/Player/PlayerProfileScreen';
 import api from '../src/api/api';
 
@@ -620,5 +623,108 @@ describe('The admin review screen', () => {
     expect(shownText(renderer)).toContain('Barnabeu Arena'); // from the route
     await press(renderer, 'Try again');
     expect(shownText(renderer)).toContain('Pending review');
+  });
+});
+
+describe('The admin Dashboard', () => {
+  const STATS = {
+    userCount: 12,
+    teamCount: 4,
+    playerCount: 8,
+    ownerCount: 3,
+    adminCount: 1,
+    pendingVenueCount: 2,
+  };
+
+  async function showDashboard(stats = STATS) {
+    api.get.mockResolvedValue({ data: stats });
+    const navigation = navigationMock();
+    const logout = jest.fn();
+    const renderer = await render(<AdminDashboard navigation={navigation} />, {
+      user: { email: 'admin@example.com' },
+      logout,
+    });
+    await act(async () => navigation.focus());
+    await settle();
+    return { renderer, navigation, logout };
+  }
+
+  test('shows the waiting count as a badge and the four totals', async () => {
+    const { renderer } = await showDashboard();
+    expect(api.get).toHaveBeenCalledWith('/admin/stats');
+    const text = shownText(renderer);
+    expect(text).toContain('Dashboard');
+    expect(text).toContain('admin@example.com');
+    expect(text).toContain(WAITING_LABEL);
+    expect(renderer.root.findByType(Badge).props.count).toBe(2);
+    for (const label of [
+      '12 Users',
+      '8 Players',
+      '3 Venue owners',
+      '4 Teams',
+    ]) {
+      expect(
+        renderer.root.findAll(node => node.props.accessibilityLabel === label)
+          .length,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  test('the waiting card opens the Venues tab', async () => {
+    const { renderer, navigation } = await showDashboard();
+    await press(renderer, `${WAITING_LABEL}: 2`);
+    expect(navigation.navigate).toHaveBeenCalledWith('VenuesTab', {
+      screen: 'AdminVenues',
+    });
+  });
+
+  test('nothing waiting: a plain 0, no badge', async () => {
+    const { renderer } = await showDashboard({
+      ...STATS,
+      pendingVenueCount: 0,
+    });
+    expect(renderer.root.findAllByType(Badge)).toHaveLength(0);
+    const card = tappable(renderer, `${WAITING_LABEL}: 0`);
+    expect(
+      card
+        .findAllByType(NativeText)
+        .map(node => [].concat(node.props.children).join('')),
+    ).toContain('0');
+  });
+
+  test('the count is reloaded whenever the Dashboard comes back into view', async () => {
+    const { renderer, navigation } = await showDashboard();
+    api.get.mockResolvedValue({ data: { ...STATS, pendingVenueCount: 1 } });
+    await act(async () => navigation.focus());
+    await settle();
+    expect(tappable(renderer, `${WAITING_LABEL}: 1`)).toBeDefined();
+  });
+
+  test('Log out asks first, then logs out', async () => {
+    const { renderer, logout } = await showDashboard();
+    await press(renderer, 'Log out');
+    expect(logout).not.toHaveBeenCalled();
+    const dialog = renderer.root
+      .findAllByType(ConfirmDialog)
+      .find(node => node.props.visible);
+    expect(dialog.props.title).toBe('Log out?');
+    await act(async () => dialog.props.onConfirm());
+    expect(logout).toHaveBeenCalled();
+  });
+
+  test('a failed first load shows Try again, and Log out still works', async () => {
+    api.get.mockRejectedValueOnce(new Error('offline'));
+    const navigation = navigationMock();
+    const renderer = await render(<AdminDashboard navigation={navigation} />, {
+      user: { email: 'admin@example.com' },
+      logout: jest.fn(),
+    });
+    api.get.mockResolvedValue({ data: STATS });
+    await act(async () => navigation.focus());
+    await settle();
+    expect(shownText(renderer)).toContain("Couldn't load the dashboard.");
+    expect(tappable(renderer, 'Log out')).toBeDefined();
+    await press(renderer, 'Try again');
+    expect(renderer.root.findByType(Badge).props.count).toBe(2);
   });
 });

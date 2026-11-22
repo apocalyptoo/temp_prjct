@@ -41,6 +41,7 @@ export const typography = {
   title: heading(36), // detail page titles (team name)
   cardTitle: heading(22), // team or venue names in cards
   section: heading(18), // section headings inside cards ("JOIN REQUESTS")
+  stat: heading(34), // the numbers on the admin Dashboard's tiles
   body: text(fonts.regular, 15), // list item text
   bodyStrong: text(fonts.semiBold, 15), // list item names
   bodySmall: text(fonts.regular, 14), // descriptions, back links

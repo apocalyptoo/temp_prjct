@@ -1,241 +1,181 @@
-import React, { useContext, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { AuthContext } from '../../contexts/AuthContext';
+// The admin Dashboard (docs/features/venues.md, section e, D3, P22): a tappable card
+// "Venues waiting for review" with the count (a red badge while it's above zero), which
+// opens the Venues tab; the totals as 2 × 2 number tiles (users, players, venue owners,
+// teams); and Log out, with a confirmation. Loads GET /admin/stats whenever it comes
+// into view (the count changes after each review), and on pull to refresh.
+import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import api from '../../api/api';
+import { AuthContext } from '../../contexts/AuthContext';
+import { useTheme } from '../../theme/ThemeProvider';
+import {
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  Icon,
+  Screen,
+  ScreenHeader,
+  Text,
+} from '../../components/ui';
+import { TeamLoadState } from '../Team/teamCommon';
 
-const StatCard = ({ icon, label, value, color = '#1E3A8A' }) => (
-  <View style={styles.statCard}>
-    <View style={[styles.statIconWrapper, { backgroundColor: color + '20' }]}>
-      <Ionicons name={icon} size={22} color={color} />
-    </View>
-    <Text style={styles.statValue}>{value ?? 0}</Text>
-    <Text style={styles.statLabel}>{label}</Text>
-  </View>
-);
+export const WAITING_LABEL = 'Venues waiting for review';
 
-export default function AdminDashboard() {
-  const { logout, user } = useContext(AuthContext);
+// The totals, two tiles per row: [stats field, label].
+const TILE_ROWS = [
+  [
+    ['userCount', 'Users'],
+    ['playerCount', 'Players'],
+  ],
+  [
+    ['ownerCount', 'Venue owners'],
+    ['teamCount', 'Teams'],
+  ],
+];
+
+export default function AdminDashboard({ navigation }) {
+  const { user, logout } = useContext(AuthContext);
+  const { colors, spacing } = useTheme();
   const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState('loading'); // loading | ready | error
   const [refreshing, setRefreshing] = useState(false);
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
 
-  const fetchStats = async (isRefresh = false) => {
-    isRefresh ? setRefreshing(true) : setLoading(true);
+  // A failed reload keeps what's shown; only a failed first load shows the error.
+  const load = useCallback(async () => {
     try {
       const res = await api.get('/admin/stats');
       setStats(res.data);
-    } catch (err) {
-      console.error('Error fetching stats:', err.response?.data || err.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setStatus('ready');
+    } catch {
+      setStatus(current => (current === 'ready' ? 'ready' : 'error'));
     }
-  };
-
-  useEffect(() => {
-    fetchStats();
   }, []);
 
-  const onLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: logout },
-    ]);
+  useEffect(() => navigation.addListener('focus', load), [navigation, load]);
+
+  const refresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
   };
 
+  const retry = () => {
+    setStatus('loading');
+    load();
+  };
+
+  const waiting = stats?.pendingVenueCount ?? 0;
+
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => fetchStats(true)}
-        />
-      }
-    >
-      {/* ── Hero Header ── */}
-      <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        <View style={styles.avatarWrapper}>
-          <View style={styles.avatar}>
-            <Ionicons name="shield-checkmark" size={40} color="#1E3A8A" />
-          </View>
-        </View>
-        <Animated.Text
-          entering={FadeInDown.duration(500)}
-          style={styles.headerTitle}
-        >
-          Admin Dashboard
-        </Animated.Text>
-        <Text style={styles.headerEmail}>{user?.email}</Text>
-        <View style={styles.badge}>
-          <Ionicons name="shield-checkmark-outline" size={14} color="#1E3A8A" />
-          <Text style={styles.badgeText}>Administrator</Text>
-        </View>
+    <Screen>
+      <ScrollView
+        contentContainerStyle={{
+          gap: spacing.listGap,
+          paddingTop: spacing.lg,
+          paddingBottom: spacing.xxxl,
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+            progressBackgroundColor={colors.surface}
+          />
+        }
+      >
+        <ScreenHeader greeting={user?.email} title="Dashboard" />
 
-        {/* Logout button in header */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
-          <Ionicons name="log-out-outline" size={16} color="#1E3A8A" />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </LinearGradient>
-
-      {/* ── Stats Row ── */}
-      <View style={styles.statsRow}>
-        {loading ? (
-          <ActivityIndicator
-            size="small"
-            color="#1E3A8A"
-            style={{ marginVertical: 20 }}
+        {status !== 'ready' ? (
+          <TeamLoadState
+            status={status}
+            onRetry={retry}
+            errorMessage="Couldn't load the dashboard."
           />
         ) : (
-          <Animated.View
-            entering={FadeInUp.delay(100)}
-            style={styles.statsInner}
-          >
-            <StatCard
-              icon="people-outline"
-              label="Total Users"
-              value={stats?.userCount}
-            />
-            <View style={styles.statDivider} />
-            <StatCard
-              icon="people-circle-outline"
-              label="Players"
-              value={stats?.playerCount}
-              color="#3B82F6"
-            />
-            <View style={styles.statDivider} />
-            <StatCard
-              icon="business-outline"
-              label="Owners"
-              value={stats?.ownerCount}
-              color="#10B981"
-            />
-            <View style={styles.statDivider} />
-            <StatCard
-              icon="shield-outline"
-              label="Teams"
-              value={stats?.teamCount}
-              color="#F59E0B"
-            />
-          </Animated.View>
-        )}
-      </View>
+          <>
+            <Card
+              onPress={() =>
+                navigation.navigate('VenuesTab', { screen: 'AdminVenues' })
+              }
+              accessibilityLabel={`${WAITING_LABEL}: ${waiting}`}
+            >
+              <View style={[styles.row, { gap: spacing.md }]}>
+                <Icon name="venues" color={colors.textMuted} />
+                <Text variant="bodyStrong" style={styles.grow}>
+                  {WAITING_LABEL}
+                </Text>
+                {waiting > 0 ? (
+                  <Badge count={waiting} />
+                ) : (
+                  <Text variant="bodyStrong" color="textMuted">
+                    0
+                  </Text>
+                )}
+                <Icon name="forward" color={colors.textMuted} />
+              </View>
+            </Card>
 
-      <View style={{ height: 40 }} />
-    </ScrollView>
+            <View style={{ gap: spacing.md }}>
+              {TILE_ROWS.map(row => (
+                <View
+                  key={row[0][0]}
+                  style={[styles.row, styles.stretch, { gap: spacing.md }]}
+                >
+                  {row.map(([field, label]) => (
+                    <StatTile key={field} value={stats[field]} label={label} />
+                  ))}
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
+        <Button
+          title="Log out"
+          icon="logout"
+          variant="danger"
+          onPress={() => setConfirmingLogout(true)}
+          fullWidth
+        />
+      </ScrollView>
+
+      <ConfirmDialog
+        visible={confirmingLogout}
+        title="Log out?"
+        message="You'll need your email and password to log in again."
+        confirmTitle="Log out"
+        destructive
+        onConfirm={() => {
+          setConfirmingLogout(false);
+          logout(); // AppNavigator then shows the Login screen.
+        }}
+        onCancel={() => setConfirmingLogout(false)}
+      />
+    </Screen>
+  );
+}
+
+// One total: the number large, its label under it. Read as "12 Users".
+function StatTile({ value, label }) {
+  const { spacing } = useTheme();
+  const shown = value ?? 0;
+  return (
+    <Card style={[styles.grow, { gap: spacing.xxs }]}>
+      <View accessible accessibilityLabel={`${shown} ${label}`}>
+        <Text variant="stat">{shown}</Text>
+        <Text variant="meta" color="textMuted">
+          {label}
+        </Text>
+      </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F1F5F9' },
-
-  // Header
-  header: {
-    paddingTop: 60,
-    paddingBottom: 36,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    borderBottomLeftRadius: 36,
-    borderBottomRightRadius: 36,
-  },
-  avatarWrapper: { marginBottom: 12 },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-  },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
-  headerEmail: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 4 },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    gap: 4,
-  },
-  badgeText: {
-    color: '#1E3A8A',
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 6,
-  },
-  logoutText: { color: '#1E3A8A', fontWeight: '700', marginLeft: 4 },
-
-  // Stats
-  statsRow: {
-    marginHorizontal: 16,
-    marginTop: -20,
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  statsInner: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-  },
-  statCard: { alignItems: 'center', flex: 1 },
-  statIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  statValue: { fontSize: 18, fontWeight: '800', color: '#111' },
-  statLabel: {
-    fontSize: 10,
-    color: '#888',
-    fontWeight: '600',
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  statDivider: { width: 1, backgroundColor: '#F1F5F9', marginVertical: 8 },
-
-  // Actions
-  section: { marginHorizontal: 16, marginTop: 24 },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#888',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 12,
-    marginLeft: 4,
-  },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  stretch: { alignItems: 'stretch' },
+  grow: { flex: 1 },
 });

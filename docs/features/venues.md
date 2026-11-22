@@ -1,6 +1,6 @@
 # Feature 3: Venues (spec)
 
-Phase 4, Step 3. Task F3.0, written 2026-11-23. **Status: approved 2026-11-23** (DECISIONS.md, "Venues feature spec approved"). Not built yet: tasks F3.1–F3.4 (section i).
+Phase 4, Step 3. Task F3.0, written 2026-11-23. **Status: approved 2026-11-23** (DECISIONS.md, "Venues feature spec approved"). **Built 2026-11-23** in tasks F3.1–F3.4 (section i). Details settled while building: the app's search field has an icon inside it and caps the search at 60 and the area at 40 characters; the venue cards join multi-line opening hours with " · "; Venue detail's 404 state has a "Back to venues" button; the admin review screen loads `GET /admin/indoors` and picks its venue (no single-venue admin endpoint); the Dashboard shows the totals as 2 × 2 tiles.
 
 **How to read the markers:**
 - **[Dn, approved]**: a default from the task brief, confirmed by the owner on 2026-11-23.

@@ -117,7 +117,7 @@ describe('typography.js', () => {
   });
 
   test('headings are Barlow Condensed, uppercase, with +2% letter spacing', () => {
-    for (const name of ['display', 'title', 'cardTitle', 'section']) {
+    for (const name of ['display', 'title', 'cardTitle', 'section', 'stat']) {
       const style = typography[name];
       expect(style.fontFamily).toBe('BarlowCondensed-Bold');
       expect(style.textTransform).toBe('uppercase');
@@ -131,6 +131,7 @@ describe('typography.js', () => {
       title: [36, 'BarlowCondensed-Bold'],
       cardTitle: [22, 'BarlowCondensed-Bold'],
       section: [18, 'BarlowCondensed-Bold'],
+      stat: [34, 'BarlowCondensed-Bold'],
       body: [15, 'Inter-Regular'],
       bodyStrong: [15, 'Inter-SemiBold'],
       bodySmall: [14, 'Inter-Regular'],

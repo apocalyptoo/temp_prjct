@@ -447,9 +447,10 @@ describe('Admin navigator', () => {
     await goBack(navigationRef);
     expect(current(navigationRef)).toBe('AdminDashboard');
 
-    // A venue in the Venues tab opens its review screen inside the tab, and back
-    // returns to the list.
-    await pressTab(renderer, 'Venues');
+    // The Dashboard's "Venues waiting for review" opens the Venues tab; a venue there
+    // opens its review screen inside the tab, and back returns to the list.
+    await pressText(renderer, 'Venues waiting for review');
+    expect(currentTab(navigationRef)).toBe('VenuesTab');
     expect(current(navigationRef)).toBe('AdminVenues');
     await pressText(renderer, 'Floodlight Arena');
     expect(current(navigationRef)).toBe('AdminVenue');
