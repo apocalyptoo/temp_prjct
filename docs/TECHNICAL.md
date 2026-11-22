@@ -273,7 +273,7 @@ All writes are `playersOnly` and run under the team lock (section 4.5), except c
 
 Files: `adminRoutes.js`, `adminController.js`; every route has `verifyToken` and `isAdmin`.
 
-- `GET /admin/stats`: counts of users, players, owners, admins (`adminCount`) and teams.
+- `GET /admin/stats`: `userCount`, `playerCount`, `ownerCount`, `adminCount`, `teamCount`, and `pendingVenueCount` (venues with `approvedAt` null: the Dashboard's "Venues waiting for review", venues spec d endpoint 9). `tests/admin-stats.test.js`.
 - Lists of users and teams (with `captain` and an accepted-only `memberCount`), with secrets stripped.
 - **Venue review** (venues spec d endpoints 5–8; `src/validation/adminSchemas.js`; the shared rules in `src/utils/venues.js`):
   - `GET /admin/indoors`: every venue (`ADMIN_VENUE_SELECT`, flattened by `toAdminVenue`): the listing, the owner's `email`, `createdAt` and `verified`, `approvedAt`, `reviewNote` and `missingFields`. Pending venues first, oldest sign-up first, then live venues by name A to Z (sorted in JS after one query).

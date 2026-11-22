@@ -152,7 +152,7 @@ Three terms used in this layout:
 | `/owners` | My venue profile and editing the listing; the list of live venues (search by name, filter by area) and one venue's details |
 | `/teams` | Create, list, one team, edit, delete, invites, join requests, removing members, leaving, handing over the captaincy |
 | `/legal` | The Terms of Use and Privacy Policy pages (placeholder text until launch) |
-| `/admin` | Counts, and listing and deleting users, teams and venues; reviewing venues: approve, note, move back to review (admin only) |
+| `/admin` | Counts (including how many venues wait for review), and listing and deleting users, teams and venues; reviewing venues: approve, note, move back to review (admin only) |
 
 There's also `GET /`, which replies "API running" so you can check the server is up.
 

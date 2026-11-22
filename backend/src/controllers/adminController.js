@@ -297,13 +297,15 @@ export const moveIndoorToReview = async (req, res, next) => {
 // ── Stats ──
 export const getStats = async (req, res, next) => {
   try {
-    const [userCount, teamCount, playerCount, ownerCount, adminCount] =
+    const [userCount, teamCount, playerCount, ownerCount, adminCount, pendingVenueCount] =
       await Promise.all([
         prisma.user.count(),
         prisma.team.count(),
         prisma.user.count({ where: { role: 'PLAYER' } }),
         prisma.user.count({ where: { role: 'OWNER' } }),
         prisma.user.count({ where: { role: 'ADMIN' } }),
+        // "Venues waiting for review" on the Dashboard (docs/features/venues.md, d endpoint 9).
+        prisma.ownerProfile.count({ where: { approvedAt: null } }),
       ]);
 
     return res.json({
@@ -312,6 +314,7 @@ export const getStats = async (req, res, next) => {
       playerCount,
       ownerCount,
       adminCount,
+      pendingVenueCount,
     });
   } catch (err) {
     return next(err);
