@@ -4,11 +4,17 @@
 // in components-composite.test.js.
 
 import React from 'react';
-import { StyleSheet, Text as NativeText } from 'react-native';
+import { StyleSheet, Text as NativeText, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { theme } from '../src/theme';
-import { Checkbox, Icon, OptionGroup, TextLink } from '../src/components/ui';
+import {
+  Checkbox,
+  Icon,
+  OptionGroup,
+  SuggestionField,
+  TextLink,
+} from '../src/components/ui';
 
 async function render(element) {
   let renderer;
@@ -190,5 +196,81 @@ describe('OptionGroup', () => {
     expect(radio.props.accessibilityState.disabled).toBe(true);
     await act(() => radio.props.onPress());
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('SuggestionField', () => {
+  const NAMES = ['Mirpur', 'Mohammadpur', 'Motijheel'];
+  const contains = text =>
+    text ? NAMES.filter(n => n.toLowerCase().includes(text.toLowerCase())) : [];
+
+  // A stand-in screen that keeps the value, like a real form.
+  function Form({ initial = '' }) {
+    const [value, setValue] = React.useState(initial);
+    return (
+      <SuggestionField
+        label="Area"
+        value={value}
+        onChangeText={setValue}
+        getSuggestions={contains}
+      />
+    );
+  }
+
+  const input = renderer => renderer.root.findByType(TextInput);
+  const suggestionRows = renderer =>
+    byRole(renderer, 'button').filter(node =>
+      String(node.props.accessibilityLabel).startsWith('Suggestion: '),
+    );
+
+  test('suggestions show only while the field is focused', async () => {
+    const renderer = await render(<Form initial="pur" />);
+    expect(suggestionRows(renderer)).toHaveLength(0);
+    await act(() => input(renderer).props.onFocus());
+    expect(
+      suggestionRows(renderer).map(r => r.props.accessibilityLabel),
+    ).toEqual(['Suggestion: Mirpur', 'Suggestion: Mohammadpur']);
+    await act(() => input(renderer).props.onBlur());
+    expect(suggestionRows(renderer)).toHaveLength(0);
+  });
+
+  test('each row is at least 44 tall; tapping one fills the field', async () => {
+    const renderer = await render(<Form initial="mo" />);
+    await act(() => input(renderer).props.onFocus());
+    const rows = suggestionRows(renderer);
+    for (const row of rows) {
+      expect(styleOf(row).minHeight).toBeGreaterThanOrEqual(theme.touchTarget);
+    }
+    await act(() => rows[1].props.onPress());
+    expect(input(renderer).props.value).toBe('Motijheel');
+  });
+
+  test('typing updates the suggestions; nothing shows when none match', async () => {
+    const renderer = await render(<Form />);
+    await act(() => input(renderer).props.onFocus());
+    expect(suggestionRows(renderer)).toHaveLength(0);
+    await act(() => input(renderer).props.onChangeText('jheel'));
+    expect(suggestionRows(renderer)).toHaveLength(1);
+    await act(() => input(renderer).props.onChangeText('Uttara'));
+    expect(suggestionRows(renderer)).toHaveLength(0);
+  });
+
+  test('passes label, helper and error to the text field; disabled shows no suggestions', async () => {
+    const renderer = await render(
+      <SuggestionField
+        label="Area"
+        value="pur"
+        helper="Not your full address"
+        error="Area must be between 2 and 40 characters"
+        getSuggestions={contains}
+        disabled
+      />,
+    );
+    expect(input(renderer).props.accessibilityLabel).toBe('Area');
+    expect(shownText(renderer)).toContain(
+      'Area must be between 2 and 40 characters',
+    );
+    await act(() => input(renderer).props.onFocus());
+    expect(suggestionRows(renderer)).toHaveLength(0);
   });
 });

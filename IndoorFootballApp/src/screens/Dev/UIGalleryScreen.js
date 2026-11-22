@@ -24,6 +24,7 @@ import {
   Screen,
   ScreenHeader,
   SectionHeader,
+  SuggestionField,
   TabBar,
   Text,
   TextField,
@@ -32,6 +33,7 @@ import {
 import { ICON_NAMES } from '../../components/ui/Icon';
 import { INITIALS_METHOD } from '../../components/ui/Avatar';
 import { POSITIONS } from '../../constants/positions';
+import { suggestAreas } from '../../constants/areas';
 
 const FAKE_REQUEST_MS = 2000;
 
@@ -195,6 +197,7 @@ export default function UIGalleryScreen({ navigation }) {
   const [buttonBusy, setButtonBusy] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [position, setPosition] = useState(null);
+  const [area, setArea] = useState('');
 
   const fakeRequest = setBusy => done => {
     setBusy(true);
@@ -402,6 +405,17 @@ export default function UIGalleryScreen({ navigation }) {
             options={POSITIONS}
             value="Forward"
             disabled
+          />
+        </Section>
+
+        <Section title="Suggestion field">
+          <SuggestionField
+            label="Area (optional)"
+            value={area}
+            onChangeText={setArea}
+            getSuggestions={suggestAreas}
+            placeholder="Try “pur” or “m”"
+            helper="Your neighbourhood, like Dhanmondi. Don't enter your full address."
           />
         </Section>
 

@@ -210,6 +210,8 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 
 **Option group** (added with feature 2, the position picker). A label above (`bodySmall` / `textMuted`), then the options as chips in a wrapping row, each at least 44 tall, radius `button`. Chosen: `accent` background, `onAccent` text (`button`); the others: `surface` with a 1px `border` and `text` (`buttonSecondary`). One choice at a time. An error shows under it like a text field's. Screen readers hear a radio group with its label, and each option as a radio button with its selected state.
 
+**Suggestion field** (added with feature 2, for the player's Area; the venues feature reuses it). A text field with a short list of suggestions right under it, inside the page (not a floating pop-up): a `surface` box with a 1px `border` and radius `button`, one row per suggestion (at least 44 tall, a small `area` icon in `textMuted` and the name in `body`), rows separated by dividers. At most 5 suggestions, shown only while the field is focused and something matches; tapping one fills the field. Any other text can still be typed. Screen readers hear each row as "Suggestion: Mirpur".
+
 **Section header.** A heading row inside a card: the title (`section`) on the left and an optional item on the right, such as a soft Pill ("2 new") or a TextLink ("See all 11").
 
 **Text link.** Tappable text in `accent`, `bodySmall` at semibold weight (`buttonSecondary` style), at least 44 tall to tap. For links inside cards ("See all 11"). The back link is the muted version of the same idea.
