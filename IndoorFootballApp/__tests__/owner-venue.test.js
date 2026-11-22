@@ -1,6 +1,6 @@
 /* eslint-env jest */
 /* eslint-disable no-script-url -- these tests check that javascript: links are never opened */
-// Tests for the venue owner's My Venue and Edit venue (feature 2,
+// Tests for the venue owner's My Venue, Edit venue and Profile tab (feature 2,
 // docs/features/profiles-and-registration.md, section e): what My Venue shows (with "Not
 // added", and the website as a link only when it passes isWebLink), and Edit venue's
 // checks and request (every field each time, empty ones as null).
@@ -12,6 +12,10 @@ import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { AuthContext } from '../src/contexts/AuthContext';
 import MyVenueScreen from '../src/screens/Owner/MyVenueScreen';
 import EditVenueScreen from '../src/screens/Owner/EditVenueScreen';
+import OwnerProfileScreen, {
+  LISTING_ROW,
+  OWNER_ROLE_LABEL,
+} from '../src/screens/Owner/OwnerProfileScreen';
 import {
   checkVenueEdit,
   descriptionCount,
@@ -382,6 +386,77 @@ describe('Edit venue', () => {
     api.get.mockResolvedValue({ data: FILLED });
     await press(renderer, 'Try again');
     expect(input(renderer, 'Venue name').props.value).toBe('Floodlight Arena');
+  });
+});
+
+describe('Owner Profile tab', () => {
+  async function showProfile(me = NEW_OWNER) {
+    api.get.mockResolvedValue({ data: me });
+    const navigation = navigationMock();
+    const renderer = await render(
+      <OwnerProfileScreen navigation={navigation} />,
+    );
+    await act(async () => navigation.focus());
+    await settle();
+    return { renderer, navigation };
+  }
+
+  test('shows the account: venue name, "Venue owner", and the email with its hints', async () => {
+    const { renderer } = await showProfile();
+    expect(api.get).toHaveBeenCalledWith('/owners/me');
+    const text = shownText(renderer);
+    for (const shown of [
+      'Profile',
+      'Floodlight Arena',
+      OWNER_ROLE_LABEL,
+      'Email',
+      'arena@gmail.com',
+      "Only you can see this. Email can't be changed yet.",
+      LISTING_ROW,
+    ]) {
+      expect(text).toContain(shown);
+    }
+    // The initials of the venue name.
+    expect(text).toContain('FA');
+    // The listing itself lives on My Venue, not here.
+    expect(text).not.toContain('Not added');
+  });
+
+  test('the gear opens Settings; "Your venue listing" opens the My Venue tab', async () => {
+    const { renderer, navigation } = await showProfile();
+    await press(renderer, 'Settings');
+    expect(navigation.navigate).toHaveBeenCalledWith('Settings');
+    await press(renderer, LISTING_ROW);
+    expect(navigation.navigate).toHaveBeenCalledWith('MyVenueTab', {
+      screen: 'MyVenue',
+    });
+  });
+
+  test('a failed first load shows the error with Try again, which loads again', async () => {
+    api.get.mockRejectedValueOnce(new Error('offline'));
+    const navigation = navigationMock();
+    api.get.mockResolvedValue({ data: NEW_OWNER });
+    const renderer = await render(
+      <OwnerProfileScreen navigation={navigation} />,
+    );
+    await act(async () => navigation.focus());
+    await settle();
+    expect(shownText(renderer)).toContain("Couldn't load your profile.");
+    await press(renderer, 'Try again');
+    expect(shownText(renderer)).toContain('arena@gmail.com');
+  });
+
+  test('a renamed venue shows when the tab comes back into view', async () => {
+    const { renderer, navigation } = await showProfile();
+    api.get.mockResolvedValue({
+      data: {
+        ...NEW_OWNER,
+        ownerProfile: { ...NEW_OWNER.ownerProfile, indoorName: 'New Name' },
+      },
+    });
+    await act(async () => navigation.focus());
+    await settle();
+    expect(shownText(renderer)).toContain('New Name');
   });
 });
 

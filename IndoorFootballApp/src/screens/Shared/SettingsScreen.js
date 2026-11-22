@@ -1,8 +1,8 @@
 // Settings (docs/features/profiles-and-registration.md, section e, P29): one screen for
-// the account. The rows that exist in v1.0 so far: Edit profile, Change password, Terms
-// of Use and Privacy Policy (each opens its page in the browser), then Log out with a
-// confirmation. Later features add Blocked players, Contact support and Delete account.
-// Registered in the player's Profile stack; venue owners get it in task F2.4.
+// players and venue owners. The rows that exist in v1.0 so far: Edit profile (for venue
+// owners Edit venue, Q3), Change password, Terms of Use and Privacy Policy (each opens
+// its page in the browser), then Log out with a confirmation. Later features add Blocked
+// players, Contact support and Delete account. Registered in each role's Profile stack.
 import React, { useContext, useState } from 'react';
 import { AuthContext } from '../../contexts/AuthContext';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -18,16 +18,23 @@ import {
 import { openLegalPage } from '../Auth/signUpCommon';
 
 export default function SettingsScreen({ navigation }) {
-  const { logout } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
   const { colors, spacing } = useTheme();
   const [confirmingLogout, setConfirmingLogout] = useState(false);
 
   const rows = [
-    {
-      icon: 'edit',
-      name: 'Edit profile',
-      onPress: () => navigation.navigate('EditProfile'),
-    },
+    user?.role === 'OWNER'
+      ? {
+          icon: 'edit',
+          name: 'Edit venue',
+          // Its back link then reads "Settings", and Back returns here.
+          onPress: () => navigation.navigate('EditVenue', { from: 'Settings' }),
+        }
+      : {
+          icon: 'edit',
+          name: 'Edit profile',
+          onPress: () => navigation.navigate('EditProfile'),
+        },
     {
       icon: 'password',
       name: 'Change password',

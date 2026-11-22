@@ -10,7 +10,9 @@ import { tabNavigatorProps } from './tabs';
 import MyVenueScreen from '../screens/Owner/MyVenueScreen';
 import EditVenueScreen from '../screens/Owner/EditVenueScreen';
 import OwnerNotificationsScreen from '../screens/Owner/OwnerNotificationsScreen';
-import OwnerSettingsScreen from '../screens/Owner/OwnerSettingsScreen';
+import OwnerProfileScreen from '../screens/Owner/OwnerProfileScreen';
+import SettingsScreen from '../screens/Shared/SettingsScreen';
+import ChangePasswordScreen from '../screens/Shared/ChangePasswordScreen';
 
 const Tab = createBottomTabNavigator();
 const MyVenueStack = createNativeStackNavigator();
@@ -48,14 +50,29 @@ function NotificationsTab() {
   );
 }
 
-// Interim: the Settings screen, until profile editing gives owners a real profile
-// (Step 3).
+// Profile (the account, with the Settings gear), Settings, Change password, and Edit
+// venue again, so Settings → Edit venue goes back to Settings. Each draws its own header.
 function ProfileTab() {
   return (
     <ProfileStack.Navigator>
       <ProfileStack.Screen
-        name="OwnerSettings"
-        component={OwnerSettingsScreen}
+        name="OwnerProfile"
+        component={OwnerProfileScreen}
+        options={{ headerShown: false }}
+      />
+      <ProfileStack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ headerShown: false }}
+      />
+      <ProfileStack.Screen
+        name="ChangePassword"
+        component={ChangePasswordScreen}
+        options={{ headerShown: false }}
+      />
+      <ProfileStack.Screen
+        name="EditVenue"
+        component={EditVenueScreen}
         options={{ headerShown: false }}
       />
     </ProfileStack.Navigator>

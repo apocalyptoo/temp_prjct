@@ -127,6 +127,31 @@ describe('Settings', () => {
     expect(navigation.goBack).toHaveBeenCalled();
   });
 
+  test('a venue owner gets Edit venue instead of Edit profile (Q3)', async () => {
+    const navigation = navigationMock();
+    const renderer = await render(<SettingsScreen navigation={navigation} />, {
+      user: { ...USER, role: 'OWNER', name: 'Floodlight Arena' },
+      logout: jest.fn(),
+    });
+    const text = shownText(renderer);
+    expect(text).not.toContain('Edit profile');
+    for (const row of [
+      'Edit venue',
+      'Change password',
+      'Terms of Use',
+      'Privacy Policy',
+      'Log out',
+    ]) {
+      expect(text).toContain(row);
+    }
+    await press(renderer, 'Edit venue');
+    expect(navigation.navigate).toHaveBeenCalledWith('EditVenue', {
+      from: 'Settings',
+    });
+    await press(renderer, 'Change password');
+    expect(navigation.navigate).toHaveBeenCalledWith('ChangePassword');
+  });
+
   test('Log out asks first; Cancel keeps you logged in, Log out logs out', async () => {
     const logout = jest.fn();
     const renderer = await render(

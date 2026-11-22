@@ -276,7 +276,7 @@ describe('Player navigator', () => {
 });
 
 describe('Owner navigator', () => {
-  test('tabs, Explore lists and the interim screens', async () => {
+  test('tabs, Explore lists, Profile, Settings and the interim screens', async () => {
     const { renderer, navigationRef } = await renderNavigator(
       OwnerNavigator,
       OWNER,
@@ -331,11 +331,39 @@ describe('Owner navigator', () => {
         .some(node => node.props.children === 'No notifications yet.'),
     ).toBe(true);
 
+    // Profile: the account, with the Settings gear.
     await pressTab(renderer, 'Profile');
-    expect(current(navigationRef)).toBe('OwnerSettings');
+    expect(current(navigationRef)).toBe('OwnerProfile');
+    const gear = renderer.root.findAll(
+      node =>
+        node.props.accessibilityLabel === 'Settings' &&
+        typeof node.props.onPress === 'function',
+    )[0];
+    await ReactTestRenderer.act(() => gear.props.onPress());
+    await settle();
+    expect(current(navigationRef)).toBe('Settings');
 
+    // Settings → Edit venue opens inside the Profile tab, so Back returns to Settings.
+    // (My Venue, still mounted in its own tab, has an "Edit venue" button too, so press
+    // the last one.)
+    await pressText(renderer, 'Edit venue', { last: true });
+    expect(current(navigationRef)).toBe('EditVenue');
+    expect(currentTab(navigationRef)).toBe('ProfileTab');
+    expect(navigationRef.getCurrentRoute().params).toEqual({
+      from: 'Settings',
+    });
     await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('Settings');
+    await pressText(renderer, 'Change password');
+    expect(current(navigationRef)).toBe('ChangePassword');
+    await goBack(navigationRef);
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('OwnerProfile');
+
+    // "Your venue listing" jumps to the My Venue tab.
+    await pressText(renderer, 'Your venue listing');
     expect(current(navigationRef)).toBe('MyVenue');
+    expect(currentTab(navigationRef)).toBe('MyVenueTab');
   });
 });
 
