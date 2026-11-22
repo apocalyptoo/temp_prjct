@@ -3,7 +3,7 @@
 // filled in on My Venue after logging in. Checked before sending (signUpCommon.js), with
 // the problem under its field; the backend's refusal shows in an alert. On success,
 // Check your email takes the form's place.
-import React, { useContext, useRef, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { AuthContext } from '../../contexts/AuthContext';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -14,6 +14,7 @@ import {
   Text,
   TextField,
 } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 import { PASSWORD_HELPER } from '../../utils/password';
 import {
   checkOwnerSignUp,
@@ -34,9 +35,7 @@ export default function OwnerRegisterScreen({ navigation }) {
     agreed: false,
   });
   const [errors, setErrors] = useState({});
-  const [saving, setSaving] = useState(false);
-  // Stops a second tap from sending a second request before the button shows it's busy.
-  const busy = useRef(false);
+  const { run, busy: saving } = useBusyAction();
   // The fields in the order they appear, so a problem near the top isn't missed.
   const { scrollRef, onLayoutOf, scrollToFirstError } = useScrollToFirstError([
     'venueName',
@@ -55,33 +54,29 @@ export default function OwnerRegisterScreen({ navigation }) {
     );
   };
 
-  const create = async () => {
-    if (busy.current) return;
-    const { ok, errors: found } = checkOwnerSignUp(form);
-    setErrors(found);
-    if (!ok) {
-      scrollToFirstError(found);
-      return;
-    }
+  const create = () =>
+    run(async () => {
+      const { ok, errors: found } = checkOwnerSignUp(form);
+      setErrors(found);
+      if (!ok) {
+        scrollToFirstError(found);
+        return;
+      }
 
-    busy.current = true;
-    setSaving(true);
-    const email = form.email.trim();
-    try {
-      const reply = await register({
-        email,
-        password: form.password,
-        role: 'OWNER',
-        profileData: { indoorName: form.venueName.trim() },
-        acceptedTerms: form.agreed,
-      });
-      showCheckEmail(navigation, email, reply);
-    } catch (err) {
-      Alert.alert('Sign-up failed', err.message);
-      busy.current = false;
-      setSaving(false);
-    }
-  };
+      const email = form.email.trim();
+      try {
+        const reply = await register({
+          email,
+          password: form.password,
+          role: 'OWNER',
+          profileData: { indoorName: form.venueName.trim() },
+          acceptedTerms: form.agreed,
+        });
+        showCheckEmail(navigation, email, reply);
+      } catch (err) {
+        Alert.alert('Sign-up failed', err.message);
+      }
+    });
 
   return (
     <Screen

@@ -4,7 +4,7 @@
 // before anything else, so this phone stays logged in; then one "Password changed"
 // alert (P27). A wrong current password shows under its field and never logs out.
 // "Forgot your current password?" emails a reset link to the account (P28).
-import React, { useContext, useRef, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import api from '../../api/api';
 import { AuthContext } from '../../contexts/AuthContext';
@@ -18,6 +18,7 @@ import {
   TextField,
   TextLink,
 } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 import { newPasswordProblem, PASSWORD_HELPER } from '../../utils/password';
 import { confirmProblem } from '../Auth/signUpCommon';
 
@@ -49,12 +50,12 @@ export default function ChangePasswordScreen({ navigation }) {
   const { spacing } = useTheme();
   const [form, setForm] = useState({ current: '', next: '', confirm: '' });
   const [errors, setErrors] = useState({});
-  const [saving, setSaving] = useState(false);
   const [askingReset, setAskingReset] = useState(false);
-  const [sendingReset, setSendingReset] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-  // Stops a second tap from sending a second request before the button shows it's busy.
-  const busy = useRef(false);
+  // Change password and Send link share one guard: while either runs, both are blocked.
+  const { run, isBusy } = useBusyAction();
+  const saving = isBusy('save');
+  const sendingReset = isBusy('reset');
 
   // Changing a field clears its error.
   const set = key => value => {
@@ -64,55 +65,46 @@ export default function ChangePasswordScreen({ navigation }) {
     );
   };
 
-  const save = async () => {
-    if (busy.current) return;
-    const { ok, errors: found } = checkPasswordChange(form);
-    setErrors(found);
-    if (!ok) return;
+  const save = () =>
+    run(async () => {
+      const { ok, errors: found } = checkPasswordChange(form);
+      setErrors(found);
+      if (!ok) return;
 
-    busy.current = true;
-    setSaving(true);
-    try {
-      await changePassword(form.current, form.next);
-      Alert.alert('Password changed', CHANGED_MESSAGE);
-      navigation.goBack();
-    } catch (err) {
-      const message = err.response?.data?.error;
-      if (err.response?.status === 400 && message === WRONG_CURRENT) {
-        setErrors(current => ({ ...current, current: WRONG_CURRENT }));
-      } else {
-        // For example "Too many attempts to change your password…" (429).
+      try {
+        await changePassword(form.current, form.next);
+        Alert.alert('Password changed', CHANGED_MESSAGE);
+        navigation.goBack();
+      } catch (err) {
+        const message = err.response?.data?.error;
+        if (err.response?.status === 400 && message === WRONG_CURRENT) {
+          setErrors(current => ({ ...current, current: WRONG_CURRENT }));
+        } else {
+          // For example "Too many attempts to change your password…" (429).
+          Alert.alert(
+            'Not changed',
+            message ||
+              "Couldn't change your password. Please check your connection and try again.",
+          );
+        }
+      }
+    }, 'save');
+
+  const sendReset = () =>
+    run(async () => {
+      try {
+        await api.post('/auth/forgot', { email: user.email });
+        setAskingReset(false);
+        setResetSent(true);
+      } catch (err) {
+        setAskingReset(false);
         Alert.alert(
-          'Not changed',
-          message ||
-            "Couldn't change your password. Please check your connection and try again.",
+          'Not sent',
+          err.response?.data?.error ||
+            "Couldn't send the email. Please check your connection and try again.",
         );
       }
-      busy.current = false;
-      setSaving(false);
-    }
-  };
-
-  const sendReset = async () => {
-    if (busy.current) return;
-    busy.current = true;
-    setSendingReset(true);
-    try {
-      await api.post('/auth/forgot', { email: user.email });
-      setAskingReset(false);
-      setResetSent(true);
-    } catch (err) {
-      setAskingReset(false);
-      Alert.alert(
-        'Not sent',
-        err.response?.data?.error ||
-          "Couldn't send the email. Please check your connection and try again.",
-      );
-    } finally {
-      busy.current = false;
-      setSendingReset(false);
-    }
-  };
+    }, 'reset');
 
   return (
     <Screen

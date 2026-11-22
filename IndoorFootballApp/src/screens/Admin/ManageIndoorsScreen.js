@@ -13,12 +13,14 @@ import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import api from '../../api/api';
+import { useBusyAction } from '../../hooks/useBusyAction';
 
 export default function ManageIndoorsScreen() {
   const [indoors, setIndoors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
+  // The id being deleted (one delete at a time).
+  const { run, busyKey: deletingId } = useBusyAction();
 
   const loadIndoors = async (isRefresh = false) => {
     isRefresh ? setRefreshing(true) : setLoading(true);
@@ -46,21 +48,19 @@ export default function ManageIndoorsScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            setDeletingId(userId);
-            try {
-              await api.delete(`/admin/indoors/${userId}`);
-              await loadIndoors();
-              Alert.alert('Deleted', 'Indoor field deleted successfully.');
-            } catch (err) {
-              Alert.alert(
-                'Error',
-                err.response?.data?.error || 'Failed to delete indoor.',
-              );
-            } finally {
-              setDeletingId(null);
-            }
-          },
+          onPress: () =>
+            run(async () => {
+              try {
+                await api.delete(`/admin/indoors/${userId}`);
+                await loadIndoors();
+                Alert.alert('Deleted', 'Indoor field deleted successfully.');
+              } catch (err) {
+                Alert.alert(
+                  'Error',
+                  err.response?.data?.error || 'Failed to delete indoor.',
+                );
+              }
+            }, userId),
         },
       ],
     );

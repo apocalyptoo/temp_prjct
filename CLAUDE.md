@@ -86,7 +86,7 @@ Backend
 App
 - Theme only through `useTheme()`, colour meanings never `palette`; no raw colours, fonts or loose sizes (a test scans `src/components/ui`). A missing value becomes a token, recorded in DESIGN.md. (TECH 8.2, DESIGN 2–5)
 - Icons only through `<Icon name>` with our names; Lucide is imported per icon, only in `Icon.js`. (TECH 8.4, DESIGN 7)
-- Screens are built from `src/components/ui`; every button that sends a request uses `loading` plus a `busy` ref against double taps (the feature 1 team screens still use a `busy` state). (TECH 8.8)
+- Screens are built from `src/components/ui`; every button that sends a request uses `useBusyAction` (`src/hooks/`) against double taps, no exceptions. (TECH 8.8)
 - Android fonts: set `fontFamily` per weight, never `fontWeight`. `\p{…}` patterns need `new RegExp('…', 'u')`, not a regex literal. (TECH 8.1, 8.3)
 - A screen can only navigate inside its own stack; the team screens are added to each stack with `teamScreens()`. (TECH 8.5)
 - Checks repeated in the app must match the backend's: `src/utils/phone.js`, `src/utils/password.js`, `src/utils/links.js`, `checkTeamForm`, `profileChecks.js`, `venueChecks.js`. `acceptedTerms` is only ever the Terms box's own value. (TECH 8.7)

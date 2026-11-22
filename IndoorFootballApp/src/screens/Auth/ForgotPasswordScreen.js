@@ -2,7 +2,7 @@
 // then Send reset link. The backend gives the same reply whether or not the email has an
 // account, so after sending, the form is replaced by that confirmation and a way back to
 // Log in (P24: no success alert).
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, View } from 'react-native';
 import api from '../../api/api';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -13,6 +13,7 @@ import {
   Text,
   TextField,
 } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 
 export const RESET_SENT_TEXT =
   "If that email has an account, we've sent a reset link. It works for 1 hour.";
@@ -21,34 +22,27 @@ export default function ForgotPasswordScreen({ navigation }) {
   const { spacing } = useTheme();
   const [email, setEmail] = useState('');
   const [error, setError] = useState(null);
-  const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
-  // Stops a second tap from sending a second request before the button shows it's busy.
-  const busy = useRef(false);
+  const { run, busy: sending } = useBusyAction();
 
-  const send = async () => {
-    if (busy.current) return;
-    if (email.trim() === '') {
-      setError('Email is required');
-      return;
-    }
-    busy.current = true;
-    setSending(true);
-    try {
-      await api.post('/auth/forgot', { email: email.trim() });
-      setSent(true);
-    } catch (err) {
-      // For example "Too many password reset requests…" (429) or no connection.
-      Alert.alert(
-        'Not sent',
-        err.response?.data?.error ||
-          "Couldn't send the email. Please check your connection and try again.",
-      );
-    } finally {
-      busy.current = false;
-      setSending(false);
-    }
-  };
+  const send = () =>
+    run(async () => {
+      if (email.trim() === '') {
+        setError('Email is required');
+        return;
+      }
+      try {
+        await api.post('/auth/forgot', { email: email.trim() });
+        setSent(true);
+      } catch (err) {
+        // For example "Too many password reset requests…" (429) or no connection.
+        Alert.alert(
+          'Not sent',
+          err.response?.data?.error ||
+            "Couldn't send the email. Please check your connection and try again.",
+        );
+      }
+    });
 
   return (
     <Screen

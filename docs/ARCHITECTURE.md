@@ -285,6 +285,7 @@ IndoorFootballApp/
 │   ├── components/ui/   shared building blocks screens are made from (see "Shared components")
 │   ├── constants/       fixed lists: the positions and the area suggestions
 │   ├── contexts/        AuthContext.js: who is logged in
+│   ├── hooks/           useBusyAction.js: stops a button sending its request twice
 │   ├── navigation/      which screens exist for each role
 │   ├── screens/         one file per screen, grouped by area (Auth, Player, Owner, Team, Admin,
 │   │                    Shared for Explore, Settings and Change password, Dev for the UI gallery),
@@ -382,7 +383,7 @@ When a request that carried the token gets a 401 (for example the token's 30 day
 
 Each flow below says what the person sees and what happens behind it. The exact rules, messages and replies are in [TECHNICAL.md section 6](TECHNICAL.md#6-endpoints) (endpoints) and [section 8.8](TECHNICAL.md#88-screens) (screens).
 
-**Two habits every rebuilt screen shares:** problems found before sending show under the field they belong to (and long forms scroll up to the first one), and every button that sends a request shows a spinner while it runs and ignores a second tap.
+**Two habits every rebuilt screen shares:** problems found before sending show under the field they belong to (and long forms scroll up to the first one). And on every screen, a button that sends a request shows a spinner while it runs and ignores a second tap, even two taps in the same instant: they all use one shared helper, `useBusyAction`.
 
 ### Registration and email verification
 

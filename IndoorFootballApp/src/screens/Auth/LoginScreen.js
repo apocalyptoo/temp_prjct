@@ -3,7 +3,7 @@
 // a notice and a Resend verification email button. "Create an account" opens the role
 // choice. A successful login needs no navigation: AuthContext sets the user and
 // AppNavigator switches to that role's tabs.
-import React, { useContext, useRef, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Alert, Image, StyleSheet, View } from 'react-native';
 import { AuthContext } from '../../contexts/AuthContext';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -15,6 +15,7 @@ import {
   TextField,
   TextLink,
 } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 
 const LOGO = require('../../../assets/icons/ball.png');
 
@@ -24,25 +25,21 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
-  const [loggingIn, setLoggingIn] = useState(false);
   // Shown after a login attempt for an account whose email isn't verified yet.
   const [needsVerification, setNeedsVerification] = useState(false);
-  const [resending, setResending] = useState(false);
-  // Stops a second tap from sending a second request before the button shows it's busy.
-  const busy = useRef(false);
+  // Log in and Resend share one guard: while either runs, both are blocked.
+  const { run, isBusy } = useBusyAction();
+  const loggingIn = isBusy('login');
 
-  const onLogin = async () => {
-    if (busy.current) return;
-    const found = {
-      email: email.trim() === '' ? 'Email is required' : null,
-      password: password === '' ? 'Password is required' : null,
-    };
-    setErrors(found);
-    if (found.email || found.password) return;
+  const onLogin = () =>
+    run(async () => {
+      const found = {
+        email: email.trim() === '' ? 'Email is required' : null,
+        password: password === '' ? 'Password is required' : null,
+      };
+      setErrors(found);
+      if (found.email || found.password) return;
 
-    busy.current = true;
-    setLoggingIn(true);
-    try {
       const res = await login(email.trim(), password);
       if (!res.success) {
         setNeedsVerification(Boolean(res.needsVerification));
@@ -52,27 +49,16 @@ export default function LoginScreen({ navigation }) {
         );
       }
       // On success this screen goes away (AppNavigator shows the role's tabs).
-    } finally {
-      busy.current = false;
-      setLoggingIn(false);
-    }
-  };
+    }, 'login');
 
-  const onResend = async () => {
-    if (busy.current) return;
-    busy.current = true;
-    setResending(true);
-    try {
+  const onResend = () =>
+    run(async () => {
       const res = await resendVerification(email.trim());
       Alert.alert(
         res.success ? 'Email sent' : 'Not sent',
         res.success ? res.message : res.error,
       );
-    } finally {
-      busy.current = false;
-      setResending(false);
-    }
-  };
+    }, 'resend');
 
   const onChangeEmail = value => {
     setEmail(value);
@@ -148,7 +134,7 @@ export default function LoginScreen({ navigation }) {
             title="Resend verification email"
             variant="secondary"
             onPress={onResend}
-            loading={resending}
+            loading={isBusy('resend')}
             fullWidth
           />
         </View>

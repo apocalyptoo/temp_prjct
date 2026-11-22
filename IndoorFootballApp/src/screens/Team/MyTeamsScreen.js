@@ -22,6 +22,7 @@ import {
   Text,
   TextLink,
 } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 import { TeamLoadState, showActionError } from './teamCommon';
 
 export default function MyTeamsScreen({ navigation }) {
@@ -31,7 +32,8 @@ export default function MyTeamsScreen({ navigation }) {
   const [requests, setRequests] = useState([]); // GET /players/requests
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [refreshing, setRefreshing] = useState(false);
-  const [cancelling, setCancelling] = useState(null); // teamId of the request
+  // The teamId of the request being cancelled (one action at a time).
+  const { run, busyKey: cancelling } = useBusyAction();
 
   // A failed reload keeps what's shown; only a failed first load shows the error.
   const load = useCallback(async () => {
@@ -61,17 +63,15 @@ export default function MyTeamsScreen({ navigation }) {
     load();
   };
 
-  const cancelRequest = async teamId => {
-    setCancelling(teamId);
-    try {
-      await api.delete(`/teams/${teamId}/requests/me`);
-      await load();
-    } catch (err) {
-      showActionError(err, { onStale: load });
-    } finally {
-      setCancelling(null);
-    }
-  };
+  const cancelRequest = teamId =>
+    run(async () => {
+      try {
+        await api.delete(`/teams/${teamId}/requests/me`);
+        await load();
+      } catch (err) {
+        showActionError(err, { onStale: load });
+      }
+    }, teamId);
 
   const openTeam = teamId => navigation.navigate('TeamDetail', { teamId });
 

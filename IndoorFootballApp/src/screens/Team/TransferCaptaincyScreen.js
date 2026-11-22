@@ -13,6 +13,7 @@ import {
   Screen,
   ScreenHeader,
 } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 import {
   TeamLoadState,
   personName,
@@ -26,26 +27,24 @@ export default function TransferCaptaincyScreen({ route, navigation }) {
   const { spacing } = useTheme();
   const { team, status, reload, retry } = useTeam(teamId, navigation);
   const [picked, setPicked] = useState(null); // the member row being confirmed
-  const [saving, setSaving] = useState(false);
+  const { run, busy: saving } = useBusyAction();
 
   const name = team?.name ?? teamName ?? 'Team';
   const candidates = (team?.members ?? []).filter(
     row => row.userId !== team.captainId,
   );
 
-  const confirm = async () => {
-    setSaving(true);
-    try {
-      await api.post(`/teams/${teamId}/transfer`, { userId: picked.userId });
-      setSaving(false);
-      setPicked(null);
-      navigation.goBack(); // Team detail reloads and shows the member view.
-    } catch (err) {
-      setSaving(false);
-      setPicked(null);
-      showActionError(err, { onStale: reload });
-    }
-  };
+  const confirm = () =>
+    run(async () => {
+      try {
+        await api.post(`/teams/${teamId}/transfer`, { userId: picked.userId });
+        setPicked(null);
+        navigation.goBack(); // Team detail reloads and shows the member view.
+      } catch (err) {
+        setPicked(null);
+        showActionError(err, { onStale: reload });
+      }
+    });
 
   return (
     <Screen scroll style={{ gap: spacing.xl, paddingBottom: spacing.xxxl }}>

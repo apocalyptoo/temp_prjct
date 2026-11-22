@@ -4,13 +4,7 @@
 // is checked before sending (profileChecks.js) and sent every time (P11), empty optional
 // fields as null. On success: back to Profile, with the app's user name updated. No
 // "Discard changes?" dialog (P31).
-import React, {
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
 import api from '../../api/api';
 import { AuthContext } from '../../contexts/AuthContext';
@@ -23,6 +17,7 @@ import {
   SuggestionField,
   TextField,
 } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 import { POSITIONS } from '../../constants/positions';
 import { suggestAreas } from '../../constants/areas';
 import { TeamLoadState } from '../Team/teamCommon';
@@ -42,9 +37,7 @@ export default function EditProfileScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [form, setForm] = useState(null);
   const [errors, setErrors] = useState({});
-  const [saving, setSaving] = useState(false);
-  // Stops a second tap from sending a second request before the button shows it's busy.
-  const busy = useRef(false);
+  const { run, busy: saving } = useBusyAction();
   const { scrollRef, onLayoutOf, scrollToFirstError } =
     useScrollToFirstError(FIELD_ORDER);
 
@@ -80,33 +73,29 @@ export default function EditProfileScreen({ navigation }) {
     );
   };
 
-  const save = async () => {
-    if (busy.current) return;
-    const { ok, errors: found, body } = checkProfileEdit(form);
-    setErrors(found);
-    if (!ok) {
-      scrollToFirstError(found);
-      return;
-    }
+  const save = () =>
+    run(async () => {
+      const { ok, errors: found, body } = checkProfileEdit(form);
+      setErrors(found);
+      if (!ok) {
+        scrollToFirstError(found);
+        return;
+      }
 
-    busy.current = true;
-    setSaving(true);
-    try {
-      const res = await api.patch('/players/me', body);
-      const name = res.data?.playerProfile?.name ?? body.name;
-      // The new name shows everywhere the app uses the logged-in user's name.
-      setUser(current => (current ? { ...current, name } : current));
-      navigation.goBack(); // Profile reloads when it comes back into view.
-    } catch (err) {
-      Alert.alert(
-        'Not saved',
-        err.response?.data?.error ||
-          "Couldn't save your profile. Please check your connection and try again.",
-      );
-      busy.current = false;
-      setSaving(false);
-    }
-  };
+      try {
+        const res = await api.patch('/players/me', body);
+        const name = res.data?.playerProfile?.name ?? body.name;
+        // The new name shows everywhere the app uses the logged-in user's name.
+        setUser(current => (current ? { ...current, name } : current));
+        navigation.goBack(); // Profile reloads when it comes back into view.
+      } catch (err) {
+        Alert.alert(
+          'Not saved',
+          err.response?.data?.error ||
+            "Couldn't save your profile. Please check your connection and try again.",
+        );
+      }
+    });
 
   const field = (key, element) => (
     <View onLayout={onLayoutOf(key)}>{element}</View>

@@ -2,9 +2,11 @@ import { lockTeam } from './membership.js';
 
 // Shared delete logic for users and teams.
 //
-// Each delete has several steps (the schema has no onDelete: Cascade, so dependent rows
-// are removed by hand first). Every step runs inside one database transaction: if any
-// step fails, the database rolls back all of them, so nothing is ever left half-deleted.
+// Each delete has several steps: dependent rows are removed by hand first, in order. The
+// schema's onDelete: Cascade rules (and its Restrict on a team's captain) are only a
+// safety net; this code doesn't rely on them. Every step runs inside one database
+// transaction: if any step fails, the database rolls back all of them, so nothing is
+// ever left half-deleted.
 //
 // `db` is the caller's Prisma client. It's a parameter so the tests can pass a client
 // that fails on purpose part-way through.

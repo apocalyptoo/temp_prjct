@@ -13,12 +13,14 @@ import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import api from '../../api/api';
+import { useBusyAction } from '../../hooks/useBusyAction';
 
 export default function ManageTeamsScreen() {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
+  // The id being deleted (one delete at a time).
+  const { run, busyKey: deletingId } = useBusyAction();
 
   const loadTeams = async (isRefresh = false) => {
     isRefresh ? setRefreshing(true) : setLoading(true);
@@ -49,18 +51,16 @@ export default function ManageTeamsScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            setDeletingId(id);
-            try {
-              await api.delete(`/admin/teams/${id}`);
-              await loadTeams();
-              Alert.alert('Deleted', 'Team deleted successfully.');
-            } catch (err) {
-              Alert.alert('Error', 'Failed to delete team');
-            } finally {
-              setDeletingId(null);
-            }
-          },
+          onPress: () =>
+            run(async () => {
+              try {
+                await api.delete(`/admin/teams/${id}`);
+                await loadTeams();
+                Alert.alert('Deleted', 'Team deleted successfully.');
+              } catch (err) {
+                Alert.alert('Error', 'Failed to delete team');
+              }
+            }, id),
         },
       ],
     );

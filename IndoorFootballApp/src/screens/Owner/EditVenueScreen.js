@@ -5,18 +5,13 @@
 // opened from, with the app's user name (the venue name) updated. Opened from My Venue,
 // or from Settings ({ from: 'Settings' }), which only changes the back link's label.
 // No "Discard changes?" dialog (P31).
-import React, {
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
 import api from '../../api/api';
 import { AuthContext } from '../../contexts/AuthContext';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Button, Screen, ScreenHeader, TextField } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 import { TeamLoadState } from '../Team/teamCommon';
 import { useScrollToFirstError, VENUE_NAME } from '../Auth/signUpCommon';
 import { checkVenueEdit, descriptionCount } from './venueChecks';
@@ -39,9 +34,7 @@ export default function EditVenueScreen({ navigation, route }) {
   const [status, setStatus] = useState('loading'); // loading | error | ready
   const [form, setForm] = useState(null);
   const [errors, setErrors] = useState({});
-  const [saving, setSaving] = useState(false);
-  // Stops a second tap from sending a second request before the button shows it's busy.
-  const busy = useRef(false);
+  const { run, busy: saving } = useBusyAction();
   const { scrollRef, onLayoutOf, scrollToFirstError } =
     useScrollToFirstError(FIELD_ORDER);
   const backLabel =
@@ -77,33 +70,29 @@ export default function EditVenueScreen({ navigation, route }) {
     );
   };
 
-  const save = async () => {
-    if (busy.current) return;
-    const { ok, errors: found, body } = checkVenueEdit(form);
-    setErrors(found);
-    if (!ok) {
-      scrollToFirstError(found);
-      return;
-    }
+  const save = () =>
+    run(async () => {
+      const { ok, errors: found, body } = checkVenueEdit(form);
+      setErrors(found);
+      if (!ok) {
+        scrollToFirstError(found);
+        return;
+      }
 
-    busy.current = true;
-    setSaving(true);
-    try {
-      const res = await api.patch('/owners/me', body);
-      const name = res.data?.ownerProfile?.indoorName ?? body.indoorName;
-      // A venue owner's name in the app is the venue name.
-      setUser(current => (current ? { ...current, name } : current));
-      navigation.goBack(); // My Venue reloads when it comes back into view.
-    } catch (err) {
-      Alert.alert(
-        'Not saved',
-        err.response?.data?.error ||
-          "Couldn't save your venue. Please check your connection and try again.",
-      );
-      busy.current = false;
-      setSaving(false);
-    }
-  };
+      try {
+        const res = await api.patch('/owners/me', body);
+        const name = res.data?.ownerProfile?.indoorName ?? body.indoorName;
+        // A venue owner's name in the app is the venue name.
+        setUser(current => (current ? { ...current, name } : current));
+        navigation.goBack(); // My Venue reloads when it comes back into view.
+      } catch (err) {
+        Alert.alert(
+          'Not saved',
+          err.response?.data?.error ||
+            "Couldn't save your venue. Please check your connection and try again.",
+        );
+      }
+    });
 
   const field = (key, element) => (
     <View onLayout={onLayoutOf(key)}>{element}</View>

@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import api from '../../api/api';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Button, Screen, ScreenHeader, TextField } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 import { charCount, showActionError } from './teamCommon';
 
 export const TEAM_NAME_MIN = 2;
@@ -45,34 +46,33 @@ export default function TeamFormScreen({ route, navigation }) {
     editing ? oldDescription ?? '' : '',
   );
   const [errors, setErrors] = useState({});
-  const [saving, setSaving] = useState(false);
+  const { run, busy: saving } = useBusyAction();
 
-  const save = async () => {
-    const found = checkTeamForm(name, description);
-    setErrors(found);
-    if (found.nameError || found.descriptionError) return;
+  const save = () =>
+    run(async () => {
+      const found = checkTeamForm(name, description);
+      setErrors(found);
+      if (found.nameError || found.descriptionError) return;
 
-    setSaving(true);
-    try {
-      if (editing) {
-        await api.patch(`/teams/${teamId}`, { name, description });
-        navigation.goBack(); // Team detail reloads with the new details.
-      } else {
-        const res = await api.post('/teams/create', { name, description });
-        // The form is done: the new team's page takes its place, so Back goes to
-        // My Teams.
-        navigation.replace('TeamDetail', { teamId: res.data.id });
+      try {
+        if (editing) {
+          await api.patch(`/teams/${teamId}`, { name, description });
+          navigation.goBack(); // Team detail reloads with the new details.
+        } else {
+          const res = await api.post('/teams/create', { name, description });
+          // The form is done: the new team's page takes its place, so Back goes to
+          // My Teams.
+          navigation.replace('TeamDetail', { teamId: res.data.id });
+        }
+      } catch (err) {
+        // Editing a team that's gone (404): say so and go back; Team detail then
+        // finds out too. Anything else (for example a name the backend refuses): an
+        // alert with its message, and the form stays.
+        showActionError(err, {
+          onStale: editing ? () => navigation.goBack() : undefined,
+        });
       }
-    } catch (err) {
-      setSaving(false);
-      // Editing a team that's gone (404): say so and go back; Team detail then
-      // finds out too. Anything else (for example a name the backend refuses): an
-      // alert with its message, and the form stays.
-      showActionError(err, {
-        onStale: editing ? () => navigation.goBack() : undefined,
-      });
-    }
-  };
+    });
 
   return (
     <Screen

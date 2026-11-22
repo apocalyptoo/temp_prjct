@@ -22,6 +22,7 @@ import {
   SectionHeader,
   Text,
 } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 import {
   TeamLoadState,
   personName,
@@ -123,25 +124,23 @@ export default function TeamDetailScreen({ route, navigation }) {
   const { team, status, reload, retry } = useTeam(teamId, navigation);
   // Which action's request is running (one at a time), so its button shows the
   // loading state and nothing else can be pressed twice.
-  const [busy, setBusy] = useState(null);
+  const { run: runOnce, busyKey: busy } = useBusyAction();
   // The open confirmation dialog: { kind, row } (see dialogFor), or null.
   const [asking, setAsking] = useState(null);
 
   // Runs one action, then shows the team as it is now (or goes back, when the team is
   // gone for this viewer). A 404 or 409 means the screen was out of date: the alert
   // says so and the team reloads.
-  const run = async (key, request, { goBack = false } = {}) => {
-    setBusy(key);
-    try {
-      await request();
-      setBusy(null);
-      if (goBack) navigation.goBack();
-      else await reload();
-    } catch (err) {
-      setBusy(null);
-      showActionError(err, { onStale: reload });
-    }
-  };
+  const run = (key, request, { goBack = false } = {}) =>
+    runOnce(async () => {
+      try {
+        await request();
+        if (goBack) navigation.goBack();
+        else await reload();
+      } catch (err) {
+        showActionError(err, { onStale: reload });
+      }
+    }, key);
 
   const dialog =
     asking && team ? dialogFor(asking.kind, team, asking.row) : null;

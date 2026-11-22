@@ -1,7 +1,8 @@
 // Must stay the first import. With ES modules every import runs before the code
-// below it, and some modules read settings while they load (authController builds
-// its email sender). config.js loads backend/.env and checks every setting first,
-// and stops the server with a clear message if one is missing or invalid.
+// below it, and some modules read settings while they load (src/utils/mailer.js
+// builds the Gmail email sender as soon as it's imported). config.js loads
+// backend/.env and checks every setting first, and stops the server with a clear
+// message if one is missing or invalid.
 import { config } from './config.js';
 import express from 'express';
 import cors from 'cors';

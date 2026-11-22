@@ -17,6 +17,7 @@ import {
   Text,
   TextField,
 } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 import { TeamLoadState, showActionError, useTeam } from './teamCommon';
 
 // The user ids that can't be invited: everyone already in, invited or asking.
@@ -42,7 +43,8 @@ export default function InvitePlayersScreen({ route, navigation }) {
   // Players invited from this screen: userId → button label ("Invited", or "Joined"
   // when the invite approved a join request that had just come in).
   const [done, setDone] = useState({});
-  const [inviting, setInviting] = useState(null); // the userId whose invite runs
+  // The userId whose invite runs (one at a time).
+  const { run, busyKey: inviting } = useBusyAction();
 
   const loadPlayers = useCallback(async () => {
     try {
@@ -64,33 +66,31 @@ export default function InvitePlayersScreen({ route, navigation }) {
     loadPlayers();
   };
 
-  const invite = async player => {
-    setInviting(player.id);
-    try {
-      const res = await api.post(`/teams/${teamId}/invite`, {
-        userId: player.id,
-      });
-      setDone(current => ({
-        ...current,
-        [player.id]: res.data?.joined ? 'Joined' : 'Invited',
-      }));
-    } catch (err) {
-      const code = err?.response?.status;
-      if (code === 400 || code === 404 || code === 409) {
-        // Already invited or in the team, gone, or the team is full: the list is out
-        // of date. Say so, then show it as it is now.
-        Alert.alert(
-          'Something changed',
-          err.response.data?.error || 'This is no longer possible.',
-        );
-        reloadAll();
-      } else {
-        showActionError(err);
+  const invite = player =>
+    run(async () => {
+      try {
+        const res = await api.post(`/teams/${teamId}/invite`, {
+          userId: player.id,
+        });
+        setDone(current => ({
+          ...current,
+          [player.id]: res.data?.joined ? 'Joined' : 'Invited',
+        }));
+      } catch (err) {
+        const code = err?.response?.status;
+        if (code === 400 || code === 404 || code === 409) {
+          // Already invited or in the team, gone, or the team is full: the list is out
+          // of date. Say so, then show it as it is now.
+          Alert.alert(
+            'Something changed',
+            err.response.data?.error || 'This is no longer possible.',
+          );
+          reloadAll();
+        } else {
+          showActionError(err);
+        }
       }
-    } finally {
-      setInviting(null);
-    }
-  };
+    }, player.id);
 
   const name = team?.name ?? teamName ?? 'Team';
   const ready = status === 'ready' && players !== null;

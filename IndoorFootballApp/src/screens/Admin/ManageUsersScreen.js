@@ -13,6 +13,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import api from '../../api/api';
+import { useBusyAction } from '../../hooks/useBusyAction';
 
 const roleIcon = role => {
   if (role === 'PLAYER') return 'person-outline';
@@ -30,7 +31,8 @@ export default function ManageUsersScreen() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
+  // The id being deleted (one delete at a time).
+  const { run, busyKey: deletingId } = useBusyAction();
 
   const loadUsers = async (isRefresh = false) => {
     isRefresh ? setRefreshing(true) : setLoading(true);
@@ -58,21 +60,19 @@ export default function ManageUsersScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            setDeletingId(id);
-            try {
-              await api.delete(`/admin/users/${id}`);
-              await loadUsers();
-              Alert.alert('Deleted', 'User deleted successfully.');
-            } catch (err) {
-              Alert.alert(
-                'Error',
-                err.response?.data?.error || 'Failed to delete user.',
-              );
-            } finally {
-              setDeletingId(null);
-            }
-          },
+          onPress: () =>
+            run(async () => {
+              try {
+                await api.delete(`/admin/users/${id}`);
+                await loadUsers();
+                Alert.alert('Deleted', 'User deleted successfully.');
+              } catch (err) {
+                Alert.alert(
+                  'Error',
+                  err.response?.data?.error || 'Failed to delete user.',
+                );
+              }
+            }, id),
         },
       ],
     );

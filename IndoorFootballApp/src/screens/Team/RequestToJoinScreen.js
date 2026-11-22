@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import api from '../../api/api';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Button, Screen, ScreenHeader, TextField } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 import {
   MESSAGE_MAX,
   charCount,
@@ -16,24 +17,23 @@ export default function RequestToJoinScreen({ route, navigation }) {
   const { teamId, teamName = 'this team' } = route.params;
   const { spacing } = useTheme();
   const [message, setMessage] = useState('');
-  const [sending, setSending] = useState(false);
+  const { run, busy: sending } = useBusyAction();
 
   // The field stops at the limit, counted the way the backend counts (a phone's own
   // maxLength would count an emoji as two).
   const onChangeText = text => setMessage(limitChars(text, MESSAGE_MAX));
 
-  const send = async () => {
-    setSending(true);
-    try {
-      await api.post(`/teams/${teamId}/requests`, { message });
-      navigation.goBack(); // Team detail reloads and shows "Request sent".
-    } catch (err) {
-      setSending(false);
-      // Already in the team, already asked, team full or gone: Team detail shows the
-      // real state once we're back.
-      showActionError(err, { onStale: () => navigation.goBack() });
-    }
-  };
+  const send = () =>
+    run(async () => {
+      try {
+        await api.post(`/teams/${teamId}/requests`, { message });
+        navigation.goBack(); // Team detail reloads and shows "Request sent".
+      } catch (err) {
+        // Already in the team, already asked, team full or gone: Team detail shows the
+        // real state once we're back.
+        showActionError(err, { onStale: () => navigation.goBack() });
+      }
+    });
 
   return (
     <Screen

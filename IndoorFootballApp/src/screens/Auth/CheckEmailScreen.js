@@ -3,11 +3,12 @@
 // went (or that it couldn't be sent), with Resend email and Back to log in.
 // Params: { email, sendFailed }. Log in sits underneath it in the stack (signUpCommon's
 // showCheckEmail), so Back and "Back to log in" both go there.
-import React, { useContext, useRef, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { AuthContext } from '../../contexts/AuthContext';
 import { useTheme } from '../../theme/ThemeProvider';
 import { Button, Screen, ScreenHeader, Text } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 
 export const sentText = email =>
   `We've sent a link to ${email}. Open it to verify your account, then log in. The link works for 24 hours.`;
@@ -18,24 +19,15 @@ export default function CheckEmailScreen({ route, navigation }) {
   const { email, sendFailed } = route.params ?? {};
   const { resendVerification } = useContext(AuthContext);
   const { spacing } = useTheme();
-  const [resending, setResending] = useState(false);
   const [resendReply, setResendReply] = useState(null);
-  // Stops a second tap from sending a second request before the button shows it's busy.
-  const busy = useRef(false);
+  const { run, isBusy } = useBusyAction();
 
-  const resend = async () => {
-    if (busy.current) return;
-    busy.current = true;
-    setResending(true);
-    try {
+  const resend = () =>
+    run(async () => {
       const res = await resendVerification(email);
       if (res.success) setResendReply(res.message);
       else Alert.alert('Not sent', res.error);
-    } finally {
-      busy.current = false;
-      setResending(false);
-    }
-  };
+    });
 
   const backToLogIn = () => navigation.navigate('Login');
 
@@ -53,7 +45,7 @@ export default function CheckEmailScreen({ route, navigation }) {
           title="Resend email"
           variant="secondary"
           onPress={resend}
-          loading={resending}
+          loading={isBusy()}
           fullWidth
         />
         {resendReply ? (

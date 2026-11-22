@@ -14,6 +14,7 @@ import {
   ScreenHeader,
   Text,
 } from '../../components/ui';
+import { useBusyAction } from '../../hooks/useBusyAction';
 import { TeamLoadState, showActionError } from '../Team/teamCommon';
 
 export default function InvitesScreen({ navigation }) {
@@ -22,7 +23,7 @@ export default function InvitesScreen({ navigation }) {
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [refreshing, setRefreshing] = useState(false);
   // The running action, as "teamId:accept" or "teamId:decline" (one at a time).
-  const [busy, setBusy] = useState(null);
+  const { run: runOnce, busyKey: busy } = useBusyAction();
 
   // A failed reload keeps what's shown; only a failed first load shows the error.
   const load = useCallback(async () => {
@@ -45,17 +46,15 @@ export default function InvitesScreen({ navigation }) {
 
   // Accept or decline, then show the list as it is now. A 404 or 409 (the invite was
   // cancelled, or the team filled up) says so and reloads.
-  const run = async (key, request) => {
-    setBusy(key);
-    try {
-      await request();
-      await load();
-    } catch (err) {
-      showActionError(err, { onStale: load });
-    } finally {
-      setBusy(null);
-    }
-  };
+  const run = (key, request) =>
+    runOnce(async () => {
+      try {
+        await request();
+        await load();
+      } catch (err) {
+        showActionError(err, { onStale: load });
+      }
+    }, key);
 
   const header = (
     <ScreenHeader title="Invites" style={{ paddingTop: spacing.lg }} />
