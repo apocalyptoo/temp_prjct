@@ -1,111 +1,103 @@
-// src/screens/Auth/ForgotPasswordScreen.js
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  StyleSheet,
-} from 'react-native';
+// Forgot password (docs/features/profiles-and-registration.md, section e). The email,
+// then Send reset link. The backend gives the same reply whether or not the email has an
+// account, so after sending, the form is replaced by that confirmation and a way back to
+// Log in (P24: no success alert).
+import React, { useRef, useState } from 'react';
+import { Alert, View } from 'react-native';
 import api from '../../api/api';
+import { useTheme } from '../../theme/ThemeProvider';
+import {
+  Button,
+  Screen,
+  ScreenHeader,
+  Text,
+  TextField,
+} from '../../components/ui';
+
+export const RESET_SENT_TEXT =
+  "If that email has an account, we've sent a reset link. It works for 1 hour.";
 
 export default function ForgotPasswordScreen({ navigation }) {
+  const { spacing } = useTheme();
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  // Stops a second tap from sending a second request before the button shows it's busy.
+  const busy = useRef(false);
 
-  const submit = async () => {
-    setLoading(true);
+  const send = async () => {
+    if (busy.current) return;
+    if (email.trim() === '') {
+      setError('Email is required');
+      return;
+    }
+    busy.current = true;
+    setSending(true);
     try {
       await api.post('/auth/forgot', { email: email.trim() });
-      Alert.alert('Success', 'If that email exists, a reset link was sent.');
-      navigation.goBack();
+      setSent(true);
     } catch (err) {
-      console.error(err?.response?.data || err.message);
-      Alert.alert('Error', 'Failed to request password reset');
+      // For example "Too many password reset requests…" (429) or no connection.
+      Alert.alert(
+        'Not sent',
+        err.response?.data?.error ||
+          "Couldn't send the email. Please check your connection and try again.",
+      );
     } finally {
-      setLoading(false);
+      busy.current = false;
+      setSending(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Forgot Password</Text>
-      <View style={styles.form}>
-        <TextInput
-          placeholder="Enter your email"
-          value={email}
-          onChangeText={setEmail}
-          style={styles.input}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          placeholderTextColor="#aaa"
-        />
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={submit}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? 'Sending...' : 'Send Reset Link'}
+    <Screen
+      scroll
+      keyboardAware
+      style={{ gap: spacing.xl, paddingBottom: spacing.xxxl }}
+    >
+      <ScreenHeader
+        back={{ label: 'Log in', onPress: navigation.goBack }}
+        title="Forgot password"
+      />
+      {sent ? (
+        <View style={{ gap: spacing.xl }}>
+          <Text variant="body" accessibilityLiveRegion="polite">
+            {RESET_SENT_TEXT}
           </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backContainer}
-        >
-          <Text style={styles.backText}>← Back to Login</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+          <Button
+            title="Back to log in"
+            onPress={navigation.goBack}
+            fullWidth
+          />
+        </View>
+      ) : (
+        <View style={{ gap: spacing.xl }}>
+          <Text variant="body" color="textMuted">
+            Enter your email and we'll send you a link to set a new password.
+          </Text>
+          <TextField
+            label="Email"
+            value={email}
+            onChangeText={value => {
+              setEmail(value);
+              if (error) setError(null);
+            }}
+            error={error}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            editable={!sending}
+            onSubmitEditing={send}
+          />
+          <Button
+            title="Send reset link"
+            onPress={send}
+            loading={sending}
+            fullWidth
+          />
+        </View>
+      )}
+    </Screen>
   );
 }
-
-const PRIMARY_COLOR = '#3C6E71';
-const ACCENT_COLOR = '#284B63';
-const BG_COLOR = '#F1FAFB';
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: BG_COLOR,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: ACCENT_COLOR,
-    marginBottom: 40,
-    textAlign: 'center',
-  },
-  form: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 32,
-    paddingHorizontal: 24,
-    elevation: 4,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    fontSize: 16,
-    color: '#333',
-  },
-  button: {
-    backgroundColor: PRIMARY_COLOR,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  backContainer: { marginTop: 20, alignItems: 'center' },
-  backText: { color: PRIMARY_COLOR, fontWeight: '500' },
-});

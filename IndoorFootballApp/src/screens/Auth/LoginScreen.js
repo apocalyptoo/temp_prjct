@@ -1,238 +1,190 @@
-// src/screens/Auth/LoginScreen.js
-import React, { useState, useContext } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Image,
-  StyleSheet,
-  Alert,
-} from 'react-native';
+// Log in (docs/features/profiles-and-registration.md, section e, "Login"). The ball logo
+// and the name, email and password, then Log in. After "Please verify your email" (403),
+// a notice and a Resend verification email button. "Create an account" opens the role
+// choice. A successful login needs no navigation: AuthContext sets the user and
+// AppNavigator switches to that role's tabs.
+import React, { useContext, useRef, useState } from 'react';
+import { Alert, Image, StyleSheet, View } from 'react-native';
 import { AuthContext } from '../../contexts/AuthContext';
+import { useTheme } from '../../theme/ThemeProvider';
+import {
+  Button,
+  NoticeLine,
+  Screen,
+  Text,
+  TextField,
+  TextLink,
+} from '../../components/ui';
+
+const LOGO = require('../../../assets/icons/ball.png');
 
 export default function LoginScreen({ navigation }) {
   const { login, resendVerification } = useContext(AuthContext);
+  const { spacing, sizes } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [loggingIn, setLoggingIn] = useState(false);
   // Shown after a login attempt for an account whose email isn't verified yet.
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resending, setResending] = useState(false);
+  // Stops a second tap from sending a second request before the button shows it's busy.
+  const busy = useRef(false);
 
   const onLogin = async () => {
+    if (busy.current) return;
+    const found = {
+      email: email.trim() === '' ? 'Email is required' : null,
+      password: password === '' ? 'Password is required' : null,
+    };
+    setErrors(found);
+    if (found.email || found.password) return;
+
+    busy.current = true;
+    setLoggingIn(true);
     try {
       const res = await login(email.trim(), password);
-      setNeedsVerification(Boolean(res.needsVerification));
-      if (!res.success)
-        Alert.alert('Login failed', res.error || 'Check your credentials');
-    } catch (err) {
-      Alert.alert('Error', err.message || 'Login error');
+      if (!res.success) {
+        setNeedsVerification(Boolean(res.needsVerification));
+        Alert.alert(
+          'Login failed',
+          res.error || 'Check your email and password',
+        );
+      }
+      // On success this screen goes away (AppNavigator shows the role's tabs).
+    } finally {
+      busy.current = false;
+      setLoggingIn(false);
     }
   };
 
-  const onResendVerification = async () => {
+  const onResend = async () => {
+    if (busy.current) return;
+    busy.current = true;
     setResending(true);
-    const res = await resendVerification(email.trim());
-    setResending(false);
-    Alert.alert(
-      res.success ? 'Email sent' : 'Not sent',
-      res.success ? res.message : res.error,
-    );
+    try {
+      const res = await resendVerification(email.trim());
+      Alert.alert(
+        res.success ? 'Email sent' : 'Not sent',
+        res.success ? res.message : res.error,
+      );
+    } finally {
+      busy.current = false;
+      setResending(false);
+    }
   };
 
   const onChangeEmail = value => {
     setEmail(value);
-    setNeedsVerification(false); // the button belongs to the email that was checked
+    setNeedsVerification(false); // the notice belongs to the email that was checked
+    if (errors.email) setErrors({ ...errors, email: null });
   };
 
   return (
-    <View style={styles.container}>
-      {/* Logo Section */}
-      <View style={styles.logoContainer}>
+    <Screen
+      scroll
+      keyboardAware
+      style={[
+        styles.content,
+        { gap: spacing.xl, paddingVertical: spacing.xxxl },
+      ]}
+    >
+      <View style={[styles.brand, { gap: spacing.xs }]}>
         <Image
-          source={require('../../../assets/icons/ball.png')}
-          style={styles.logo}
+          source={LOGO}
+          style={{ width: sizes.logo, height: sizes.logo }}
           resizeMode="contain"
+          accessibilityElementsHidden
+          importantForAccessibility="no"
         />
-        <Text style={styles.brandName}>ConnectArena</Text>
-        <Text style={styles.slogan}>Unleash Your Inner Champion</Text>
+        <Text variant="display" accessibilityRole="header">
+          ConnectArena
+        </Text>
+        <Text variant="bodySmall" color="textMuted">
+          Unleash Your Inner Champion
+        </Text>
       </View>
 
-      {/* Tabs (Login / Signup) */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity>
-          <Text style={[styles.tabText, styles.activeTab]}>Login</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('RoleSelection')}>
-          <Text style={styles.tabText}>Signup</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Form Section */}
-      <View style={styles.form}>
-        <View style={styles.inputContainer}>
-          <TextInput
-            placeholder="Email Address"
-            placeholderTextColor="#888"
-            value={email}
-            onChangeText={onChangeEmail}
-            style={styles.input}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <TextInput
-            placeholder="Password"
-            placeholderTextColor="#888"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            style={styles.input}
-          />
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-            <Text style={styles.toggleText}>
-              {showPassword ? 'Hide' : 'Show'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Forgot Password Link */}
-        <TouchableOpacity
+      <TextField
+        label="Email"
+        value={email}
+        onChangeText={onChangeEmail}
+        error={errors.email}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoComplete="email"
+        editable={!loggingIn}
+      />
+      <View style={{ gap: spacing.xxs }}>
+        <TextField
+          label="Password"
+          value={password}
+          onChangeText={value => {
+            setPassword(value);
+            if (errors.password) setErrors({ ...errors, password: null });
+          }}
+          error={errors.password}
+          secure
+          autoComplete="password"
+          editable={!loggingIn}
+          onSubmitEditing={onLogin}
+        />
+        <TextLink
+          title="Forgot password?"
           onPress={() => navigation.navigate('ForgotPassword')}
-          style={styles.forgotContainer}
-        >
-          <Text style={styles.forgotText}>Forgot Password?</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.loginButton} onPress={onLogin}>
-          <Text style={styles.loginButtonText}>Login</Text>
-        </TouchableOpacity>
-
-        {/* Only after "please verify your email". Reuses the link style until the theme work. */}
-        {needsVerification && (
-          <TouchableOpacity
-            onPress={onResendVerification}
-            disabled={resending}
-            style={styles.forgotContainer}
-            accessibilityRole="button"
-          >
-            <Text style={styles.forgotText}>
-              {resending ? 'Sending…' : 'Resend verification email'}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Development builds only (the screen isn't registered in release builds). */}
-        {__DEV__ ? (
-          <TouchableOpacity
-            onPress={() => navigation.navigate('UIGallery')}
-            style={styles.forgotContainer}
-            accessibilityRole="link"
-          >
-            <Text style={styles.forgotText}>UI gallery</Text>
-          </TouchableOpacity>
-        ) : null}
+          style={styles.end}
+        />
       </View>
-    </View>
+
+      <Button title="Log in" onPress={onLogin} loading={loggingIn} fullWidth />
+
+      {needsVerification ? (
+        <View style={{ gap: spacing.md }}>
+          <NoticeLine
+            strong="Your email isn't verified yet."
+            text="Check your inbox for the link."
+          />
+          <Button
+            title="Resend verification email"
+            variant="secondary"
+            onPress={onResend}
+            loading={resending}
+            fullWidth
+          />
+        </View>
+      ) : null}
+
+      <View style={[styles.signUpRow, { gap: spacing.xs }]}>
+        <Text variant="body" color="textMuted">
+          New here?
+        </Text>
+        <TextLink
+          title="Create an account"
+          onPress={() => navigation.navigate('RoleSelection')}
+        />
+      </View>
+
+      {/* Development builds only (the screen isn't registered in release builds). */}
+      {__DEV__ ? (
+        <TextLink
+          title="UI gallery"
+          onPress={() => navigation.navigate('UIGallery')}
+          style={styles.center}
+        />
+      ) : null}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
+  content: { justifyContent: 'center' },
+  brand: { alignItems: 'center' },
+  end: { alignSelf: 'flex-end' },
+  center: { alignSelf: 'center' },
+  signUpRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  logo: {
-    width: 120,
-    height: 120,
-  },
-  brandName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#222',
-    marginTop: 8,
-  },
-  slogan: {
-    fontSize: 14,
-    color: '#777',
-    marginTop: 4,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '60%',
-    marginBottom: 20,
-    borderBottomWidth: 1,
-    borderColor: '#ddd',
-  },
-  tabText: {
-    fontSize: 16,
-    paddingVertical: 6,
-    color: '#777',
-    fontWeight: '500',
-  },
-  activeTab: {
-    color: '#000',
-    borderBottomWidth: 2,
-    borderBottomColor: '#000',
-  },
-  form: {
-    width: '100%',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-    backgroundColor: '#fff',
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    color: '#333',
-    paddingVertical: 10,
-  },
-  toggleText: {
-    fontSize: 14,
-    color: '#007bff',
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-  loginButton: {
-    backgroundColor: '#000',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  loginButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  forgotContainer: {
-    alignItems: 'flex-end',
-    marginBottom: 12,
-    marginTop: 4,
-    width: '100%',
-  },
-  forgotText: {
-    color: '#3C6E71',
-    fontWeight: '500',
-    fontSize: 15,
-    textDecorationLine: 'underline',
+    flexWrap: 'wrap',
   },
 });

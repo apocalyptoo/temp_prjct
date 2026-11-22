@@ -479,7 +479,7 @@ A venue owner fills in or changes their listing with `PATCH /owners/me` (the Edi
 
 ### Resending the verification email
 
-1. If someone logs in with the right password before verifying, login replies "Please verify your email" (403). `LoginScreen.js` then shows a **Resend verification email** button.
+1. If someone logs in with the right password before verifying, login replies "Please verify your email" (403). `LoginScreen.js` then shows a notice ("Your email isn't verified yet. Check your inbox for the link.") and a **Resend verification email** button, which spins while the request runs. Changing the email hides them again.
 2. The button calls `resendVerification()` in `AuthContext`, which sends `POST /auth/resend-verification` with the email. A missing, non-text or blank email is refused; otherwise it's lowercased and trimmed before the lookup.
 3. If that account exists and isn't verified, the backend makes a new token (only its hash is saved, valid for 24 hours, replacing the old link) and emails a new link. It doesn't do this if it already sent one in the last 5 minutes.
 4. The reply is always the same ("If that account needs verifying, we've sent a new email."), whether or not the account exists or is already verified, so it gives nothing away. The app shows that reply.
@@ -488,13 +488,13 @@ Known problems in this flow: see [ROADMAP.md](ROADMAP.md), Phases 1 and 2.
 
 ### Login
 
-1. `LoginScreen.js` calls `login()` from `AuthContext`, which sends `POST /auth/login`.
+1. `LoginScreen.js` checks that both fields are filled in ("Email is required", "Password is required" under the fields), then calls `login()` from `AuthContext`, which sends `POST /auth/login`. The Log in button spins while it runs, and a second tap does nothing.
 2. The backend refuses a missing or non-text email or password, and a blank email. The email is lowercased and trimmed before the lookup, so capitals or stray spaces don't matter. An unknown email and a wrong password get exactly the same reply ("Invalid email or password"), so nobody can use the login screen to find out who has an account. Only after the password is confirmed correct does an unverified account get told to verify its email first. Otherwise it replies with a JWT and the user's details (see [section 4](#how-login-works)).
 3. `AuthContext` saves the token and sets `user`. `AppNavigator` then switches to that role's screens.
 
 ### Password reset
 
-1. The user enters their email on **Forgot Password**, or taps **Change Password** in Settings. The app sends `POST /auth/forgot`.
+1. The user taps **Forgot password?** on the Login screen and enters their email on **Forgot password** (or taps **Change Password** in the old Settings screens, until task F2.3 replaces them). The app sends `POST /auth/forgot`. The rebuilt Forgot password screen then replaces its form with "If that email has an account, we've sent a reset link. It works for 1 hour." and a **Back to log in** button, instead of an alert.
 2. A missing, non-text or blank email is refused; otherwise it's lowercased and trimmed. If the email exists, the backend saves the hash of a new random reset token, which expires in 1 hour, and emails a link containing the token to `BACKEND_PUBLIC_URL/auth/reset-password-page?token=…`. If it already sent a reset email to that account in the last 5 minutes, it sends nothing new. The reply is the same in every case, whether or not the email exists.
 3. The link opens a small web form served by the backend. It only shows the form if the token looks like one the backend makes (64 lowercase hex characters); anything else gets an "Invalid or expired link" page. The form submits the new password to `POST /auth/reset`.
 4. The backend refuses a token that isn't plain text, and a new password that fails the same strength rule as registration. Otherwise it hashes the token, finds the user with that hash and an unexpired link, saves the new password hash, clears the token and its expiry, and marks the account verified. The reset proves the email works, so it also clears any leftover verification link.

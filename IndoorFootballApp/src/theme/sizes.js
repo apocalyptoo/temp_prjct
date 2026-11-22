@@ -10,6 +10,7 @@ export const sizes = {
   dot: 8, // the small "waiting for you" dot
   border: 1, // card borders, dividers, outlined buttons, fields
   dialogMaxWidth: 400, // confirmation dialogs on wide screens
+  logo: 72, // the ball logo on the Login screen
 };
 
 export const opacity = {

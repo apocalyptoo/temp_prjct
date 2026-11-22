@@ -20,11 +20,24 @@ const Stack = createNativeStackNavigator();
 export default function AuthStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: true }}>
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+      {/* The rebuilt screens draw their own header and back link. */}
+      <Stack.Screen
+        name="Login"
+        component={LoginScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="RoleSelection"
+        component={RoleSelectionScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen name="PlayerRegister" component={PlayerRegisterScreen} />
       <Stack.Screen name="OwnerRegister" component={OwnerRegisterScreen} />
-      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen
+        name="ForgotPassword"
+        component={ForgotPasswordScreen}
+        options={{ headerShown: false }}
+      />
       {UIGalleryScreen ? (
         <Stack.Screen
           name="UIGallery"

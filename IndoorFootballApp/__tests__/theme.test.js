@@ -180,6 +180,7 @@ describe('spacing, radius, shadows and touch target', () => {
       dot: 8,
       border: 1,
       dialogMaxWidth: 400,
+      logo: 72,
     });
     expect(opacity).toEqual({ disabled: 0.45, pressed: 0.8 });
     expect(icon).toEqual({ size: 24, sizeSmall: 16, strokeWidth: 1.8 });

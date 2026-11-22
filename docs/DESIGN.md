@@ -142,6 +142,7 @@ Two font families, both from Google Fonts (free to use in apps under the Open Fo
 - `dot` 8: the small "waiting for you" dot
 - `border` 1: the 1px lines (card borders, dividers, outlined buttons, fields)
 - `dialogMaxWidth` 400: confirmation dialogs on wide screens
+- `logo` 72: the ball logo on the Login screen (a fixed size: it holds no text)
 
 **Opacity** (`opacity` tokens): `disabled` 0.45 for disabled controls (they also say so to screen readers), `pressed` 0.8 while a tappable card or button is held down.
 
