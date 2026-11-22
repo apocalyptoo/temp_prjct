@@ -1,9 +1,11 @@
 import { prisma } from '../db.js';
 import { viewerFrom, seesEverything, toVisibleUser, toPublicVenue } from '../utils/visibility.js';
+import { LIVE_VENUE_NEEDS, missingFields, withMissingFields } from '../utils/venues.js';
 
 // The logged-in venue owner's own profile with the listing: everything except
-// secrets. Shared by GET /owners/me and the reply of PATCH /owners/me. Since the short
-// sign-up, phone, address, description and website may each be null.
+// secrets, including the review status (approvedAt, null = "Pending review") and the
+// admin's note. Shared by GET /owners/me and the reply of PATCH /owners/me. Since the
+// short sign-up, every listing field except the venue name may be null.
 const loadOwnOwnerProfile = (userId) =>
   prisma.user.findUnique({
     where: { id: userId },
@@ -13,10 +15,28 @@ const loadOwnOwnerProfile = (userId) =>
       role: true,
       createdAt: true,
       ownerProfile: {
-        select: { indoorName: true, phone: true, address: true, description: true, website: true },
+        select: {
+          indoorName: true,
+          phone: true,
+          address: true,
+          area: true,
+          website: true,
+          description: true,
+          openingHours: true,
+          pricingInfo: true,
+          approvedAt: true,
+          reviewNote: true,
+        },
       },
     },
   });
+
+// The owner's own reply: the visible user, with the listing's missingFields (the
+// required fields still empty, in order; docs/features/venues.md, P8).
+const ownReply = (user, req) => {
+  const out = toVisibleUser(user, viewerFrom(req));
+  return { ...out, ownerProfile: withMissingFields(out.ownerProfile) };
+};
 
 export const getMyOwnerProfile = async (req, res, next) => {
   try {
@@ -29,28 +49,37 @@ export const getMyOwnerProfile = async (req, res, next) => {
       return res.status(404).json({ error: 'Owner profile not found' });
     }
 
-    return res.json(toVisibleUser(user, viewerFrom(req)));
+    return res.json(ownReply(user, req));
   } catch (err) {
     return next(err);
   }
 };
 
 // PATCH /owners/me: edit the venue listing (docs/features/profiles-and-registration.md,
-// d endpoint 5). Owners only (checked by the route, before the body). The body was
-// checked by updateVenueSchema: every field is present and cleaned (trimmed, blank as
-// null, the phone a mobile number, the website a real http/https link), so one update
-// replaces the whole editable listing. Feature 3 adds area, opening hours and pricing.
+// d endpoint 5; docs/features/venues.md, d endpoint 2). Owners only (checked by the
+// route, before the body). The body was checked by updateVenueSchema: every field is
+// present and cleaned, so one update replaces the whole editable listing. The edit
+// never changes the review status or the admin's note: edits to a live venue stay live.
+//
+// A live venue can't empty its address, area or phone. An edit that would leave one of
+// them empty is written only while the venue is pending (where approvedAt is null), in
+// one conditional update, so an approval landing at the same moment can't leave an
+// incomplete venue live (spec P11). If nothing was written and the venue exists, it's
+// live: the reply names the first field it needs (spec P10).
 export const updateMyVenue = async (req, res, next) => {
   try {
-    const { indoorName, phone, address, website, description } = req.valid.body;
-    const { count } = await prisma.ownerProfile.updateMany({
-      where: { userId: req.user.id },
-      data: { indoorName, phone, address, website, description },
-    });
-    if (count === 0) return res.status(404).json({ error: 'Owner profile not found' });
+    const listing = req.valid.body;
+    const empty = missingFields(listing);
+    const where = empty.length > 0 ? { userId: req.user.id, approvedAt: null } : { userId: req.user.id };
+    const { count } = await prisma.ownerProfile.updateMany({ where, data: listing });
+    if (count === 0) {
+      const exists = await prisma.ownerProfile.findUnique({ where: { userId: req.user.id }, select: { id: true } });
+      if (!exists) return res.status(404).json({ error: 'Owner profile not found' });
+      return res.status(400).json({ error: LIVE_VENUE_NEEDS[empty[0]] });
+    }
 
     const user = await loadOwnOwnerProfile(req.user.id);
-    return res.json(toVisibleUser(user, viewerFrom(req)));
+    return res.json(ownReply(user, req));
   } catch (err) {
     return next(err);
   }

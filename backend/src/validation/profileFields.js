@@ -13,6 +13,8 @@ export const VENUE_NAME = { min: 2, max: 60 };
 export const VENUE_ADDRESS_MAX = 200;
 export const VENUE_DESCRIPTION_MAX = 500;
 export const VENUE_WEBSITE_MAX = 200;
+export const VENUE_OPENING_HOURS_MAX = 120; // venues spec P1
+export const VENUE_PRICING_INFO_MAX = 120; // venues spec P1
 
 // The position list, spelled exactly as the app shows it (spec P1). Same values as the
 // Position enum in prisma/schema.prisma.
@@ -133,3 +135,23 @@ export const website = () =>
     notText: 'Website must be text',
     tooLong: `Website must be at most ${VENUE_WEBSITE_MAX} characters`,
   }).refine((text) => text === null || isWebLink(text), { error: WEBSITE_MESSAGE });
+
+// A venue's area: exactly the player Area rules (venues spec D4), so area() is reused.
+export const venueArea = area;
+
+// Opening hours and pricing info (venues spec P1): optional plain text, trimmed, blank
+// becomes null, at most 120 characters. Line breaks inside are kept (a second line for
+// Fridays, say).
+export const openingHours = () =>
+  trimmedOptionalText({
+    max: VENUE_OPENING_HOURS_MAX,
+    notText: 'Opening hours must be text',
+    tooLong: `Opening hours must be at most ${VENUE_OPENING_HOURS_MAX} characters`,
+  });
+
+export const pricingInfo = () =>
+  trimmedOptionalText({
+    max: VENUE_PRICING_INFO_MAX,
+    notText: 'Pricing info must be text',
+    tooLong: `Pricing info must be at most ${VENUE_PRICING_INFO_MAX} characters`,
+  });
