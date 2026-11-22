@@ -1,5 +1,6 @@
 // PATCH /owners/me: a venue owner edits their listing (docs/features/profiles-and-
-// registration.md, d endpoint 5), and the website check (isWebLink, spec P18). Every
+// registration.md, d endpoint 5), and the website check (isWebLink, spec P18; the app has
+// the same rule, IndoorFootballApp/__tests__/links.test.js, with the same cases). Every
 // field is sent each time; empty optional fields clear. Safety rules are in helpers.js.
 // All users here are throwaway.
 
@@ -135,20 +136,58 @@ describe('Every field has its message', () => {
 
 describe('The website check (isWebLink)', () => {
   test('real http and https links pass, in any case', () => {
-    for (const link of ['https://arena.com.bd', 'http://arena.com', 'HTTP://Arena.com', 'https://arena.com/page?x=1#top']) {
+    for (const link of [
+      'https://arena.com.bd',
+      'http://arena.com',
+      'HTTP://Arena.com',
+      'https://arena.com/page?x=1#top',
+      'https://arena.com:8080/page',
+      'https://my_arena-1.example.com',
+      'https://ঢাকা.com',
+      'http://localhost',
+      'https://arena.com?x=1',
+    ]) {
       assert.equal(isWebLink(link), true, link);
     }
   });
 
   test('anything else fails', () => {
-    for (const link of ['arena.com', 'www.arena.com', 'javascript:alert(1)', 'ftp://arena.com', 'https://', 'https:// arena.com', 'https://arena .com', 'mailto:a@b.com', '', null, 5]) {
+    for (const link of [
+      'arena.com',
+      'www.arena.com',
+      'javascript:alert(1)',
+      'ftp://arena.com',
+      'https://',
+      'https:// arena.com',
+      'https://arena .com',
+      'mailto:a@b.com',
+      '',
+      null,
+      5,
+      // Odd forms a URL parser accepts but the rule doesn't (one rule in the app and the backend).
+      'http:arena.com',
+      'https:/arena.com',
+      'https:\\\\arena.com',
+      'https://user@arena.com',
+      'https://arena.com@evil.example.com',
+      'https://user:pass@arena.com',
+      'https://arena..com',
+      'https://.arena.com',
+      'https://arena.com.',
+      'https://arena.com:',
+      'https://arena.com:99999',
+      'https://[::1]',
+      'https://<arena>.com',
+      'https://arena.com\\page',
+      'https://arena.com/a b',
+    ]) {
       assert.equal(isWebLink(link), false, String(link));
     }
   });
 
   test('the endpoint refuses the same links', async (t) => {
     const me = await owner(t);
-    for (const website of ['javascript:alert(1)', 'ftp://arena.com', 'https://']) {
+    for (const website of ['javascript:alert(1)', 'ftp://arena.com', 'https://', 'http:arena.com', 'https:/arena.com', 'https://user@arena.com']) {
       const reply = await patchMe(me.jwt, edit({ website }));
       assert.equal(reply.body.error, WEBSITE_RULE, website);
     }

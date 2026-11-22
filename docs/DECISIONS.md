@@ -415,3 +415,13 @@ The owner approved `docs/features/profiles-and-registration.md`: its five defaul
 
 **Alternatives considered:** landlines for venues (deferred), deleting or keeping the non-matching test phones (rejected), "Edit profile" opening the venue editor (rejected), no password-changed email (rejected), keeping the old messages (rejected), automatic capitals (rejected), "Connect Arena" (rejected by the owner).
 **Consequence:** the backend task (F2.1) builds exactly the API in the spec. The migration still needs the owner's approval when it's created.
+
+### 2026-11-22: One website rule in the app and the backend
+**Decision:** a website is valid when it's `http://` or `https://` (any capitals), then a host name, then an optional port and path, with no spaces and no `user:password@` part. The backend and the app check it with the same pattern (`isWebLink` in `backend/src/utils/links.js` and `IndoorFootballApp/src/utils/links.js`), tested with the same cases. Odd forms that a URL parser accepts, like `http:arena.com` or `https:/arena.com`, are refused. This replaces the first version of spec P18, which parsed the text with `new URL(...)`.
+
+**Why:**
+- The app checks websites before sending them and before opening them, and its answer must match the backend's. On the phone, React Native's URL doesn't really parse links (it accepts anything, keeps "HTTP:" in capitals and can't find the host of "HTTP://Arena.com"), so the same `new URL` code would answer differently on the phone than in the tests.
+- The odd forms aren't what "starts with http:// or https://" (the backend's message) promises, and a link with a `user@` part can look like it goes to one site while it opens another.
+
+**Alternatives considered:** keeping `new URL` in the app as the spec said (rejected: different answers on the phone), a stricter app check with the backend left as it was (rejected by the owner: the two could disagree).
+**Consequence:** no stored website was affected (none were set in the local database on 2026-11-22). A future change to the rule must change both files and both tests.

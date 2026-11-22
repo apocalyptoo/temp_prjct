@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import api from '../../api/api';
+import { isWebLink } from '../../utils/links';
 
 export default function IndoorsListScreen() {
   const [indoors, setIndoors] = useState([]);
@@ -53,11 +54,18 @@ export default function IndoorsListScreen() {
               <Text style={styles.meta}>{item.phone}</Text>
               <Text style={styles.meta}>{item.address}</Text>
 
-              {!!item.website && (
-                <TouchableOpacity onPress={() => Linking.openURL(item.website)}>
-                  <Text style={styles.website}>{item.website}</Text>
-                </TouchableOpacity>
-              )}
+              {/* Only a real http(s) link opens; anything else is plain text
+                  (isWebLink, docs/features/profiles-and-registration.md, D3). */}
+              {!!item.website &&
+                (isWebLink(item.website) ? (
+                  <TouchableOpacity
+                    onPress={() => Linking.openURL(item.website)}
+                  >
+                    <Text style={styles.website}>{item.website}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.meta}>{item.website}</Text>
+                ))}
 
               {!!item.description && (
                 <Text style={styles.meta}>{item.description}</Text>
