@@ -27,7 +27,7 @@ Every account has exactly one role, chosen when the account is created.
 |---|---|---|
 | **Player** | Someone who plays | Sign up, log in, see and edit their profile, change their password; create a team, edit or delete it, invite players, remove members, hand over the captaincy, leave a team; accept or decline invites; ask to join a team (and cancel), and as captain approve or decline requests; browse all teams, players and venues |
 | **Owner** | Someone who runs an indoor venue | Sign up, log in, fill in and edit their venue listing, see their account, change their password; browse all teams (read-only), players and venues |
-| **Admin** | The person running the app | See counts (users, players, owners, admins, teams), list and delete users, teams and venues (deleting a venue deletes the owner's account). The admin screens can't delete the admin's own account or any admin account |
+| **Admin** | The person running the app | See counts (users, players, owners, admins, teams), list and delete users, teams and venues (deleting a venue deletes the owner's account). Review venues: approve them, leave a note for the owner, move a live venue back to review (in the backend now; the screens arrive with the venues feature). The admin screens can't delete the admin's own account or any admin account |
 
 Admin accounts can't be created from the app. They're made with a script (see [section 8](#8-configuration)).
 
@@ -152,7 +152,7 @@ Three terms used in this layout:
 | `/owners` | My venue profile and editing the listing; the list of live venues (search by name, filter by area) and one venue's details |
 | `/teams` | Create, list, one team, edit, delete, invites, join requests, removing members, leaving, handing over the captaincy |
 | `/legal` | The Terms of Use and Privacy Policy pages (placeholder text until launch) |
-| `/admin` | Counts, and listing and deleting users, teams and venues (admin only) |
+| `/admin` | Counts, and listing and deleting users, teams and venues; reviewing venues: approve, note, move back to review (admin only) |
 
 There's also `GET /`, which replies "API running" so you can check the server is up.
 
@@ -421,6 +421,10 @@ The **Resend verification email** button (on Login and on Check your email) asks
 ### Editing a player profile
 
 The **Profile** tab shows the player's name, position, area, height, weight, phone and email. Anything not filled in says "Not added", and the phone and email say who can see them. **Edit profile** changes them: while typing an area, common areas are suggested; the phone is tidied like at sign-up; height and weight are optional. The app sends every field each time (`PATCH /players/me`), and the new name shows everywhere straight away. The email can't be changed yet.
+
+### Venue review (admin)
+
+A new venue starts as **Pending review**: players can't find it yet. The admin sees the waiting venues first and approves one only when its address, area and phone are filled in and its owner has verified their email; the backend refuses otherwise and says what's missing. While a venue waits, the admin can leave the owner a short note ("Please add the road number"), which the owner sees on My Venue. Approving makes the venue live at once and clears the note. A live venue can be moved back to review, with a note saying why: it disappears from discovery until the admin approves it again. The screens for all this arrive with the venues feature (tasks F3.2–F3.4); the backend does it already.
 
 ### Editing a venue listing
 
