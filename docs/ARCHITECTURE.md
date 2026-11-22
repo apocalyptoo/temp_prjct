@@ -149,7 +149,7 @@ Three terms used in this layout:
 |---|---|
 | `/auth` | Sign up, verify the email, log in, resend the verification email, forgot and reset password (no login needed); who is logged in, and change password (login needed) |
 | `/players` | My player profile and editing it, my invites, my join requests, all players, a player's stats |
-| `/owners` | My venue profile and editing the listing, all venues |
+| `/owners` | My venue profile and editing the listing; the list of live venues (search by name, filter by area) and one venue's details |
 | `/teams` | Create, list, one team, edit, delete, invites, join requests, removing members, leaving, handing over the captaincy |
 | `/legal` | The Terms of Use and Privacy Policy pages (placeholder text until launch) |
 | `/admin` | Counts, and listing and deleting users, teams and venues (admin only) |

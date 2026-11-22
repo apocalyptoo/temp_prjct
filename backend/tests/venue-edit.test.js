@@ -115,8 +115,9 @@ describe('PATCH /owners/me saves the listing', () => {
     });
   });
 
-  test('the new venue name shows in GET /auth/me and the venue list', async (t) => {
+  test('the new venue name shows in GET /auth/me and, once live, the venue list', async (t) => {
     const me = await owner(t);
+    await makeLive(me.user.id);
     await patchMe(me.jwt, edit({ indoorName: 'Renamed Arena' }));
     assert.equal((await getJson('/auth/me', me.jwt)).name, 'Renamed Arena');
     const venues = await getJson('/owners', me.jwt);

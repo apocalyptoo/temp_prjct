@@ -1,6 +1,8 @@
 import { prisma } from '../db.js';
 import { viewerFrom, seesEverything, toVisibleUser, toPublicVenue } from '../utils/visibility.js';
 import { LIVE_VENUE_NEEDS, missingFields, withMissingFields } from '../utils/venues.js';
+import { containsText } from '../utils/search.js';
+import { parseId } from '../utils/ids.js';
 
 // The logged-in venue owner's own profile with the listing: everything except
 // secrets, including the review status (approvedAt, null = "Pending review") and the
@@ -85,35 +87,62 @@ export const updateMyVenue = async (req, res, next) => {
   }
 };
 
+// The public listing fields of a venue, with the owner's email and join date (the email
+// is kept only for the owner themselves and the admin, by toPublicVenue).
+const PUBLIC_VENUE_SELECT = {
+  userId: true,
+  indoorName: true,
+  phone: true,
+  address: true,
+  area: true,
+  website: true,
+  description: true,
+  openingHours: true,
+  pricingInfo: true,
+  user: { select: { email: true, createdAt: true } },
+};
+
+const toVenueReply = (o, viewer) => {
+  const { user, ...listing } = o;
+  return toPublicVenue({ ...listing, email: user.email, createdAt: user.createdAt }, { canSeeEmail: seesEverything(viewer, o.userId) });
+};
+
+// GET /owners: the venue list (docs/features/venues.md, d endpoint 3). Only live venues
+// (approved: approvedAt set). Optional `search` (part of the venue name) and `area` (part
+// of the venue's area), both ignoring case, with % and _ matched literally
+// (containsText). Sorted by venue name A to Z, ties by user id (spec P12). No pagination
+// yet (spec Q2).
 export const listIndoors = async (req, res, next) => {
   try {
-    const indoors = await prisma.ownerProfile.findMany({
-      include: {
-        user: { select: { id: true, email: true, createdAt: true } },
+    const { search, area } = req.valid.query;
+    const venues = await prisma.ownerProfile.findMany({
+      where: {
+        approvedAt: { not: null },
+        ...(search ? { indoorName: containsText(search) } : {}),
+        ...(area ? { area: containsText(area) } : {}),
       },
-      orderBy: { id: 'desc' },
+      select: PUBLIC_VENUE_SELECT,
+      orderBy: [{ indoorName: 'asc' }, { userId: 'asc' }],
     });
-
-    // Flatten for easy frontend use. The listing is public; the owner's login email is
-    // only kept for the owner themselves (and the admin).
     const viewer = viewerFrom(req);
-    const result = indoors.map((o) =>
-      toPublicVenue(
-        {
-          userId: o.userId,
-          email: o.user.email,
-          createdAt: o.user.createdAt,
-          indoorName: o.indoorName,
-          phone: o.phone,
-          address: o.address,
-          description: o.description,
-          website: o.website,
-        },
-        { canSeeEmail: seesEverything(viewer, o.userId) }
-      )
-    );
+    return res.json(venues.map((o) => toVenueReply(o, viewer)));
+  } catch (err) {
+    return next(err);
+  }
+};
 
-    return res.json(result);
+// GET /owners/:userId: one live venue (Venue detail; spec d endpoint 4). A venue that
+// isn't live is hidden even from someone who knows the id: 404, as for no venue at all.
+export const getVenue = async (req, res, next) => {
+  try {
+    const userId = parseId(req.params.userId);
+    if (userId === null) return res.status(400).json({ error: 'Invalid venue id' });
+    const venue = await prisma.ownerProfile.findFirst({
+      where: { userId, approvedAt: { not: null } },
+      select: PUBLIC_VENUE_SELECT,
+    });
+    if (!venue) return res.status(404).json({ error: 'Venue not found' });
+    return res.json(toVenueReply(venue, viewerFrom(req)));
   } catch (err) {
     return next(err);
   }

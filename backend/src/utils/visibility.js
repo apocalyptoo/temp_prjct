@@ -58,7 +58,21 @@ export function toPublicPlayer(profile, { canSeePhone = false } = {}) {
 }
 
 // A venue listing. Everything is a public business detail, except the owner's login email.
-const VENUE_FIELDS = ['userId', 'createdAt', 'indoorName', 'phone', 'address', 'description', 'website'];
+// The public venue listing (docs/features/venues.md, P7). Never the review state
+// (approvedAt), the admin's note (reviewNote) or the owner's email: players only ever see
+// live venues, and the note is between the admin and the owner.
+const VENUE_FIELDS = [
+  'userId',
+  'createdAt',
+  'indoorName',
+  'phone',
+  'address',
+  'area',
+  'description',
+  'website',
+  'openingHours',
+  'pricingInfo',
+];
 
 export function toPublicVenue(venue, { canSeeEmail = false } = {}) {
   if (!venue) return venue;

@@ -43,7 +43,7 @@ const venueOwner = (t) =>
   createLoggedInUser(t, {
     role: 'OWNER',
     ownerProfile: {
-      create: { indoorName: 'Test Arena', phone: '01800000000', address: 'Arena Street 1', description: 'test', website: 'https://example.com' },
+      create: { indoorName: 'Test Arena', phone: '01800000000', address: 'Arena Street 1', area: 'Banani', description: 'test', website: 'https://example.com', approvedAt: new Date() },
     },
   });
 
@@ -250,12 +250,15 @@ describe('The visibility rules (src/utils/visibility.js)', () => {
     assert.equal(ofPending.size, 0, 'a pending member has no teammates, so sees no phone numbers');
   });
 
-  test('venue listings drop the owner email for others but keep the business details', async () => {
+  test('venue listings drop the owner email, the review state and the note, but keep the business details', async () => {
     const { toPublicVenue } = await import('../src/utils/visibility.js');
-    const venue = { userId: 1, email: 'owner@example.com', createdAt: 'x', indoorName: 'A', phone: '1', address: 'B', description: 'C', website: 'D' };
+    const venue = {
+      userId: 1, email: 'owner@example.com', createdAt: 'x', indoorName: 'A', phone: '1', address: 'B', description: 'C', website: 'D',
+      area: 'E', openingHours: 'F', pricingInfo: 'G', approvedAt: new Date(), reviewNote: 'H', missingFields: [],
+    };
 
     assert.deepEqual(toPublicVenue(venue, { canSeeEmail: false }), {
-      userId: 1, createdAt: 'x', indoorName: 'A', phone: '1', address: 'B', description: 'C', website: 'D',
+      userId: 1, createdAt: 'x', indoorName: 'A', phone: '1', address: 'B', area: 'E', description: 'C', website: 'D', openingHours: 'F', pricingInfo: 'G',
     });
     assert.equal(toPublicVenue(venue, { canSeeEmail: true }).email, 'owner@example.com');
   });
