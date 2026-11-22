@@ -3,6 +3,7 @@
 //   <TextField label="Email" value={email} onChangeText={setEmail}
 //              keyboardType="email-address" error={emailError} />
 //   <TextField label="Password" value={password} onChangeText={setPassword} secure />
+//   <TextField label="Search venues" icon="search" value={search} onChangeText={…} />
 import React, { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -12,6 +13,8 @@ import Text from './Text';
 
 // label: shown above and read with the field. error: replaces the helper while shown.
 // secure: a password field (hidden, with a show/hide button). disabled: not editable.
+// icon: optional, one of our Icon names, shown muted at the left inside the field
+// (the search field's magnifier). Decorative: the label says what the field is.
 // Every other prop (value, onChangeText, placeholder, keyboardType, autoComplete,
 // returnKeyType, onSubmitEditing…) goes to React Native's TextInput.
 export default function TextField({
@@ -20,6 +23,7 @@ export default function TextField({
   helper,
   secure = false,
   disabled = false,
+  icon: leadingIcon,
   onFocus,
   onBlur,
   style,
@@ -61,10 +65,14 @@ export default function TextField({
             borderRadius: radius.button,
             paddingLeft: spacing.lg,
           },
+          leadingIcon ? { gap: spacing.sm } : null,
           // A password field's show/hide button sits flush with the right edge.
           secure ? styles.flushRight : { paddingRight: spacing.lg },
         ]}
       >
+        {leadingIcon ? (
+          <Icon name={leadingIcon} color={colors.textMuted} />
+        ) : null}
         <TextInput
           {...inputProps}
           editable={!disabled}

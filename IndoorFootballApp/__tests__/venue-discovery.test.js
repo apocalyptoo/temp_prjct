@@ -1,12 +1,21 @@
 /* eslint-env jest */
 /* eslint-disable no-script-url -- these tests check that javascript: links are never opened */
-// Tests for venue discovery (docs/features/venues.md, sections e and h): Venue detail
-// and the shared venue helpers.
+// Tests for venue discovery (docs/features/venues.md, sections e and h): the venue list
+// (VenueList inside the interim VenuesScreen), with the search and area filter sent to
+// the backend 400 ms after typing stops (fake timers), and Venue detail.
 
 import React from 'react';
-import { Alert, Linking, Text as NativeText } from 'react-native';
+import { Alert, Linking, Text as NativeText, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
+import VenuesScreen from '../src/screens/Venue/VenuesScreen';
+import {
+  AREA_FILTER_MAX,
+  NO_MATCH,
+  NO_VENUES,
+  SEARCH_DELAY_MS,
+  SEARCH_MAX,
+} from '../src/screens/Venue/VenueList';
 import VenueDetailScreen, {
   GONE_MESSAGE,
 } from '../src/screens/Venue/VenueDetailScreen';
@@ -28,6 +37,11 @@ const flush = () =>
   act(async () => {
     for (let i = 0; i < 10; i += 1) await Promise.resolve();
   });
+const wait = ms =>
+  act(async () => {
+    jest.advanceTimersByTime(ms);
+  });
+
 const FLOODLIGHT = {
   userId: 5,
   indoorName: 'Floodlight Arena',
@@ -84,6 +98,13 @@ const shownText = renderer =>
     .map(node => [].concat(node.props.children).join(''))
     .join(' | ');
 
+const input = (renderer, label) =>
+  renderer.root.find(
+    node => node.type === TextInput && node.props.accessibilityLabel === label,
+  );
+const type = (renderer, label, text) =>
+  act(async () => input(renderer, label).props.onChangeText(text));
+
 const tappables = (renderer, label) =>
   renderer.root.findAll(
     node =>
@@ -102,6 +123,12 @@ const httpError = (status, error) =>
     response: { status, data: { error } },
   });
 
+// The params of every GET /owners so far.
+const listRequests = () =>
+  api.get.mock.calls
+    .filter(([path]) => path === '/owners')
+    .map(([, options]) => options?.params);
+
 beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
@@ -116,6 +143,211 @@ describe('hoursOnOneLine', () => {
     expect(hoursOnOneLine(' Daily 9am–1am ')).toBe('Daily 9am–1am');
     expect(hoursOnOneLine('A\n\n  \nB')).toBe('A · B');
     expect(hoursOnOneLine(null)).toBe('');
+  });
+});
+
+describe('The venue list (Explore → Venues)', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  async function showList(venues = [FLOODLIGHT, KICKOFF]) {
+    api.get.mockResolvedValue({ data: venues });
+    const navigation = navigationMock();
+    const renderer = await render(<VenuesScreen navigation={navigation} />);
+    await act(async () => navigation.focus());
+    await flush();
+    return { renderer, navigation };
+  }
+
+  // The cards' accessibility labels, in order.
+  const cards = renderer =>
+    renderer.root
+      .findAll(
+        node =>
+          typeof node.props.onPress === 'function' &&
+          typeof node.props.style === 'function' &&
+          node.props.accessibilityRole === 'button' &&
+          node.findAll(child => child.props.variant === 'cardTitle').length > 0,
+      )
+      .map(node => node.props.accessibilityLabel);
+
+  test('loads every live venue with GET /owners, in the order the backend sends (A to Z)', async () => {
+    const { renderer } = await showList();
+    expect(listRequests()).toEqual([{}]);
+    const text = shownText(renderer);
+    for (const shown of [
+      'Venues',
+      'Explore',
+      'Search venues',
+      'Area',
+      'Floodlight Arena',
+      'Dhanmondi 27',
+      'Sat–Thu 8am–2am · Fri 2pm–2am',
+      'Kickoff Hub',
+      'Mirpur 10',
+    ]) {
+      expect(text).toContain(shown);
+    }
+    expect(cards(renderer)).toEqual([
+      'Floodlight Arena, Dhanmondi 27',
+      'Kickoff Hub, Mirpur 10',
+    ]);
+    // The card shows no more than the name, the area and the hours.
+    expect(text).not.toContain('01712345678');
+  });
+
+  test('the back link returns to Explore', async () => {
+    const { renderer, navigation } = await showList();
+    await press(renderer, 'Back to Explore');
+    expect(navigation.goBack).toHaveBeenCalled();
+  });
+
+  test('the search is sent 400 ms after typing stops, not on every keystroke', async () => {
+    const { renderer } = await showList();
+    await type(renderer, 'Search venues', 'a');
+    await wait(300);
+    await type(renderer, 'Search venues', 'ar');
+    await wait(SEARCH_DELAY_MS - 1);
+    expect(listRequests()).toEqual([{}]);
+    api.get.mockResolvedValue({ data: [KICKOFF] });
+    await wait(1);
+    await flush();
+    expect(listRequests()).toEqual([{}, { search: 'ar' }]);
+    expect(cards(renderer)).toEqual(['Kickoff Hub, Mirpur 10']);
+  });
+
+  test('search and area are sent together, the search trimmed and the area tidied', async () => {
+    const { renderer } = await showList();
+    await type(renderer, 'Search venues', '  FLOOD ');
+    await type(renderer, 'Area', '  dhanmondi   27 ');
+    await wait(SEARCH_DELAY_MS);
+    await flush();
+    expect(listRequests()).toEqual([
+      {},
+      { search: 'FLOOD', area: 'dhanmondi 27' },
+    ]);
+  });
+
+  test('a tapped area suggestion searches at once', async () => {
+    const { renderer } = await showList();
+    await act(async () => input(renderer, 'Area').props.onFocus());
+    await type(renderer, 'Area', 'dhan');
+    await press(renderer, 'Suggestion: Dhanmondi');
+    expect(input(renderer, 'Area').props.value).toBe('Dhanmondi');
+    expect(listRequests()).toEqual([{}, { area: 'Dhanmondi' }]);
+    // The pending search from typing was dropped: nothing more is sent.
+    await wait(SEARCH_DELAY_MS * 2);
+    await flush();
+    expect(listRequests()).toHaveLength(2);
+  });
+
+  test('blank or only-spaces filters are not sent', async () => {
+    const { renderer } = await showList();
+    await type(renderer, 'Search venues', '   ');
+    await type(renderer, 'Area', ' ');
+    await wait(SEARCH_DELAY_MS);
+    await flush();
+    expect(listRequests()).toEqual([{}, {}]);
+  });
+
+  test('the fields stop at the backend limits: search 60, area 40', async () => {
+    const { renderer } = await showList();
+    expect(input(renderer, 'Search venues').props.maxLength).toBe(SEARCH_MAX);
+    expect(input(renderer, 'Area').props.maxLength).toBe(AREA_FILTER_MAX);
+    expect([SEARCH_MAX, AREA_FILTER_MAX]).toEqual([60, 40]);
+  });
+
+  test('no live venues at all: "No venues yet." without Clear search', async () => {
+    const { renderer } = await showList([]);
+    expect(shownText(renderer)).toContain(NO_VENUES);
+    expect(shownText(renderer)).not.toContain(NO_MATCH);
+    expect(tappables(renderer, 'Clear search')).toHaveLength(0);
+  });
+
+  test('nothing matches: "No venues match your search." and Clear search, which empties both fields and loads at once', async () => {
+    const { renderer } = await showList();
+    api.get.mockResolvedValue({ data: [] });
+    await type(renderer, 'Search venues', 'zzz');
+    await type(renderer, 'Area', 'Uttara');
+    await wait(SEARCH_DELAY_MS);
+    await flush();
+    expect(shownText(renderer)).toContain(NO_MATCH);
+    expect(shownText(renderer)).not.toContain(NO_VENUES);
+
+    api.get.mockResolvedValue({ data: [FLOODLIGHT, KICKOFF] });
+    await press(renderer, 'Clear search');
+    expect(input(renderer, 'Search venues').props.value).toBe('');
+    expect(input(renderer, 'Area').props.value).toBe('');
+    expect(listRequests()).toEqual([{}, { search: 'zzz', area: 'Uttara' }, {}]);
+    expect(cards(renderer)).toHaveLength(2);
+  });
+
+  test('a slower earlier reply never replaces a newer one', async () => {
+    const { renderer } = await showList();
+    let finishOld;
+    api.get.mockReturnValueOnce(
+      new Promise(resolve => {
+        finishOld = resolve;
+      }),
+    );
+    await type(renderer, 'Search venues', 'flood');
+    await wait(SEARCH_DELAY_MS);
+    api.get.mockResolvedValueOnce({ data: [KICKOFF] });
+    await type(renderer, 'Search venues', 'kick');
+    await wait(SEARCH_DELAY_MS);
+    await flush();
+    expect(cards(renderer)).toEqual(['Kickoff Hub, Mirpur 10']);
+    await act(async () => finishOld({ data: [FLOODLIGHT] }));
+    await flush();
+    expect(cards(renderer)).toEqual(['Kickoff Hub, Mirpur 10']);
+  });
+
+  test('tapping a venue opens Venue detail with its id and name', async () => {
+    const { renderer, navigation } = await showList();
+    await press(renderer, 'Kickoff Hub, Mirpur 10');
+    expect(navigation.navigate).toHaveBeenCalledWith('VenueDetail', {
+      userId: 6,
+      venueName: 'Kickoff Hub',
+    });
+  });
+
+  test('pull to refresh and coming back into view reload with the current filter', async () => {
+    const { renderer, navigation } = await showList();
+    await type(renderer, 'Search venues', 'hub');
+    await wait(SEARCH_DELAY_MS);
+    await flush();
+    const list = renderer.root.find(
+      node => typeof node.props.onRefresh === 'function',
+    );
+    await act(async () => list.props.onRefresh());
+    await flush();
+    await act(async () => navigation.focus());
+    await flush();
+    expect(listRequests()).toEqual([
+      {},
+      { search: 'hub' },
+      { search: 'hub' },
+      { search: 'hub' },
+    ]);
+  });
+
+  test('a failed first load shows the error with Try again; a failed reload keeps the list', async () => {
+    api.get.mockRejectedValueOnce(new Error('offline'));
+    const navigation = navigationMock();
+    const renderer = await render(<VenuesScreen navigation={navigation} />);
+    await act(async () => navigation.focus());
+    await flush();
+    expect(shownText(renderer)).toContain("Couldn't load venues.");
+
+    api.get.mockResolvedValue({ data: [FLOODLIGHT] });
+    await press(renderer, 'Try again');
+    expect(cards(renderer)).toEqual(['Floodlight Arena, Dhanmondi 27']);
+
+    api.get.mockRejectedValueOnce(new Error('offline'));
+    await act(async () => navigation.focus());
+    await flush();
+    expect(cards(renderer)).toEqual(['Floodlight Arena, Dhanmondi 27']);
+    expect(shownText(renderer)).not.toContain("Couldn't load venues.");
   });
 });
 

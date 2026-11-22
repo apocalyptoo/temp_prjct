@@ -73,8 +73,23 @@ const TEAM_DETAIL = {
   viewerState: 'none',
 };
 
+// A live venue, for Explore → Venues and Venue detail.
+const VENUE = {
+  userId: 5,
+  indoorName: 'Floodlight Arena',
+  area: 'Dhanmondi 27',
+  address: 'Road 5',
+  phone: '01712345678',
+  website: null,
+  description: null,
+  openingHours: null,
+  pricingInfo: null,
+};
+
 // Fake server replies, by path. Anything else gets an empty list.
 const REPLIES = {
+  '/owners': [VENUE],
+  '/owners/5': VENUE,
   '/teams/me': [TEAM],
   '/teams': [TEAM],
   '/teams/1': TEAM_DETAIL,
@@ -239,6 +254,22 @@ describe('Player navigator', () => {
     await pressText(renderer, 'Players');
     expect(current(navigationRef)).toBe('Players');
 
+    // Explore → Venues → a venue opens Venue detail inside the Explore tab; its back
+    // link returns to the list.
+    await pressTab(renderer, 'Explore');
+    await pressText(renderer, 'Venues');
+    expect(current(navigationRef)).toBe('Venues');
+    await pressText(renderer, 'Floodlight Arena');
+    expect(current(navigationRef)).toBe('VenueDetail');
+    expect(currentTab(navigationRef)).toBe('ExploreTab');
+    expect(navigationRef.getCurrentRoute().params).toEqual({
+      userId: 5,
+      venueName: 'Floodlight Arena',
+    });
+    expect(tabLabels(renderer)).toHaveLength(4);
+    await pressText(renderer, 'Venues', { last: true });
+    expect(current(navigationRef)).toBe('Venues');
+
     // Pressing the tab you're on goes back to its first screen.
     await pressTab(renderer, 'Explore');
     expect(current(navigationRef)).toBe('Explore');
@@ -299,8 +330,14 @@ describe('Owner navigator', () => {
 
     await pressTab(renderer, 'Explore');
     await pressText(renderer, 'Venues');
-    expect(current(navigationRef)).toBe('Indoors');
+    expect(current(navigationRef)).toBe('Venues');
     expect(tabLabels(renderer)).toHaveLength(4);
+    // Venue owners open Venue detail too (read-only for everyone).
+    await pressText(renderer, 'Floodlight Arena');
+    expect(current(navigationRef)).toBe('VenueDetail');
+    expect(currentTab(navigationRef)).toBe('ExploreTab');
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('Venues');
 
     // Explore → Teams → a team opens the read-only Team detail: no buttons to join.
     await pressTab(renderer, 'Explore');

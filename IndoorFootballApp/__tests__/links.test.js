@@ -3,21 +3,10 @@
 // Tests for isWebLink (src/utils/links.js; docs/features/profiles-and-registration.md,
 // P18): the website rule the app checks before sending a website and before opening one.
 // The backend has the same rule with the same cases (backend/tests/venue-edit.test.js),
-// so both always give the same answer. Also: Explore → Venues (IndoorsListScreen) opens
-// only links that pass.
+// so both always give the same answer. The screens that open websites test that they
+// open only links that pass (owner-venue.test.js, venue-discovery.test.js).
 
-import React from 'react';
-import { Linking, Text as NativeText } from 'react-native';
-import ReactTestRenderer from 'react-test-renderer';
 import { isWebLink } from '../src/utils/links';
-import IndoorsListScreen from '../src/screens/Owner/IndoorsListScreen';
-import api from '../src/api/api';
-
-jest.mock('../src/api/api', () => ({
-  __esModule: true,
-  default: { get: jest.fn() },
-  setSessionExpiredHandler: jest.fn(),
-}));
 
 test('http and https links pass, in any capitals, with a port, path, query or fragment', () => {
   for (const link of [
@@ -74,46 +63,4 @@ test('odd forms a URL parser would accept fail too', () => {
   ]) {
     expect([link, isWebLink(link)]).toEqual([link, false]);
   }
-});
-
-describe('Explore → Venues', () => {
-  test('a valid website opens when tapped; a bad one is plain text', async () => {
-    jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
-    api.get.mockResolvedValue({
-      data: [
-        {
-          userId: 1,
-          indoorName: 'Good Arena',
-          website: 'https://good.example',
-        },
-        { userId: 2, indoorName: 'Bad Arena', website: 'javascript:alert(1)' },
-      ],
-    });
-    let renderer;
-    await ReactTestRenderer.act(async () => {
-      renderer = ReactTestRenderer.create(<IndoorsListScreen />);
-    });
-    await ReactTestRenderer.act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0));
-    });
-    expect(api.get).toHaveBeenCalledWith('/owners');
-
-    // The nearest tappable parent of a piece of text, if there is one.
-    const tappableAround = text => {
-      let node = renderer.root
-        .findAllByType(NativeText)
-        .find(found => found.props.children === text);
-      expect(node).toBeDefined();
-      while (node && typeof node.props.onPress !== 'function') {
-        node = node.parent;
-      }
-      return node;
-    };
-
-    expect(tappableAround('javascript:alert(1)')).toBeNull();
-    const good = tappableAround('https://good.example');
-    await ReactTestRenderer.act(async () => good.props.onPress());
-    expect(Linking.openURL).toHaveBeenCalledTimes(1);
-    expect(Linking.openURL).toHaveBeenCalledWith('https://good.example');
-  });
 });

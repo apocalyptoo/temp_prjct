@@ -4,8 +4,10 @@
 //   <SuggestionField label="Area" value={area} onChangeText={setArea}
 //                    getSuggestions={suggestAreas} helper="Your neighbourhood…" />
 // getSuggestions(text) returns the suggestions for what's typed (an empty list hides
-// the list). The list shows only while the field is focused. Every other prop goes to
-// TextField (label, error, helper, placeholder, disabled…).
+// the list). The list shows only while the field is focused. onSuggestionPress(name),
+// optional, is called after a tapped suggestion has filled the field (the venue list
+// searches at once then, instead of waiting for typing to stop). Every other prop goes
+// to TextField (label, error, helper, placeholder, disabled…).
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -18,6 +20,7 @@ export default function SuggestionField({
   value,
   onChangeText,
   getSuggestions,
+  onSuggestionPress,
   onFocus,
   onBlur,
   disabled = false,
@@ -59,7 +62,10 @@ export default function SuggestionField({
           {suggestions.map((name, index) => (
             <View key={name}>
               <Pressable
-                onPress={() => onChangeText?.(name)}
+                onPress={() => {
+                  onChangeText?.(name);
+                  onSuggestionPress?.(name);
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={`Suggestion: ${name}`}
                 style={({ pressed }) => [

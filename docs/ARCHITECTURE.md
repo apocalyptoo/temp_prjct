@@ -193,7 +193,7 @@ The backend decides which fields each person may see, following "Profile visibil
 | A player's name, position, and height, weight and area (each only if set) | Any logged-in user. The area is a general area like "Dhanmondi 27", never a full address |
 | A player's phone | Only accepted teammates (no screen shows it yet: that arrives with Player detail) |
 | Email | Only the user themselves and the admin |
-| A venue listing (name, address, phone, website, description) | Any logged-in user: it's a business listing. The owner's login email stays hidden |
+| A venue listing (name, area, address, phone, website, opening hours, pricing info, description) | Any logged-in user, once the admin has approved it: it's a business listing. The owner's login email, the review status and the admin's note stay hidden |
 | Password hashes and email-link tokens | Nobody, ever |
 
 Hidden fields are simply left out of the reply. The helpers: [TECHNICAL.md 4.6](TECHNICAL.md#46-profile-visibility).
@@ -287,8 +287,9 @@ IndoorFootballApp/
 │   ├── contexts/        AuthContext.js: who is logged in
 │   ├── hooks/           useBusyAction.js: stops a button sending its request twice
 │   ├── navigation/      which screens exist for each role
-│   ├── screens/         one file per screen, grouped by area (Auth, Player, Owner, Team, Admin,
-│   │                    Shared for Explore, Settings and Change password, Dev for the UI gallery),
+│   ├── screens/         one file per screen, grouped by area (Auth, Player, Owner, Team, Venue,
+│   │                    Admin, Shared for Explore, Settings and Change password, Dev for the
+│   │                    UI gallery),
 │   │                    plus a few helper files next to the screens that use them
 │   ├── theme/           the look: colours, fonts, sizes (see "The theme")
 │   └── utils/           saving the login token, and checks repeated from the backend
@@ -308,7 +309,7 @@ The app's look lives in one folder, `src/theme/`, as named values called **token
 
 The status bar always shows white icons on the dark background, and Android's own window behind the app is dark too, so no white flash shows while the app starts. The token files and their values: [TECHNICAL.md 8.1–8.2](TECHNICAL.md#82-theme).
 
-**Not every screen uses the new look yet.** The admin screens and the three old lists in Explore (Teams, Players, Venues) still have their old light styles and icons; they're restyled later (ROADMAP Step 4). Everything else is built in the new design.
+**Not every screen uses the new look yet.** The admin screens and two old lists in Explore (Teams and Players) still have their old light styles and icons; they're restyled later (ROADMAP Step 4). Everything else is built in the new design.
 
 ### Shared components
 
@@ -351,9 +352,9 @@ Each logged-in role gets a **bottom tab bar**, and **each tab has its own stack*
 
 What each tab holds today:
 - **Player:** My Teams (your teams and join requests → Team detail → invite players, hand over the captaincy, edit team; create team), Explore, Notifications (for now the Invites screen, which opens Team detail), Profile (your details with Edit profile, and a gear that opens Settings: Edit profile, Change password, the Terms of Use and Privacy Policy pages, and Log out).
-- **Venue owner:** My Venue (the listing, with Edit venue), Explore (teams read-only), Notifications (for now just "No notifications yet."), Profile (the account: venue name, "Venue owner" and email, a link to My Venue, and the gear to Settings, where **Edit venue** replaces Edit profile).
+- **Venue owner:** My Venue (the listing, with Edit venue), Explore (teams read-only, players and venues), Notifications (for now just "No notifications yet."), Profile (the account: venue name, "Venue owner" and email, a link to My Venue, and the gear to Settings, where **Edit venue** replaces Edit profile).
 - **Admin:** Dashboard, Reports (for now just "Reports arrive with moderation."), Venues, Users and Teams (the old management screens).
-- **Explore** (players and owners) is for now a simple screen with three rows, Teams, Players and Venues, opening the old lists. Tapping a team opens Team detail.
+- **Explore** (players and owners) is for now a simple screen with three rows, Teams, Players and Venues. Teams and Players open the old lists; tapping a team opens Team detail. Venues opens the new venue list (see "Finding a venue").
 
 These "for now" screens are placeholders that later features replace (PRODUCT.md, "App structure and navigation"). A screen can only open screens in its own stack, so the team screens are added to every stack that can open a team. Route names and stacks: [TECHNICAL.md 8.5](TECHNICAL.md#85-navigation).
 
@@ -425,6 +426,12 @@ The **Profile** tab shows the player's name, position, area, height, weight, pho
 ### Venue review (admin)
 
 A new venue starts as **Pending review**: players can't find it yet. The admin sees the waiting venues first and approves one only when its address, area and phone are filled in and its owner has verified their email; the backend refuses otherwise and says what's missing. While a venue waits, the admin can leave the owner a short note ("Please add the road number"), which the owner sees on My Venue. Approving makes the venue live at once and clears the note. A live venue can be moved back to review, with a note saying why: it disappears from discovery until the admin approves it again. The owner's side (the status, the note and the checklist on My Venue) is in the app; the admin's screens arrive with task F3.4, and the backend does it all already.
+
+### Finding a venue
+
+**Explore → Venues** lists the live venues from A to Z, one card each with the name, the area and the opening hours. There's a search by name and an area filter (with the same suggestions as everywhere else). The app doesn't filter the list itself: it asks the backend (`GET /owners`), which does the matching, ignoring capitals and matching part of the text. So it doesn't send a request on every keystroke, it waits until typing has paused for 0.4 seconds; tapping an area suggestion searches straight away. Nothing found shows "No venues match your search." with **Clear search**. The list is built as one reusable piece (`VenueList`), so the full Explore screen (feature 3b) can show it as its Venues section without rebuilding it.
+
+Tapping a venue opens **Venue detail**: the listing without empty rows. Tapping the phone opens the phone's dialler, and the website opens in the browser only if it's a real `http://` or `https://` link. If the venue has gone (deleted, or the admin moved it back to review), the screen says "This venue isn't available any more." Venue owners see the same screens as players; a pending venue never shows up, not even its owner's.
 
 ### Editing a venue listing
 

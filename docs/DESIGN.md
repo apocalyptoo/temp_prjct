@@ -202,6 +202,7 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 - Focused: the border turns `accent`.
 - Error: the border turns `danger`, and under the field a `warning` icon (`icon.sizeSmall`) plus the message in `meta` / `danger`. The icon and the words carry the meaning, never the colour alone.
 - Optional helper text under the field, in `meta` / `textMuted`. An error replaces it while shown.
+- Optional leading icon (added with the venues feature, for the venue search): one of our icons, `icon.size`, in `textMuted`, at the left inside the field, `spacing.sm` before the text. Decorative: the label says what the field is.
 - Password fields have a show/hide button inside the field on the right: 44×44, icon `show` or `hide`, labelled "Show password" / "Hide password".
 - Disabled: `opacity.disabled` and not editable.
 - The field grows with the phone's font size (a minimum height only). Screen readers hear the label and the error with the field.

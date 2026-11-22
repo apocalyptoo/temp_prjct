@@ -1,7 +1,8 @@
 /* eslint-env jest */
 // Tests for the form components added with feature 2 (src/components/ui, DESIGN.md
-// section 6): Checkbox and OptionGroup. Their files are also covered by the token guard
-// in components-composite.test.js.
+// section 6): Checkbox, OptionGroup and SuggestionField, and TextField's leading icon
+// (added with the venues feature). Their files are also covered by the token guard in
+// components-composite.test.js.
 
 import React from 'react';
 import { StyleSheet, Text as NativeText, TextInput } from 'react-native';
@@ -13,6 +14,7 @@ import {
   Icon,
   OptionGroup,
   SuggestionField,
+  TextField,
   TextLink,
 } from '../src/components/ui';
 
@@ -245,6 +247,28 @@ describe('SuggestionField', () => {
     expect(input(renderer).props.value).toBe('Motijheel');
   });
 
+  test('a tapped suggestion fills the field, then calls onSuggestionPress with it', async () => {
+    const calls = [];
+    const renderer = await render(
+      <SuggestionField
+        label="Area"
+        value="mir"
+        onChangeText={text => calls.push(['change', text])}
+        onSuggestionPress={name => calls.push(['picked', name])}
+        getSuggestions={contains}
+      />,
+    );
+    await act(() => input(renderer).props.onFocus());
+    await act(() => suggestionRows(renderer)[0].props.onPress());
+    expect(calls).toEqual([
+      ['change', 'Mirpur'],
+      ['picked', 'Mirpur'],
+    ]);
+    // Typing never calls it.
+    await act(() => input(renderer).props.onChangeText('Mirp'));
+    expect(calls).toHaveLength(3);
+  });
+
   test('typing updates the suggestions; nothing shows when none match', async () => {
     const renderer = await render(<Form />);
     await act(() => input(renderer).props.onFocus());
@@ -272,5 +296,27 @@ describe('SuggestionField', () => {
     );
     await act(() => input(renderer).props.onFocus());
     expect(suggestionRows(renderer)).toHaveLength(0);
+  });
+});
+
+describe('TextField icon', () => {
+  test('an icon shows muted inside the field, before the text, hidden from screen readers', async () => {
+    const renderer = await render(
+      <TextField label="Search venues" icon="search" value="" />,
+    );
+    const icons = renderer.root.findAllByType(Icon);
+    expect(icons).toHaveLength(1);
+    expect(icons[0].props.name).toBe('search');
+    expect(icons[0].props.color).toBe(theme.colors.textMuted);
+    expect(icons[0].props.accessibilityLabel).toBeUndefined();
+    // The field is still read by its label.
+    expect(renderer.root.findByType(TextInput).props.accessibilityLabel).toBe(
+      'Search venues',
+    );
+  });
+
+  test('without an icon there is none', async () => {
+    const renderer = await render(<TextField label="Name" value="" />);
+    expect(renderer.root.findAllByType(Icon)).toHaveLength(0);
   });
 });
