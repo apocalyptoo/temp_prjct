@@ -425,3 +425,37 @@ The owner approved `docs/features/profiles-and-registration.md`: its five defaul
 
 **Alternatives considered:** keeping `new URL` in the app as the spec said (rejected: different answers on the phone), a stricter app check with the backend left as it was (rejected by the owner: the two could disagree).
 **Consequence:** no stored website was affected (none were set in the local database on 2026-11-22). A future change to the rule must change both files and both tests.
+
+### 2026-11-23: Venue details
+The owner's decisions for the venues feature (Phase 4, Step 3, feature 3):
+- **Edits after approval stay live.** An approved venue doesn't go back to review when the owner edits it (the address, area and phone still can't be cleared, decided 2026-11-20). Bad edits are handled through reports (moderation feature), by moving the venue back to review (below), or by deleting or suspending the owner.
+- **The admin can leave a short note on a pending venue** (for example "Please add the road number"). The owner sees it on My Venue while the venue is pending. **There's no rejected state:** a venue stays pending until it's approved.
+- **The admin can move an approved venue back to "Pending review"**, hidden from players again, with a short note saying why (for example the venue closed, or the listing became misleading). The owner sees the note on My Venue, fixes the listing, and the admin approves it again.
+- **Scope split.** The venues feature covers the new venue fields (area, opening hours, pricing info), admin approval with notes and moving back to review, the missing-fields checklist, the venue list with search by name and an area filter, and a new Venue detail screen. The Teams and Players sections of Explore (with search) and Player detail become a separate **feature 3b**, built right after it.
+
+**Why:**
+- Sending every edit back to review would hide a real venue each time it fixes a typo or changes its hours; the admin already has stronger tools for the rare bad edit.
+- A note tells the owner exactly what to fix, without a rejection that ends the conversation.
+- Moving a venue back to review is gentler than deleting the owner's account, and reversible.
+- Splitting Explore keeps each feature small: venues first, because the approval flow changes what discovery shows.
+
+**Alternatives considered:** re-review after every edit (rejected), a rejected state with a reason (rejected: a pending venue with a note does the same job), only deleting the account for a bad live listing (kept, but no longer the only tool), building all of Explore in this feature (split instead).
+**Consequence:** the feature spec is `docs/features/venues.md`. Its data changes (new venue fields, how approval and the note are stored) need the owner's approval in the backend task.
+
+### 2026-11-23: Venues feature spec approved
+The owner approved `docs/features/venues.md`: its five defaults (D1–D5), all of Claude Code's proposals (P1–P23, listed in the spec's section k), and these answers to its open questions:
+- **The three existing venues get an area before the migration.** They're fake test venues, so Claude Code picks the areas itself at the start of the backend task (F3.1) and says which rows changed. Every existing venue is then complete and treated as approved.
+- **No pagination in this feature.** The venue list returns every live venue; the pagination item changes all lists together, with feature 3b.
+- **The admin's "Pending venues" screen is the "Waiting for review" section** at the top of the Venues tab, not a separate screen.
+- **Moving a venue back to review notifies the owner** ("Your venue was moved back to review", with the note), built by the notifications feature. PRODUCT.md's events list includes it.
+- **A venue can't be approved while its owner hasn't verified their email.**
+
+**Why:**
+- Filling in the test venues keeps them visible (as PRODUCT.md wants) and keeps the rule that a live venue is always complete, with no special case in the code.
+- Paginating one list early would give the lists two different shapes until the pagination item.
+- One place for every venue, with the queue on top, is simpler for the admin; the Dashboard links straight to it.
+- A venue that disappears from discovery should be explained to its owner, as approval is.
+- An owner who never verified can't log in, so a live listing couldn't be corrected.
+
+**Alternatives considered:** existing venues staying live while incomplete, or going back to pending (rejected); paginating the venue list now (deferred); a separate Pending venues screen (rejected); no notification for moving back (rejected); letting the admin approve unverified owners (rejected).
+**Consequence:** the backend task (F3.1) builds exactly the API in the spec. The `venues` migration still needs the owner's approval when it's created.

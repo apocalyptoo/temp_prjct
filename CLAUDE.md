@@ -31,7 +31,7 @@ Guidance for Claude Code in this repository. Kept short on purpose: it's loaded 
 - `docs/ARCHITECTURE.md`: how the app works, a plain-English tour for a beginner (links to TECHNICAL.md for detail)
 - `docs/TECHNICAL.md`: the technical reference: conventions, helpers, endpoints, data model, tests, tooling, app internals
 - `docs/DESIGN.md`: the visual design system (colours, fonts, spacing, components, icons)
-- `docs/features/*.md`: one spec per Phase 4 feature (team membership, profiles and registration)
+- `docs/features/*.md`: one spec per Phase 4 feature (team membership, profiles and registration, venues)
 
 ## Project at a glance
 

@@ -120,10 +120,14 @@ Rule: write a short spec in `docs/features/` before building each feature below.
 - [x] Terms of Use and Privacy Policy checkbox on both sign-up forms, with links to the two pages (moved here from Moderation, DECISIONS.md 2026-11-22; PRODUCT.md, "Registration") (done 2026-11-22: the backend requires `acceptedTerms` and records `termsAcceptedAt`, with the draft Terms and Privacy pages, in F2.1; the Checkbox and links on both rebuilt sign-up forms in F2.2)
 - [x] Validate owner website URLs (http/https only) on the backend and before `Linking.openURL` (moved here from Venues, because the venue edit form is built in this feature; spec D3, approved 2026-11-22) (done 2026-11-23: the backend check on `PATCH /owners/me` in F2.1; in F2.4 one `isWebLink` pattern in the backend and the app (DECISIONS.md 2026-11-22, "One website rule in the app and the backend"), checked on Edit venue and before every `Linking.openURL` in My Venue and Explore → Venues)
 
-**Venues**
-- [ ] Venue listing: add area, opening hours and pricing info fields; admin approval ("Pending review"), only when address, area and phone are filled in (enforced by the backend); missing-fields checklist on My Venue; venue search by name and filter by area (PRODUCT.md, "Venue owners")
-- [ ] Venue discovery polish
-- [ ] Explore tab: Teams · Players · Venues sections, each with search; venues also filter by area (PRODUCT.md, "App structure and navigation"). Replaces the interim Explore screen with three rows.
+**Venues** (spec: [features/venues.md](features/venues.md), approved 2026-11-23; scope decided in DECISIONS.md 2026-11-23, "Venue details"; tasks F3.1 backend, F3.2 owner screens, F3.3 venue discovery, F3.4 admin)
+- [ ] Venue listing: add area, opening hours and pricing info fields; admin approval ("Pending review"), only when address, area and phone are filled in (enforced by the backend); the admin's note on a pending venue and moving an approved venue back to review with a note; missing-fields checklist and status on My Venue (PRODUCT.md, "Venue owners")
+- [ ] Venue discovery: the venue list with search by name and an area filter (approved venues only), opened from Explore → Venues until feature 3b, and a new Venue detail screen (tap to call, website through `isWebLink`). Replaces the old "Venue discovery polish" item: the polish is this rebuilt list and detail screen, in the new design (spec sections d and e)
+- [ ] Admin side: the Venues tab with pending venues first (approve, note, move back to review) and the Dashboard's "Venues waiting for review" count
+
+**Explore: Teams and Players, Player detail** (feature 3b, right after Venues; split out on 2026-11-23, DECISIONS.md "Venue details"; spec to be written)
+- [ ] Explore tab: Teams · Players · Venues sections, each with search; venues also filter by area (PRODUCT.md, "App structure and navigation"). Replaces the interim Explore screen with three rows. The Venues section reuses the venue list built in feature 3.
+- [ ] Player detail: public profile fields (PRODUCT.md, "Profile visibility"), with **Invite to my team** for captains; the phone for accepted teammates. Report and Block arrive with moderation.
 
 **Account deletion**
 - [ ] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion")

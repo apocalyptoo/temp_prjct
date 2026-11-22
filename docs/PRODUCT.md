@@ -79,7 +79,7 @@ The current app puts only Profile and Settings in the bottom bar, and hides ever
 
 - **My Teams (player):** the player's teams, with a Create Team button. Opens Team detail (members; for captains, pending requests, invite, transfer captaincy, edit team; for every member, leave team, though a captain with other members is asked to transfer captaincy first). Team detail's Members card lists every accepted member (no "See all" link). Team detail doesn't show phone numbers; teammates see them on Player detail. Feature spec: [features/team-membership.md](features/team-membership.md).
 - **Explore (player and owner):** three sections at the top, **Teams · Players · Venues**, each with search (venues also filter by area). Opens Team detail, Player detail and Venue detail. For owners, Explore is read-only (no invite or join buttons).
-- **My Venue (owner):** the owner's listing, its status ("Pending review" or "Live"), and an Edit button.
+- **My Venue (owner):** the owner's listing, its status ("Pending review" or "Live"), and an Edit button. While the venue is pending, it also shows what's still missing and the admin's note, if there is one.
 - **Notifications:** see "Notifications" below. The tab shows the badge.
 - **Profile:** the user's own profile, with a gear icon for **Settings**. For a venue owner it shows the account (venue name, "Venue owner", email) and a link to My Venue, where the listing itself lives.
 - **Settings:** Edit profile (for venue owners, **Edit venue**) · Change password · Blocked players · Terms & Privacy · Contact support · Log out · **Delete account** (last, in red).
@@ -94,7 +94,7 @@ The current app puts only Profile and Settings in the bottom bar, and hides ever
 - Player **Notifications**: the Invites screen (rebuilt in the new design with team membership, feature 1). Owner **Notifications**: "No notifications yet." Both replaced by the Notifications feature.
 - Admin **Reports**: "Reports arrive with moderation." Replaced by the moderation feature.
 
-**New screens in v1.0:** Notifications, Edit profile, Change password, Delete account, Blocked players, Player detail, Venue detail, report form, suspension message, Terms checkbox at registration, admin Reports, admin Pending venues. Team detail gains pending requests, Leave team and Transfer captaincy.
+**New screens in v1.0:** Notifications, Edit profile, Change password, Delete account, Blocked players, Player detail, Venue detail, report form, suspension message, Terms checkbox at registration, admin Reports, admin Pending venues (the "Waiting for review" section at the top of the admin's Venues tab, decided 2026-11-23). Team detail gains pending requests, Leave team and Transfer captaincy.
 
 **Visual design:** the "Floodlight" look (dark, with a neon-lime accent). The full design system is in `docs/DESIGN.md`. All visual values live in theme tokens, so the look can change later without touching screens.
 
@@ -276,10 +276,14 @@ _Implementation note:_ renaming the player address field to "Area" is a schema c
 **Admin review**
 - A new venue starts as **"Pending review"** and doesn't appear in venue discovery until an admin approves it.
 - While pending, the owner can still log in and edit the listing. Their profile shows that it's waiting for review.
-- The admin sees pending venues and can approve them. A bad listing is handled through the admin's normal user deletion.
+- The admin sees pending venues and can approve them.
+- The admin can leave an optional **short note** on a pending venue (for example "Please add the road number"). The owner sees it on My Venue while the venue is pending. **There's no rejected state:** a venue stays pending until it's approved. (Decided 2026-11-23.)
+- The admin can **move an approved venue back to "Pending review"** (hidden from players again), with a short note explaining why (for example the venue closed, or the listing became misleading). The owner sees the note on My Venue, fixes the listing, and the admin approves it again. It's gentler than deleting the account. (Decided 2026-11-23.)
 - **A venue can be approved only when its listing is complete:** address, area and phone must be filled in. The backend refuses the approval otherwise, not just the app.
+- **A venue can't be approved while its owner hasn't verified their email** (they can't log in to maintain it). The backend refuses this too. (Decided 2026-11-23.)
 - While a venue is pending, **My Venue shows a checklist** of what's still missing.
 - Once approved, the owner can change the address, area and phone, but **can't clear them**.
+- **Edits after approval stay live:** an approved venue doesn't go back to review when the owner edits it. A bad edit is handled through reports (see "Administration and moderation"), by moving the venue back to review, or by deleting or suspending the owner. (Decided 2026-11-23.)
 
 **What owners can and can't do**
 - Owners can see the same public information players see: teams, venues and public player profiles. All of it is read-only.
@@ -290,7 +294,7 @@ _Implementation note:_ renaming the player address field to "Area" is a schema c
 - Players can **search venues by name** and **filter by area**. Only approved venues appear.
 - A venue's page shows the full listing. The phone and website can be tapped to call or open them.
 
-_Implementation note:_ the owner profile needs new fields (area, opening hours, pricing info) and an approved/not-approved flag. These are schema changes and need approval. Existing venues should be treated as approved, so the owner's current test data stays visible.
+_Implementation note:_ the owner profile needs new fields (area, opening hours, pricing info), an approved/not-approved flag and the admin's note. These are schema changes and need approval. Existing venues should be treated as approved, so the owner's current test data stays visible. Feature spec: [features/venues.md](features/venues.md).
 
 ### Notifications (v1.0)
 
@@ -307,6 +311,7 @@ _Implementation note:_ the owner profile needs new fields (area, opening hours, 
 - You became captain (by a transfer or an automatic handover after account deletion)
 - A team you were in was deleted
 - Your venue was approved (venue owners)
+- Your venue was moved back to review, with the admin's note (venue owners; decided 2026-11-23)
 
 **How it looks**
 - One **Notifications** screen with two sections: **"Needs your action"** (invites and requests, with accept/approve and decline buttons right there) and **"Updates"** (newest first).
