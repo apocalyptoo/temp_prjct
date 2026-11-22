@@ -240,7 +240,7 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 | Navigation | `teams` Users · `explore` Compass · `notifications` Bell · `profile` User · `settings` Settings · `dashboard` LayoutDashboard · `reports` ShieldAlert · `venues` Building2 · `users` IdCard |
 | Movement | `back` ChevronLeft · `forward` ChevronRight |
 | Actions | `add` Plus · `approve` Check · `reject` X · `search` Search · `filter` Funnel · `edit` Pencil · `delete` Trash2 · `invite` UserPlus · `remove` UserMinus · `leave` DoorOpen · `logout` LogOut · `transfer` ArrowRightLeft · `show` Eye · `hide` EyeOff (show or hide a password) |
-| Things | `captain` Crown · `area` MapPin · `venue` Building2 · `phone` Phone · `email` Mail · `website` Globe · `password` Lock · `report` Flag · `block` Ban · `time` Clock · `position` Shirt · `height` Ruler · `weight` Weight · `terms` FileText (the Terms of Use page) · `privacy` ShieldCheck (the Privacy Policy page) · `description` Text (a venue's description; added with feature 2) |
+| Things | `captain` Crown · `area` MapPin · `venue` Building2 · `phone` Phone · `email` Mail · `website` Globe · `password` Lock · `report` Flag · `block` Ban · `time` Clock · `position` Shirt · `height` Ruler · `weight` Weight · `terms` FileText (the Terms of Use page) · `privacy` ShieldCheck (the Privacy Policy page) · `description` Text (a venue's description; added with feature 2) · `price` Banknote (a venue's pricing info; added with the venues feature) |
 | States | `success` CircleCheck · `warning` TriangleAlert |
 
 To add an icon: import it in `Icon.js` from its own file (`lucide-react-native/icons/<name>`) and add one line to the map. Importing from `lucide-react-native` itself would put every Lucide icon in the app.

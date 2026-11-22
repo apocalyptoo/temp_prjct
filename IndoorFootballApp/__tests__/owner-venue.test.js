@@ -1,16 +1,23 @@
 /* eslint-env jest */
 /* eslint-disable no-script-url -- these tests check that javascript: links are never opened */
 // Tests for the venue owner's My Venue, Edit venue and Profile tab (feature 2,
-// docs/features/profiles-and-registration.md, section e): what My Venue shows (with "Not
-// added", and the website as a link only when it passes isWebLink), and Edit venue's
-// checks and request (every field each time, empty ones as null).
+// docs/features/profiles-and-registration.md, section e, and the venues feature,
+// docs/features/venues.md, sections e and h): what My Venue shows (the review status,
+// the admin's note and the checklist while pending, "Not added", and the website as a
+// link only when it passes isWebLink), and Edit venue's checks and request (every field
+// each time, empty ones as null).
 
 import React from 'react';
 import { Alert, Linking, Text as NativeText, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { AuthContext } from '../src/contexts/AuthContext';
-import MyVenueScreen from '../src/screens/Owner/MyVenueScreen';
+import MyVenueScreen, {
+  CHECKLIST_COMPLETE,
+  CHECKLIST_TITLE,
+  NOTE_TITLE,
+} from '../src/screens/Owner/MyVenueScreen';
+import { ListRow } from '../src/components/ui';
 import EditVenueScreen from '../src/screens/Owner/EditVenueScreen';
 import OwnerProfileScreen, {
   LISTING_ROW,
@@ -42,7 +49,7 @@ const PHONE_RULE =
   'Enter a Bangladeshi mobile number: 11 digits starting with 01, like 01712345678';
 const WEBSITE_RULE = 'Website must start with http:// or https://';
 
-// A new owner after the short sign-up: only the venue name.
+// A new owner after the short sign-up: only the venue name, pending review.
 const NEW_OWNER = {
   id: 20,
   email: 'arena@gmail.com',
@@ -52,19 +59,32 @@ const NEW_OWNER = {
     indoorName: 'Floodlight Arena',
     phone: null,
     address: null,
+    area: null,
     website: null,
     description: null,
+    openingHours: null,
+    pricingInfo: null,
+    approvedAt: null,
+    reviewNote: null,
+    missingFields: ['address', 'area', 'phone'],
   },
 };
 
+// A complete venue the admin has approved (live).
 const FILLED = {
   ...NEW_OWNER,
   ownerProfile: {
     indoorName: 'Floodlight Arena',
     phone: '01712345678',
     address: 'Road 5, Dhanmondi',
+    area: 'Dhanmondi 27',
     website: 'https://floodlight.example.com',
     description: 'Two indoor pitches.',
+    openingHours: 'Sat–Thu 8am–2am\nFri 2pm–2am',
+    pricingInfo: '৳2,000 per hour',
+    approvedAt: '2026-11-23T09:00:00.000Z',
+    reviewNote: null,
+    missingFields: [],
   },
 };
 
@@ -146,6 +166,14 @@ describe('My Venue', () => {
     return { renderer, navigation };
   }
 
+  // The listing rows as [icon, name, meta], in order (a website that is a link is drawn
+  // apart, so it isn't a ListRow).
+  const listingRows = renderer =>
+    renderer.root
+      .findAllByType(ListRow)
+      .filter(row => row.props.meta !== undefined)
+      .map(row => [row.props.icon, row.props.name, row.props.meta]);
+
   test('loads GET /owners/me and shows the venue name and every listing row', async () => {
     const { renderer } = await showMyVenue();
     expect(api.get).toHaveBeenCalledWith('/owners/me');
@@ -154,25 +182,124 @@ describe('My Venue', () => {
       'My Venue',
       'Floodlight Arena',
       'Listing',
-      'Phone',
-      '01712345678',
-      'Address',
-      'Road 5, Dhanmondi',
       'Website',
       'https://floodlight.example.com',
-      'Description',
-      'Two indoor pitches.',
     ]) {
       expect(text).toContain(shown);
     }
+    expect(listingRows(renderer)).toEqual([
+      ['phone', 'Phone', '01712345678'],
+      ['area', 'Address', 'Road 5, Dhanmondi'],
+      ['area', 'Area', 'Dhanmondi 27'],
+      ['time', 'Opening hours', 'Sat–Thu 8am–2am\nFri 2pm–2am'],
+      ['price', 'Pricing info', '৳2,000 per hour'],
+      ['description', 'Description', 'Two indoor pitches.'],
+    ]);
     expect(text).not.toContain(NOT_ADDED);
   });
 
-  test('a new owner (short sign-up) sees "Not added" on all four rows', async () => {
+  test('a new owner (short sign-up) sees "Not added" on all seven rows, in order', async () => {
     const { renderer } = await showMyVenue(NEW_OWNER);
     const text = shownText(renderer);
     expect(text).toContain('Floodlight Arena');
-    expect(text.split(NOT_ADDED).length - 1).toBe(4);
+    expect(text.split(NOT_ADDED).length - 1).toBe(7);
+    expect(listingRows(renderer).map(([, name, meta]) => [name, meta])).toEqual(
+      [
+        ['Phone', NOT_ADDED],
+        ['Address', NOT_ADDED],
+        ['Area', NOT_ADDED],
+        ['Website', NOT_ADDED],
+        ['Opening hours', NOT_ADDED],
+        ['Pricing info', NOT_ADDED],
+        ['Description', NOT_ADDED],
+      ],
+    );
+  });
+
+  // The checklist rows as [name, "Added" | "Missing"].
+  const checklist = renderer =>
+    renderer.root
+      .findAllByType(ListRow)
+      .filter(row => row.props.trailing)
+      .map(row => {
+        const words = row
+          .findAllByType(NativeText)
+          .map(node => [].concat(node.props.children).join(''));
+        return [row.props.name, words[words.length - 1]];
+      });
+
+  const pillVariant = (renderer, label) =>
+    renderer.root.find(
+      node => node.props.label === label && node.props.variant !== undefined,
+    ).props.variant;
+
+  test('a live venue shows the strong "Live" pill, no checklist and no note', async () => {
+    const { renderer } = await showMyVenue(
+      withVenue({ reviewNote: 'An old note' }),
+    );
+    const text = shownText(renderer);
+    expect(text).toContain('Live');
+    expect(pillVariant(renderer, 'Live')).toBe('strong');
+    expect(text).not.toContain('Pending review');
+    expect(text).not.toContain(CHECKLIST_TITLE);
+    expect(text).not.toContain(NOTE_TITLE);
+    expect(text).not.toContain('An old note');
+    expect(checklist(renderer)).toEqual([]);
+  });
+
+  test('a new pending venue shows the soft "Pending review" pill and three "Missing"', async () => {
+    const { renderer } = await showMyVenue(NEW_OWNER);
+    const text = shownText(renderer);
+    expect(text).toContain('Pending review');
+    expect(pillVariant(renderer, 'Pending review')).toBe('soft');
+    expect(text).toContain(CHECKLIST_TITLE);
+    expect(text).not.toContain(CHECKLIST_COMPLETE);
+    expect(text).not.toContain(NOTE_TITLE);
+    expect(checklist(renderer)).toEqual([
+      ['Address', 'Missing'],
+      ['Area', 'Missing'],
+      ['Phone', 'Missing'],
+    ]);
+  });
+
+  test('the checklist follows missingFields', async () => {
+    const { renderer } = await showMyVenue(
+      withVenue({ approvedAt: null, area: null, missingFields: ['area'] }),
+    );
+    expect(checklist(renderer)).toEqual([
+      ['Address', 'Added'],
+      ['Area', 'Missing'],
+      ['Phone', 'Added'],
+    ]);
+    expect(shownText(renderer)).not.toContain(CHECKLIST_COMPLETE);
+  });
+
+  test('a complete pending venue: all three "Added" and "The admin will review it soon."', async () => {
+    const { renderer } = await showMyVenue(withVenue({ approvedAt: null }));
+    expect(checklist(renderer)).toEqual([
+      ['Address', 'Added'],
+      ['Area', 'Added'],
+      ['Phone', 'Added'],
+    ]);
+    expect(shownText(renderer)).toContain(CHECKLIST_COMPLETE);
+    expect(shownText(renderer)).toContain('Pending review');
+  });
+
+  test("the admin's note shows in its own card while pending, above the checklist", async () => {
+    const { renderer } = await showMyVenue({
+      ...NEW_OWNER,
+      ownerProfile: {
+        ...NEW_OWNER.ownerProfile,
+        reviewNote: 'Please add the road number',
+      },
+    });
+    const text = shownText(renderer);
+    expect(text).toContain(NOTE_TITLE);
+    expect(text).toContain('Please add the road number');
+    expect(text.indexOf(NOTE_TITLE)).toBeLessThan(
+      text.indexOf(CHECKLIST_TITLE),
+    );
+    expect(text.indexOf(CHECKLIST_TITLE)).toBeLessThan(text.indexOf('Listing'));
   });
 
   test('a valid website is a link that opens in the browser', async () => {

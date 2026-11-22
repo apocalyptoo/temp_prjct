@@ -10,6 +10,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 
 import ArrowRightLeft from 'lucide-react-native/icons/arrow-right-left';
 import Ban from 'lucide-react-native/icons/ban';
+import Banknote from 'lucide-react-native/icons/banknote';
 import Bell from 'lucide-react-native/icons/bell';
 import Building2 from 'lucide-react-native/icons/building-2';
 import Check from 'lucide-react-native/icons/check';
@@ -98,6 +99,7 @@ const ICONS = {
   terms: FileText, // the Terms of Use page
   privacy: ShieldCheck, // the Privacy Policy page
   description: TextLines, // a venue's description (Lucide "Text")
+  price: Banknote, // a venue's pricing info
   // states
   success: CircleCheck,
   warning: TriangleAlert,
