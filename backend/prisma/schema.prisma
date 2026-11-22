@@ -64,8 +64,21 @@ model OwnerProfile {
   address     String?
   description String?
   website     String?
+  // The rest of the listing (docs/features/venues.md, section c). Area follows the
+  // player Area rules; opening hours and pricing info are short plain text.
+  area         String?
+  openingHours String?
+  pricingInfo  String?
+  // Admin review: null means "Pending review" (hidden from discovery), a date means
+  // live since then (spec P4). There's no rejected state.
+  approvedAt   DateTime?
+  // The admin's note to the owner, shown on My Venue while the venue is pending
+  // (spec P2, P5). Cleared when the venue is approved.
+  reviewNote   String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([approvedAt])
 }
 
 model Team {
