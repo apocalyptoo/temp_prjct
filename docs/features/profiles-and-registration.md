@@ -1,6 +1,6 @@
 # Feature 2: Profiles and registration (spec)
 
-Phase 4, Step 3. Task F2.0, written 2026-11-22. **Status: approved 2026-11-22** (DECISIONS.md, "Profiles and registration feature spec approved"). **Backend built 2026-11-22** (task F2.1); **sign-up and auth screens built 2026-11-22** (task F2.2); **player profile, Settings and Change password built** (task F2.3); venue owner screens still to come in F2.4.
+Phase 4, Step 3. Task F2.0, written 2026-11-22. **Status: approved 2026-11-22** (DECISIONS.md, "Profiles and registration feature spec approved"). **Built 2026-11-23:** backend (task F2.1), sign-up and auth screens (F2.2), player profile, Settings and Change password (F2.3), venue owner screens (F2.4). Changed while building: the website rule (P18, now one pattern in the backend and the app) and a new `description` icon for My Venue's Description row.
 
 **How to read the markers:**
 - **[Dn, approved]**: a default from the task brief, confirmed by the owner on 2026-11-22.

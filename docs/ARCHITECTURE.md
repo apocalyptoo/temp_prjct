@@ -472,7 +472,7 @@ A player sees their own details on the **Profile** tab (`PlayerProfileScreen.js`
 
 ### Editing a venue listing
 
-A venue owner fills in or changes their listing with `PATCH /owners/me` (the Edit venue screen arrives with task F2.4). A new owner signs up with only the venue name, so this is where the rest of the listing comes from.
+A venue owner fills in or changes their listing with `PATCH /owners/me`, from **My Venue → Edit venue** (or **Profile → Settings → Edit venue**). A new owner signs up with only the venue name, so this is where the rest of the listing comes from.
 
 1. The app sends every field each time: venue name, phone, address, website and description. Only the venue name is required; an optional field that's left out, empty, only spaces or null is cleared.
 2. Only venue owner accounts may do this: anyone else gets 403 "Owners only", checked before the fields are.
@@ -506,7 +506,7 @@ Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 
 ### Changing the password while logged in
 
-`POST /auth/change-password`, from **Settings → Change password** (`ChangePasswordScreen.js`; venue owners get it with task F2.4). Any logged-in account can use it. The screen asks for the current password, the new one (with the same rule as sign-up shown under it) and the new one again, and checks them before sending.
+`POST /auth/change-password`, from **Settings → Change password** (`ChangePasswordScreen.js`; players and venue owners). Any logged-in account can use it. The screen asks for the current password, the new one (with the same rule as sign-up shown under it) and the new one again, and checks them before sending.
 
 1. The app sends the current password and the new one.
 2. `changePasswordSchema` checks that both are there, that the new one follows the same strength rule as sign-up (and is at most 72 bytes), and that it isn't the same as the current one.

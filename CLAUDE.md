@@ -88,7 +88,7 @@ App
 - Screens are built from `src/components/ui`; every button that sends a request uses `loading` plus a `busy` ref against double taps. (ARCH 10.6)
 - Android fonts: set `fontFamily` per weight, never `fontWeight`. `\p{…}` patterns need `new RegExp('…', 'u')`, not a regex literal. (ARCH 10.6)
 - A screen can only navigate inside its own stack; the team screens are added to each stack with `teamScreens()`. (ARCH 10.6)
-- Checks repeated in the app must match the backend's: `src/utils/phone.js`, `src/utils/password.js`, `src/utils/links.js`, `checkTeamForm`, `profileChecks.js`. `acceptedTerms` is only ever the Terms box's own value. (ARCH 10.6)
+- Checks repeated in the app must match the backend's: `src/utils/phone.js`, `src/utils/password.js`, `src/utils/links.js`, `checkTeamForm`, `profileChecks.js`, `venueChecks.js`. `acceptedTerms` is only ever the Terms box's own value. (ARCH 10.6)
 
 Tests and repo
 - Backend tests send real HTTP to the running server, each with its own throwaway `test-<uuid>@example.com` user deleted afterwards; never change existing users; tokens put in the database as `sha256Hex(token)`; mail to `@example.com` is skipped. (ARCH 10.2)
