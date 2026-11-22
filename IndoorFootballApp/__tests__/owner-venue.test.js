@@ -18,7 +18,11 @@ import MyVenueScreen, {
   NOTE_TITLE,
 } from '../src/screens/Owner/MyVenueScreen';
 import { ListRow } from '../src/components/ui';
-import EditVenueScreen from '../src/screens/Owner/EditVenueScreen';
+import EditVenueScreen, {
+  OPENING_HOURS_HELPER,
+  PRICING_INFO_HELPER,
+  VENUE_AREA_HELPER,
+} from '../src/screens/Owner/EditVenueScreen';
 import OwnerProfileScreen, {
   LISTING_ROW,
   OWNER_ROLE_LABEL,
@@ -364,23 +368,71 @@ describe('Edit venue', () => {
     return { renderer, navigation, setUser };
   }
 
-  test('filled in from GET /owners/me, with the description count', async () => {
+  // A complete venue still waiting for the admin: every field may be emptied.
+  const PENDING_FILLED = withVenue({ approvedAt: null });
+
+  const labels = renderer =>
+    renderer.root
+      .findAllByType(TextInput)
+      .map(node => node.props.accessibilityLabel);
+
+  test('filled in from GET /owners/me, in the spec order, with the helpers', async () => {
     const { renderer } = await showForm();
     expect(api.get).toHaveBeenCalledWith('/owners/me');
-    expect(input(renderer, 'Venue name').props.value).toBe('Floodlight Arena');
-    expect(input(renderer, 'Phone (optional)').props.value).toBe('01712345678');
-    expect(input(renderer, 'Address (optional)').props.value).toBe(
-      'Road 5, Dhanmondi',
+    // A live venue: Area, Address and Phone can't be emptied, so no "(optional)".
+    expect(labels(renderer)).toEqual([
+      'Venue name',
+      'Area',
+      'Address',
+      'Phone',
+      'Website (optional)',
+      'Opening hours (optional)',
+      'Pricing info (optional)',
+      'Description (optional)',
+    ]);
+    const values = {
+      'Venue name': 'Floodlight Arena',
+      Area: 'Dhanmondi 27',
+      Address: 'Road 5, Dhanmondi',
+      Phone: '01712345678',
+      'Website (optional)': 'https://floodlight.example.com',
+      'Opening hours (optional)': 'Sat–Thu 8am–2am\nFri 2pm–2am',
+      'Pricing info (optional)': '৳2,000 per hour',
+      'Description (optional)': 'Two indoor pitches.',
+    };
+    for (const [label, value] of Object.entries(values)) {
+      expect([label, input(renderer, label).props.value]).toEqual([
+        label,
+        value,
+      ]);
+    }
+    expect(input(renderer, 'Opening hours (optional)').props.multiline).toBe(
+      true,
     );
-    expect(input(renderer, 'Website (optional)').props.value).toBe(
-      'https://floodlight.example.com',
+    expect(input(renderer, 'Pricing info (optional)').props.multiline).toBe(
+      true,
     );
-    expect(input(renderer, 'Description (optional)').props.value).toBe(
-      'Two indoor pitches.',
-    );
-    expect(shownText(renderer)).toContain('19 / 500 characters');
+    const text = shownText(renderer);
+    expect(text).toContain(VENUE_AREA_HELPER);
+    expect(text).toContain(OPENING_HOURS_HELPER);
+    expect(text).toContain(PRICING_INFO_HELPER);
+    expect(text).toContain('19 / 500 characters');
     await type(renderer, 'Description (optional)', 'ঢাকা');
     expect(shownText(renderer)).toContain('4 / 500 characters');
+  });
+
+  test('a pending venue labels Area, Address and Phone "(optional)"', async () => {
+    const { renderer } = await showForm(NEW_OWNER);
+    expect(labels(renderer)).toEqual([
+      'Venue name',
+      'Area (optional)',
+      'Address (optional)',
+      'Phone (optional)',
+      'Website (optional)',
+      'Opening hours (optional)',
+      'Pricing info (optional)',
+      'Description (optional)',
+    ]);
   });
 
   test('the back link says where it goes: My Venue, or Settings when opened from there', async () => {
@@ -393,15 +445,31 @@ describe('Edit venue', () => {
     expect(tappable(fromSettings.renderer, 'Back to Settings')).toBeDefined();
   });
 
-  test('sends every field, tidied: a +88 phone with spaces, trimmed texts', async () => {
+  test('"dhan" in Area suggests Dhanmondi; tapping it fills the field', async () => {
+    const { renderer } = await showForm(NEW_OWNER);
+    await act(async () => input(renderer, 'Area (optional)').props.onFocus());
+    await type(renderer, 'Area (optional)', 'dhan');
+    expect(shownText(renderer)).toContain('Dhanmondi');
+    await press(renderer, 'Suggestion: Dhanmondi');
+    expect(input(renderer, 'Area (optional)').props.value).toBe('Dhanmondi');
+  });
+
+  test('sends every field, tidied: a +88 phone, the area spaces, trimmed texts with their line breaks', async () => {
     api.patch.mockResolvedValue({
       data: withVenue({ indoorName: 'New Arena' }),
     });
     const { renderer, navigation, setUser } = await showForm(NEW_OWNER);
     await type(renderer, 'Venue name', '  New Arena ');
-    await type(renderer, 'Phone (optional)', '+88 01712-345 678');
+    await type(renderer, 'Area (optional)', '  dhanmondi   27 ');
     await type(renderer, 'Address (optional)', '  Road 5  ');
+    await type(renderer, 'Phone (optional)', '+88 01712-345 678');
     await type(renderer, 'Website (optional)', ' HTTPS://Arena.example.com ');
+    await type(
+      renderer,
+      'Opening hours (optional)',
+      ' Sat–Thu 8am–2am\nFri 2pm–2am \n',
+    );
+    await type(renderer, 'Pricing info (optional)', ' ৳2,000 per hour ');
     await type(renderer, 'Description (optional)', ' Hi ');
     await press(renderer, 'Save changes');
 
@@ -409,7 +477,10 @@ describe('Edit venue', () => {
       indoorName: 'New Arena',
       phone: '01712345678',
       address: 'Road 5',
+      area: 'dhanmondi 27',
       website: 'HTTPS://Arena.example.com',
+      openingHours: 'Sat–Thu 8am–2am\nFri 2pm–2am',
+      pricingInfo: '৳2,000 per hour',
       description: 'Hi',
     });
     expect(navigation.goBack).toHaveBeenCalled();
@@ -422,13 +493,16 @@ describe('Edit venue', () => {
     expect(update(null)).toBeNull();
   });
 
-  test('clearing the optional fields sends them as null', async () => {
+  test('a pending venue can clear every optional field: all sent as null', async () => {
     api.patch.mockResolvedValue({ data: NEW_OWNER });
-    const { renderer } = await showForm();
+    const { renderer } = await showForm(PENDING_FILLED);
     for (const label of [
-      'Phone (optional)',
+      'Area (optional)',
       'Address (optional)',
+      'Phone (optional)',
       'Website (optional)',
+      'Opening hours (optional)',
+      'Pricing info (optional)',
       'Description (optional)',
     ]) {
       await type(renderer, label, '   ');
@@ -438,15 +512,73 @@ describe('Edit venue', () => {
       indoorName: 'Floodlight Arena',
       phone: null,
       address: null,
+      area: null,
       website: null,
+      openingHours: null,
+      pricingInfo: null,
       description: null,
     });
+  });
+
+  test('a live venue refuses to empty its phone, before sending', async () => {
+    const { renderer, navigation } = await showForm();
+    await type(renderer, 'Phone', '  ');
+    await press(renderer, 'Save changes');
+    expect(api.patch).not.toHaveBeenCalled();
+    expect(navigation.goBack).not.toHaveBeenCalled();
+    const text = shownText(renderer);
+    expect(text).toContain('A live venue needs a phone number');
+    expect(text).not.toContain('A live venue needs an address');
+    expect(text).not.toContain('A live venue needs an area');
+
+    // Typing in the field clears the message; another edit saves and stays live.
+    await type(renderer, 'Phone', '01712345678');
+    expect(shownText(renderer)).not.toContain(
+      'A live venue needs a phone number',
+    );
+    api.patch.mockResolvedValue({ data: FILLED });
+    await type(renderer, 'Opening hours (optional)', 'Every day 9am–1am');
+    await press(renderer, 'Save changes');
+    expect(api.patch).toHaveBeenCalledWith(
+      '/owners/me',
+      expect.objectContaining({
+        phone: '01712345678',
+        openingHours: 'Every day 9am–1am',
+      }),
+    );
+    expect(navigation.goBack).toHaveBeenCalled();
+  });
+
+  test('a live venue emptying address, area and phone gets all three messages under the fields', async () => {
+    const { renderer } = await showForm();
+    await type(renderer, 'Area', ' ');
+    await type(renderer, 'Address', '');
+    await type(renderer, 'Phone', '');
+    await press(renderer, 'Save changes');
+    expect(api.patch).not.toHaveBeenCalled();
+    const text = shownText(renderer);
+    expect(text).toContain('A live venue needs an address');
+    expect(text).toContain('A live venue needs an area');
+    expect(text).toContain('A live venue needs a phone number');
+  });
+
+  test('the new limits are caught before sending: area 2–40, opening hours and pricing info 120', async () => {
+    const { renderer } = await showForm();
+    await type(renderer, 'Area', 'D');
+    await type(renderer, 'Opening hours (optional)', 'h'.repeat(121));
+    await type(renderer, 'Pricing info (optional)', '৳'.repeat(121));
+    await press(renderer, 'Save changes');
+    expect(api.patch).not.toHaveBeenCalled();
+    const text = shownText(renderer);
+    expect(text).toContain('Area must be between 2 and 40 characters');
+    expect(text).toContain('Opening hours must be at most 120 characters');
+    expect(text).toContain('Pricing info must be at most 120 characters');
   });
 
   test('a wrong phone, a website without http(s) and a blank name are caught before sending', async () => {
     const { renderer, navigation } = await showForm();
     await type(renderer, 'Venue name', ' ');
-    await type(renderer, 'Phone (optional)', '01212345678');
+    await type(renderer, 'Phone', '01212345678');
     await type(renderer, 'Website (optional)', 'arena.com');
     await press(renderer, 'Save changes');
     expect(api.patch).not.toHaveBeenCalled();
@@ -462,14 +594,15 @@ describe('Edit venue', () => {
   });
 
   test("the backend's refusal shows in an alert and the form stays", async () => {
-    api.patch.mockRejectedValue(
-      httpError(400, 'Address must be at most 200 characters'),
+    api.patch.mockRejectedValue(httpError(400, 'A live venue needs an area'));
+    // The venue went live after the form was opened: the backend still refuses.
+    const { renderer, navigation } = await showForm(
+      withVenue({ approvedAt: null, area: null, missingFields: ['area'] }),
     );
-    const { renderer, navigation } = await showForm();
     await press(renderer, 'Save changes');
     expect(Alert.alert).toHaveBeenCalledWith(
       'Not saved',
-      'Address must be at most 200 characters',
+      'A live venue needs an area',
     );
     expect(navigation.goBack).not.toHaveBeenCalled();
     // The button works again for another try.
@@ -592,8 +725,17 @@ describe('checkVenueEdit', () => {
     indoorName: 'Arena',
     phone: '',
     address: '',
+    area: '',
     website: '',
+    openingHours: '',
+    pricingInfo: '',
     description: '',
+  };
+  const complete = {
+    ...good,
+    phone: '01712345678',
+    address: 'Road 5',
+    area: 'Dhanmondi',
   };
 
   test('only the venue name is required', () => {
@@ -607,6 +749,19 @@ describe('checkVenueEdit', () => {
     expect(
       checkVenueEdit({ ...good, indoorName: 'v'.repeat(61) }).errors.indoorName,
     ).toBe('Venue name must be between 2 and 60 characters');
+  });
+
+  test('the body has every field, empty optional ones as null', () => {
+    expect(checkVenueEdit(good).body).toEqual({
+      indoorName: 'Arena',
+      phone: null,
+      address: null,
+      area: null,
+      website: null,
+      openingHours: null,
+      pricingInfo: null,
+      description: null,
+    });
   });
 
   test('the phone rule applies only when a phone is given; +88 and dashes are tidied', () => {
@@ -664,6 +819,84 @@ describe('checkVenueEdit', () => {
     }).errors;
     expect(over.address).toBe('Address must be at most 200 characters');
     expect(over.description).toBe('Description must be at most 500 characters');
+  });
+
+  test('the area follows the player Area rules: tidied, 2–40 characters, blank is null', () => {
+    const tidied = checkVenueEdit({ ...good, area: '  dhanmondi \t  27 ' });
+    expect(tidied.ok).toBe(true);
+    expect(tidied.body.area).toBe('dhanmondi 27');
+    expect(checkVenueEdit({ ...good, area: '   ' }).body.area).toBeNull();
+    expect(checkVenueEdit({ ...good, area: 'ধা' }).ok).toBe(true);
+    expect(checkVenueEdit({ ...good, area: 'ঢ'.repeat(40) }).ok).toBe(true);
+    for (const area of ['D', ' D ', 'a'.repeat(41)]) {
+      expect([area, checkVenueEdit({ ...good, area }).errors.area]).toEqual([
+        area,
+        'Area must be between 2 and 40 characters',
+      ]);
+    }
+  });
+
+  test('opening hours and pricing info: at most 120 characters, trimmed, line breaks kept', () => {
+    const fine = checkVenueEdit({
+      ...good,
+      openingHours: ` ${'h'.repeat(60)}\n${'f'.repeat(59)} \n`,
+      pricingInfo: '৳'.repeat(120),
+    });
+    expect(fine.ok).toBe(true);
+    expect(fine.body.openingHours).toBe(`${'h'.repeat(60)}\n${'f'.repeat(59)}`);
+    expect(fine.body.pricingInfo).toBe('৳'.repeat(120));
+    const over = checkVenueEdit({
+      ...good,
+      openingHours: 'h'.repeat(121),
+      pricingInfo: '৳'.repeat(121),
+    }).errors;
+    expect(over.openingHours).toBe(
+      'Opening hours must be at most 120 characters',
+    );
+    expect(over.pricingInfo).toBe(
+      'Pricing info must be at most 120 characters',
+    );
+  });
+
+  test('a live venue can keep or change its address, area and phone', () => {
+    expect(checkVenueEdit(complete, { live: true }).ok).toBe(true);
+    expect(
+      checkVenueEdit(
+        { ...complete, phone: '+8801812345678', area: 'Mirpur 10' },
+        { live: true },
+      ).ok,
+    ).toBe(true);
+  });
+
+  test('a live venue gets "A live venue needs…" for each field it empties (spaces count as empty)', () => {
+    const one = checkVenueEdit({ ...complete, phone: ' - ' }, { live: true });
+    expect(one.ok).toBe(false);
+    expect(one.errors).toMatchObject({
+      phone: 'A live venue needs a phone number',
+      address: null,
+      area: null,
+    });
+    const all = checkVenueEdit(
+      { ...complete, address: '  ', area: ' \t ', phone: '' },
+      { live: true },
+    ).errors;
+    expect([all.address, all.area, all.phone]).toEqual([
+      'A live venue needs an address',
+      'A live venue needs an area',
+      'A live venue needs a phone number',
+    ]);
+  });
+
+  test('a pending venue (the default) may empty them', () => {
+    expect(
+      checkVenueEdit({ ...complete, address: '', area: '', phone: '' }).ok,
+    ).toBe(true);
+    expect(
+      checkVenueEdit(
+        { ...complete, address: '', area: '', phone: '' },
+        { live: false },
+      ).ok,
+    ).toBe(true);
   });
 
   test('descriptionCount counts the trimmed text in characters', () => {
