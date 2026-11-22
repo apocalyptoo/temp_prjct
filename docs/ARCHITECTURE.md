@@ -397,7 +397,7 @@ user.role ADMIN    → AdminNavigator   tabs: Dashboard · Reports · Venues · 
 Each logged-in role gets a **bottom tab bar** (our own `TabBar` component), and **each tab has its own stack**. So when you open a team from My Teams, Team detail is put on top of the My Teams stack and the tab bar stays visible. Each tab remembers where you were: switching to Explore and back keeps you on Team detail. Tapping the tab you're already on takes you back to that tab's first screen.
 
 What each tab holds today:
-- **Player:** My Teams (your teams → team detail → invite players, transfer captaincy, edit team, request to join; create team), Explore, Notifications (for now the Invites screen, which opens Team detail), Profile (with a gear button in the header that opens Settings).
+- **Player:** My Teams (your teams → team detail → invite players, transfer captaincy, edit team, request to join; create team), Explore, Notifications (for now the Invites screen, which opens Team detail), Profile (your details, with a gear that opens Settings and an Edit profile button).
 - **Venue owner:** My Venue (the owner profile, which shows the venue listing), Explore (read-only for owners), Notifications (for now just "No notifications yet."), Profile (for now the Settings screen).
 - **Admin:** Dashboard, Reports (for now just "Reports arrive with moderation."), Venues, Users and Teams (the old management screens).
 - **Explore** (players and owners) is for now a simple screen with three rows, Teams, Players and Venues, opening the old lists. Tapping a team in the Teams list opens Team detail.
@@ -463,7 +463,7 @@ When any request that carried the token gets a 401 (for example the token's 30 d
 
 ### Editing a player profile
 
-A player changes their details with `PATCH /players/me` (the Edit profile screen arrives with task F2.3).
+A player sees their own details on the **Profile** tab (`PlayerProfileScreen.js`): name, position, area, height, weight, phone and email. Anything not filled in yet says "Not added", and the phone and email say who can see them ("Only your teammates can see this", "Only you can see this"). The screen reloads whenever it comes into view, and on pull to refresh. They change their details on **Edit profile** (`EditProfileScreen.js`), which sends `PATCH /players/me`. While typing an area, common areas are suggested under the field ("pur" suggests Mirpur and Mohammadpur, among others); any other text is allowed. The phone is tidied like at sign-up (+88, spaces and dashes removed), a comma in the height or weight counts as a decimal point, and every field is checked before sending, with the problem under it. After saving, the app's own copy of the user's name is updated too, so the new name shows everywhere.
 
 1. The app sends every field each time: name, phone, position, height, weight and area. An optional field that's left out, empty or null is cleared.
 2. Only player accounts may do this: anyone else gets 403 "Players only", checked before the fields are.

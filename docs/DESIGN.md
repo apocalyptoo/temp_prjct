@@ -174,7 +174,7 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 
 **Card.** `surface` background, 1px `border`, radius 14, padding 16. A whole card can be tappable (team cards open Team detail).
 
-**List row** (inside cards). Avatar (38–44) + name (`body`) + meta (`meta`, `textMuted`) + optional trailing item (pill, icon buttons, "Captain" label). Rows are separated by a 1px `border` line.
+**List row** (inside cards). Avatar (38–44) + name (`body`) + meta (`meta`, `textMuted`) + optional trailing item (pill, icon buttons, "Captain" label). Rows are separated by a 1px `border` line. Rows that aren't people ("Phone", "Change password") show an icon in `textMuted` instead of the avatar, and a row can have a third line for a hint in `meta` / `textMuted` ("Only your teammates can see this").
 
 **Pill.** Strong: `accent` background, `onAccent` text ("Captain"). Soft: `accentSoft` background, `accent` text ("Player", "11 / 15 members", "2 new").
 
@@ -240,7 +240,7 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 | Navigation | `teams` Users · `explore` Compass · `notifications` Bell · `profile` User · `settings` Settings · `dashboard` LayoutDashboard · `reports` ShieldAlert · `venues` Building2 · `users` IdCard |
 | Movement | `back` ChevronLeft · `forward` ChevronRight |
 | Actions | `add` Plus · `approve` Check · `reject` X · `search` Search · `filter` Funnel · `edit` Pencil · `delete` Trash2 · `invite` UserPlus · `remove` UserMinus · `leave` DoorOpen · `logout` LogOut · `transfer` ArrowRightLeft · `show` Eye · `hide` EyeOff (show or hide a password) |
-| Things | `captain` Crown · `area` MapPin · `venue` Building2 · `phone` Phone · `email` Mail · `website` Globe · `password` Lock · `report` Flag · `block` Ban · `time` Clock |
+| Things | `captain` Crown · `area` MapPin · `venue` Building2 · `phone` Phone · `email` Mail · `website` Globe · `password` Lock · `report` Flag · `block` Ban · `time` Clock · `position` Shirt · `height` Ruler · `weight` Weight · `terms` FileText (the Terms of Use page) · `privacy` ShieldCheck (the Privacy Policy page) |
 | States | `success` CircleCheck · `warning` TriangleAlert |
 
 To add an icon: import it in `Icon.js` from its own file (`lucide-react-native/icons/<name>`) and add one line to the map. Importing from `lucide-react-native` itself would put every Lucide icon in the app.

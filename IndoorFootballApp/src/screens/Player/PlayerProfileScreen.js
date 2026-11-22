@@ -1,267 +1,179 @@
-import React, { useEffect, useState, useContext } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+// The player's own profile (docs/features/profiles-and-registration.md, section e,
+// "Player Profile"). A card with the name, position and area, then every detail; an
+// empty optional detail says "Not added" (P26), and phone and email say who can see
+// them (P25). The gear opens Settings; Edit profile opens the form. Loads
+// GET /players/me whenever the screen comes into view, and on pull to refresh.
+import React, { useCallback, useEffect, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import api from '../../api/api';
-import { AuthContext } from '../../contexts/AuthContext';
+import { useTheme } from '../../theme/ThemeProvider';
+import {
+  Avatar,
+  Button,
+  Card,
+  Icon,
+  IconButton,
+  ListRow,
+  Pill,
+  Screen,
+  ScreenHeader,
+  SectionHeader,
+  Text,
+} from '../../components/ui';
+import { TeamLoadState } from '../Team/teamCommon';
 
-export default function PlayerProfileScreen() {
-  const { user } = useContext(AuthContext);
+export const NOT_ADDED = 'Not added';
+export const PHONE_HINT = 'Only your teammates can see this';
+export const EMAIL_HINT = 'Only you can see this';
 
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
+const withUnit = (value, unit) =>
+  value === null || value === undefined ? NOT_ADDED : `${value} ${unit}`;
+
+export default function PlayerProfileScreen({ navigation }) {
+  const { colors, spacing, icon } = useTheme();
+  const [me, setMe] = useState(null);
+  const [status, setStatus] = useState('loading'); // loading | error | ready
   const [refreshing, setRefreshing] = useState(false);
 
-  const load = async (isRefresh = false) => {
-    isRefresh ? setRefreshing(true) : setLoading(true);
+  const load = useCallback(async () => {
     try {
       const res = await api.get('/players/me');
-      setData(res.data);
-    } catch (err) {
-      console.error(
-        'PlayerProfile load error:',
-        err.response?.data || err.message,
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setMe(res.data);
+      setStatus('ready');
+    } catch {
+      // A failed reload keeps what's shown; only a failed first load shows the error.
+      setStatus(current => (current === 'ready' ? current : 'error'));
     }
-  };
-
-  useEffect(() => {
-    load();
   }, []);
 
-  if (loading && !data) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#1E3A8A" />
-      </View>
-    );
-  }
+  useEffect(() => navigation.addListener('focus', load), [navigation, load]);
 
-  const p = data?.playerProfile;
+  const refresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  };
+
+  const retry = () => {
+    setStatus('loading');
+    load();
+  };
+
+  const profile = me?.playerProfile;
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
-      }
-    >
-      {/* ── Hero Header ── */}
-      <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.header}>
-        {/* Avatar */}
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={40} color="#1E3A8A" />
-          </View>
-        </View>
+    <Screen>
+      <ScrollView
+        contentContainerStyle={{
+          gap: spacing.detailGap,
+          paddingBottom: spacing.xxxl,
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+            progressBackgroundColor={colors.surface}
+          />
+        }
+      >
+        <ScreenHeader
+          title="Profile"
+          action={
+            <IconButton
+              icon="settings"
+              accessibilityLabel="Settings"
+              onPress={() => navigation.navigate('PlayerSettings')}
+            />
+          }
+        />
 
-        <Text style={styles.headerName}>{p?.name || 'Player'}</Text>
-        <Text style={styles.headerEmail}>{data?.email}</Text>
-
-        {/* Role badge */}
-        <View style={styles.badge}>
-          <Ionicons name="football-outline" size={14} color="#1E3A8A" />
-          <Text style={styles.badgeText}>Player</Text>
-        </View>
-      </LinearGradient>
-
-      {/* ── Player Info Card ── */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Player Info</Text>
-        <View style={styles.card}>
-          {/* Position */}
-          <View style={styles.infoRow}>
-            <View style={styles.infoIconWrapper}>
-              <Ionicons name="football-outline" size={20} color="#1E3A8A" />
-            </View>
-            <View>
-              <Text style={styles.infoLabel}>Position</Text>
-              <Text style={styles.infoValue}>{p?.position || 'N/A'}</Text>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* Height */}
-          <View style={styles.infoRow}>
-            <View style={styles.infoIconWrapper}>
-              <Ionicons name="resize-outline" size={20} color="#1E3A8A" />
-            </View>
-            <View>
-              <Text style={styles.infoLabel}>Height</Text>
-              <Text style={styles.infoValue}>
-                {p?.height ? `${p.height} cm` : 'N/A'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* Weight */}
-          <View style={styles.infoRow}>
-            <View style={styles.infoIconWrapper}>
-              <Ionicons name="barbell-outline" size={20} color="#1E3A8A" />
-            </View>
-            <View>
-              <Text style={styles.infoLabel}>Weight</Text>
-              <Text style={styles.infoValue}>
-                {p?.weight ? `${p.weight} kg` : 'N/A'}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* ── Contact Info Card ── */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Contact Information</Text>
-        <View style={styles.card}>
-          {/* Phone */}
-          <View style={styles.infoRow}>
-            <View style={styles.infoIconWrapper}>
-              <Ionicons name="call-outline" size={20} color="#1E3A8A" />
-            </View>
-            <View>
-              <Text style={styles.infoLabel}>Phone</Text>
-              <Text style={styles.infoValue}>{p?.phone || 'N/A'}</Text>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* Email */}
-          <View style={styles.infoRow}>
-            <View style={styles.infoIconWrapper}>
-              <Ionicons name="mail-outline" size={20} color="#1E3A8A" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValue}>{data?.email || 'N/A'}</Text>
-            </View>
-          </View>
-
-          {/* Address (only if present) */}
-          {!!p?.address && (
-            <>
-              <View style={styles.divider} />
-              <View style={styles.infoRow}>
-                <View style={styles.infoIconWrapper}>
-                  <Ionicons name="location-outline" size={20} color="#1E3A8A" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.infoLabel}>Address</Text>
-                  <Text style={styles.infoValue}>{p.address}</Text>
+        {status !== 'ready' || !profile ? (
+          <TeamLoadState
+            status={status}
+            onRetry={retry}
+            errorMessage="Couldn't load your profile."
+          />
+        ) : (
+          <>
+            <Card>
+              <View style={[styles.row, { gap: spacing.md }]}>
+                <Avatar name={profile.name} size="large" />
+                <View style={[styles.words, { gap: spacing.xxs }]}>
+                  <Text variant="cardTitle">{profile.name}</Text>
+                  <View style={[styles.row, styles.wrap, { gap: spacing.xs }]}>
+                    <Pill label={profile.position} />
+                    {profile.area ? (
+                      <View style={[styles.row, { gap: spacing.xxs }]}>
+                        <Icon
+                          name="area"
+                          size={icon.sizeSmall}
+                          color={colors.textMuted}
+                        />
+                        <Text variant="meta" color="textMuted">
+                          {profile.area}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
               </View>
-            </>
-          )}
-        </View>
-      </View>
+            </Card>
 
-      <View style={{ height: 30 }} />
-    </ScrollView>
+            <Card>
+              <SectionHeader title="Details" />
+              <ListRow
+                icon="position"
+                name="Position"
+                meta={profile.position}
+              />
+              <ListRow
+                icon="area"
+                name="Area"
+                meta={profile.area || NOT_ADDED}
+              />
+              <ListRow
+                icon="height"
+                name="Height"
+                meta={withUnit(profile.height, 'cm')}
+              />
+              <ListRow
+                icon="weight"
+                name="Weight"
+                meta={withUnit(profile.weight, 'kg')}
+              />
+              <ListRow
+                icon="phone"
+                name="Phone"
+                meta={profile.phone}
+                hint={PHONE_HINT}
+              />
+              <ListRow
+                icon="email"
+                name="Email"
+                meta={me.email}
+                hint={EMAIL_HINT}
+                last
+              />
+            </Card>
+
+            <Button
+              title="Edit profile"
+              variant="secondary"
+              icon="edit"
+              onPress={() => navigation.navigate('EditProfile')}
+              fullWidth
+            />
+          </>
+        )}
+      </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F1F5F9' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-  // Header
-  header: {
-    paddingTop: 60,
-    paddingBottom: 36,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    borderBottomLeftRadius: 36,
-    borderBottomRightRadius: 36,
-  },
-  avatarContainer: { marginBottom: 12 },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-  },
-  headerName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#fff',
-    textAlign: 'center',
-  },
-  headerEmail: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.85)',
-    marginTop: 4,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    gap: 4,
-  },
-  badgeText: {
-    color: '#1E3A8A',
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-
-  // Sections
-  section: { marginHorizontal: 16, marginTop: 20 },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#555',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-
-  // Cards
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    gap: 12,
-  },
-  infoIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#EFF6FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  infoLabel: { fontSize: 11, color: '#888', fontWeight: '600' },
-  infoValue: { fontSize: 14, color: '#111', fontWeight: '500', marginTop: 2 },
-  divider: { height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 4 },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  wrap: { flexWrap: 'wrap' },
+  words: { flex: 1 },
 });

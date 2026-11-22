@@ -5,7 +5,6 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { IconButton } from '../components/ui';
 import { PlayerExploreStack } from './ExploreStack';
 import { tabNavigatorProps } from './tabs';
 import { teamScreens } from './teamScreens';
@@ -13,6 +12,7 @@ import MyTeamsScreen from '../screens/Team/MyTeamsScreen';
 import TeamFormScreen from '../screens/Team/TeamFormScreen';
 import InvitesScreen from '../screens/Player/InvitesScreen';
 import PlayerProfileScreen from '../screens/Player/PlayerProfileScreen';
+import EditProfileScreen from '../screens/Player/EditProfileScreen';
 import PlayerSettingsScreen from '../screens/Player/PlayerSettingsScreen';
 
 const Tab = createBottomTabNavigator();
@@ -53,26 +53,21 @@ function NotificationsTab() {
   );
 }
 
-// The Profile header: a gear that opens Settings. The options get the screen's own
-// navigation (a header can't rely on useNavigation for that).
-const profileScreenOptions = ({ navigation }) => ({
-  title: 'Profile',
-  headerRight: () => (
-    <IconButton
-      icon="settings"
-      accessibilityLabel="Settings"
-      onPress={() => navigation.navigate('PlayerSettings')}
-    />
-  ),
-});
-
+// Profile and Edit profile draw their own header (the Profile title with its Settings
+// gear, Edit profile's back link). The old Settings screen keeps the stack header until
+// it's replaced.
 function ProfileTab() {
   return (
     <ProfileStack.Navigator>
       <ProfileStack.Screen
         name="PlayerProfile"
         component={PlayerProfileScreen}
-        options={profileScreenOptions}
+        options={{ headerShown: false }}
+      />
+      <ProfileStack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ headerShown: false }}
       />
       <ProfileStack.Screen
         name="PlayerSettings"

@@ -22,6 +22,7 @@ import Crown from 'lucide-react-native/icons/crown';
 import DoorOpen from 'lucide-react-native/icons/door-open';
 import Eye from 'lucide-react-native/icons/eye';
 import EyeOff from 'lucide-react-native/icons/eye-off';
+import FileText from 'lucide-react-native/icons/file-text';
 import Flag from 'lucide-react-native/icons/flag';
 import Funnel from 'lucide-react-native/icons/funnel';
 import Globe from 'lucide-react-native/icons/globe';
@@ -34,15 +35,19 @@ import MapPin from 'lucide-react-native/icons/map-pin';
 import Pencil from 'lucide-react-native/icons/pencil';
 import Phone from 'lucide-react-native/icons/phone';
 import Plus from 'lucide-react-native/icons/plus';
+import Ruler from 'lucide-react-native/icons/ruler';
 import Search from 'lucide-react-native/icons/search';
 import Settings from 'lucide-react-native/icons/settings';
 import ShieldAlert from 'lucide-react-native/icons/shield-alert';
+import ShieldCheck from 'lucide-react-native/icons/shield-check';
+import Shirt from 'lucide-react-native/icons/shirt';
 import Trash2 from 'lucide-react-native/icons/trash-2';
 import TriangleAlert from 'lucide-react-native/icons/triangle-alert';
 import User from 'lucide-react-native/icons/user';
 import UserMinus from 'lucide-react-native/icons/user-minus';
 import UserPlus from 'lucide-react-native/icons/user-plus';
 import Users from 'lucide-react-native/icons/users';
+import Weight from 'lucide-react-native/icons/weight';
 import X from 'lucide-react-native/icons/x';
 
 // Our icon names → Lucide icons. To add one: import it above, then add one line here.
@@ -86,6 +91,11 @@ const ICONS = {
   report: Flag,
   block: Ban,
   time: Clock,
+  position: Shirt, // a player's position
+  height: Ruler,
+  weight: Weight,
+  terms: FileText, // the Terms of Use page
+  privacy: ShieldCheck, // the Privacy Policy page
   // states
   success: CircleCheck,
   warning: TriangleAlert,

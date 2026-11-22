@@ -309,3 +309,29 @@ describe('Token guard: src/components/ui uses theme tokens only', () => {
     expect({ file: name, problems }).toEqual({ file: name, problems: [] });
   });
 });
+
+describe('ListRow with an icon and a hint (feature 2)', () => {
+  test('the icon replaces the avatar, and the hint is a third line', async () => {
+    const renderer = await render(
+      <ListRow
+        icon="phone"
+        name="Phone"
+        meta="01712345678"
+        hint="Only your teammates can see this"
+        last
+      />,
+    );
+    expect(renderer.root.findAllByType(Icon).map(i => i.props.name)).toEqual([
+      'phone',
+    ]);
+    expect(shownText(renderer)).toBe(
+      'Phone 01712345678 Only your teammates can see this',
+    );
+  });
+
+  test('without an icon it still shows the initials', async () => {
+    const renderer = await render(<ListRow name="Nayeem Islam" last />);
+    expect(renderer.root.findAllByType(Icon)).toHaveLength(0);
+    expect(shownText(renderer)).toContain('NI');
+  });
+});
