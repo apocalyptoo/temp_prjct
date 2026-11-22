@@ -1,0 +1,429 @@
+# ConnectArena: Technical Reference
+
+The detailed reference for whoever changes the code (Claude Code included): conventions, helpers, endpoints, data model, tests and tooling. The plain-English tour of the same system is [ARCHITECTURE.md](ARCHITECTURE.md); it links here for detail instead of repeating it. Each fact lives in one of the two files. When the code changes, update the file that holds the fact (and the tour only if the big picture changed). The code wins over both: if this file is wrong, fix it.
+
+Rules and scope come from [PRODUCT.md](PRODUCT.md), decisions from [DECISIONS.md](DECISIONS.md), the visual design from [DESIGN.md](DESIGN.md). Known bugs and security issues are tracked in [ROADMAP.md](ROADMAP.md), not here.
+
+**Contents**
+1. [Repository and tooling](#1-repository-and-tooling)
+2. [Backend settings](#2-backend-settings)
+3. [Backend tests](#3-backend-tests)
+4. [Backend conventions](#4-backend-conventions)
+5. [Login, security and email](#5-login-security-and-email)
+6. [Endpoints](#6-endpoints)
+7. [Data model](#7-data-model)
+8. [Mobile app](#8-mobile-app)
+
+---
+
+## 1. Repository and tooling
+
+### 1.1 Housekeeping
+
+**Line endings:** the root `.gitattributes` stores and checks out text files with LF (overriding `core.autocrlf`), keeps `*.bat`/`*.cmd` CRLF, keeps `gradlew` and `*.sh` LF, and marks images, fonts, jars and keystores binary. Prettier 2.x expects LF.
+
+**Ignored files:** the root `.gitignore` ignores `node_modules/`, `.env` and `.env.*` (except `.env.example`), and database dumps (`backup/`, `*.backup`, `*.dump`, `*.bak`, `*.sql.gz`, `*.sql.zip`) in every folder. Plain `*.sql` is deliberately not ignored, so `backend/prisma/migrations/**/migration.sql` stays tracked. Never commit a database dump; `backup/app_db.backup` was untracked on 2026-11-20 but is still in git history until the Phase 0 purge.
+
+### 1.2 Backend tooling
+
+- **Scripts** (`backend/package.json`): `npm run dev` (nodemon on `src/server.js`; ignores `tests/`), `npm start` (plain `node src/server.js`), `npm test` (`node --test --test-concurrency=1 "tests/**/*.test.js"`).
+- **Install scripts (npm 11+):** npm only runs dependency install scripts that are approved in the `allowScripts` field of `backend/package.json`. Approved: `bcrypt` (builds its native code) and the Prisma packages (`prisma`, `@prisma/client`, `@prisma/engines`). While uninstalling packages, npm 11.16 may print a warning that these four aren't covered; `npm approve-scripts --allow-scripts-pending` is the reliable check. Approvals are pinned to exact versions, so after upgrading one of these, or adding a package with an install script, run `npm approve-scripts --allow-scripts-pending` to list what needs a decision. Don't approve anything without asking. The mobile app currently has nothing pending.
+- **`scripts/createAdmin.js`** (run in `backend/`): lowercases and trims `ADMIN_EMAIL` (`normalizeEmail`). It refuses to run if `ADMIN_EMAIL` or `ADMIN_PASSWORD` is missing or the password fails the strength rule, and never prints the password. If an admin with that email exists it changes that account's password (the way to change the admin password); otherwise it creates the admin. It refuses to promote a non-admin account and to create a second admin.
+- **Server start:** if the port is taken or the server can't start, `server.js` prints a message ("Port 4000 is already in use…") and exits with code 1 (Express 5 passes the startup error to the `listen` callback).
+
+### 1.3 App tooling
+
+- `npm run lint` runs ESLint with the `@react-native` config only; it doesn't check formatting. `npx prettier --check src App.js` is the Prettier 2.8.8 formatting check (`.prettierrc.js`: `arrowParens: 'avoid'`, `singleQuote`, `trailingComma: 'all'`), run separately. The remaining lint warnings are inline styles and colour literals in the old screens (section 8.9).
+- `npm test` is Jest with the react-native preset: `jest.setup.js` mocks AsyncStorage and react-native-safe-area-context with their packages' own mocks, `jest.config.js` `transformIgnorePatterns` adds `@react-navigation` and `react-native-*` packages, and `moduleNameMapper` sends `lucide-react-native/icons/*` to Lucide's CommonJS build (`dist/cjs/icons/*.js`; under Jest the `react-native` export condition would pick the `.mjs` files).
+- `npm run android` is the main target; iOS also needs `bundle install && bundle exec pod install` in `ios/`.
+- `index.js` imports `react-native-reanimated` first, then registers `App`. Native dependencies beyond the UI kit: reanimated (with worklets), gesture-handler, safe-area-context, react-native-svg, AsyncStorage, and, for the old screens only, `react-native-linear-gradient` and `react-native-vector-icons`. Changing a native module needs a rebuild.
+- The app talks to the backend through a hardcoded ngrok URL in `src/api/api.js` (`API_URL`, exported; React Native doesn't inject the `process.env.API_URL` it checks first). Update it when the tunnel changes.
+
+---
+
+## 2. Backend settings
+
+**Variables** (`backend/.env`, listed with comments and fake values in `backend/.env.example`):
+
+| Variable | Rule checked at startup |
+|---|---|
+| `DATABASE_URL` | Required, starts with `postgresql://` or `postgres://`. Checked but not in the `config` object: Prisma reads it from the environment itself |
+| `JWT_SECRET` | Required, at least 32 characters, and not `EXAMPLE_JWT_SECRET` (the `.env.example` placeholder; `tests/config.test.js` checks the two match) |
+| `EMAIL_USER` | Required, contains "@" (the Gmail address mail is sent from) |
+| `EMAIL_PASS` | Required (the Gmail password for SMTP) |
+| `BACKEND_PUBLIC_URL` | Required, an `http://` or `https://` URL (a trailing slash is removed); used to build the verify and reset links in emails |
+| `PORT` | Optional, a whole number 1–65535, default 4000 |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Only for `scripts/createAdmin.js`; not checked by the server |
+| `TEST_BASE_URL` | Optional, tests only (the server the tests talk to); not checked by the server |
+
+**`src/config/loadConfig.js`:** `loadConfig(env)` is a pure function (no dotenv, no `process.exit`) that returns a frozen `{ port, jwtSecret, emailUser, emailPass, backendPublicUrl }` or throws a `ConfigError` whose `problems` list every bad setting by name and reason. Values are trimmed before they're checked and used; blank or whitespace-only counts as missing.
+
+**`src/config.js`:** loads `backend/.env` with dotenv from a path based on its own location (`import.meta.url`), so the server finds it whichever folder it's started from. A missing `.env` file is not an error by itself (real hosting supplies settings directly), and settings already in the environment win over the file. It then calls `loadConfig(process.env)`; on a `ConfigError` it prints one message listing every problem ("Server can't start: these settings in backend/.env are missing or invalid: …") and exits with code 1, no stack trace. It never prints a value.
+
+- `server.js` imports `config.js` first: ES module imports all run before the importing file's body, and `src/utils/mailer.js` creates the Gmail transporter (reading `config`) as soon as it's imported. (Before this check, `.env` was in fact loaded by importing `@prisma/client`, which Prisma 6 does by itself; later Prisma versions don't. The comment at the top of `server.js` still says "authController builds its email sender"; that moved to `mailer.js`.)
+- `config.js` is the only file in `src/` that reads `process.env`; everything else imports `config`. Never print a setting's value, in errors, logs or tests.
+
+---
+
+## 3. Backend tests
+
+- Node's built-in test runner (`node:test`) and `fetch`, no extra dependencies. Tests send **real HTTP requests to the running local server** (`npm run dev`) and use Prisma directly to set up data. Test files run one at a time (`--test-concurrency=1`) because they share the server and database.
+- Each test creates its own throwaway user (`test-<uuid>@example.com`) and deletes it in `t.after()`. Shared setup lives in `tests/helpers.js`. Never change existing users in tests: that keeps each test independent of whatever else is in the database (it isn't about protecting the data; see CLAUDE.md, "How to work with me").
+- Tokens put straight into the database must be stored as `sha256Hex(token)` (from `tests/helpers.js`), with the plain token sent in the request, like a real email link.
+- Because the server trusts one proxy, `postJson`/`postForm`/`getWithIp` send a random made-up `X-Forwarded-For` address per request, so the suite never trips the rate limits; `tests/rate-limits.test.js` passes a fixed address to hit them.
+- `src/utils/mailer.js` never sends mail to `@example.com` addresses (it logs a line instead), so test runs send no real email. Sending to a `.invalid` address fails at once (that domain can never receive mail), which tests use to make sending fail on purpose.
+- **Exceptions that need neither the server nor the database:** `tests/config.test.js` (tests `loadConfig` directly), `tests/config-env-file.test.js` (imports `src/config.js` in child processes: from another folder, which needs the real `backend/.env` and checks no value is printed, and from a throwaway copy in `tests/.tmp-config-*` with no `.env` next to it, deleted afterwards) and `tests/mailer.test.js` (runs the real emails through nodemailer with a `streamTransport`, which builds the message in memory and sends nothing, and made-up settings).
+- To test that a multi-step delete rolls back, `tests/admin-delete.test.js` passes `deleteUserAndData`/`deleteTeamAndMembers` a wrapped Prisma client that throws at one step inside the real transaction (`failAt`). `tests/team-limit.test.js` fires 2 and 5 approvals at once against the 15-member limit.
+
+---
+
+## 4. Backend conventions
+
+### 4.1 Structure
+
+`src/server.js` mounts six routers: `/auth`, `/players`, `/owners`, `/teams`, `/admin`, `/legal`, plus `GET /` ("API running ✅"). Each route file in `src/routes/` maps to a controller with the same name in `src/controllers/`, except `legalRoutes.js`, which has no controller. Middleware in `server.js`, in order: `helmet()`, `cors()` (every origin allowed), `express.json()`, `express.urlencoded({ extended: false })`, the routers, then `errorHandler` last.
+
+**Route ordering matters:** in `playerRoutes.js`, `/me`, `/invites` and `/requests` must stay above `/:id`; in `teamRoutes.js`, `GET /me` must stay above `GET /:teamId`. Otherwise Express reads "me" as an id.
+
+### 4.2 Validation (zod)
+
+**Every endpoint that reads a body or query declares a zod schema in `src/validation/`, and its controller reads only `req.valid`.** Reason: unchecked values must never reach Prisma, because objects like `{"not": ""}` get treated as query operators (this once allowed an account takeover), and wrong types crash Prisma into 500s.
+
+- Schemas live in one file per router: `authSchemas.js`, `playerSchemas.js`, `ownerSchemas.js`, `teamSchemas.js`. Shared pieces: `common.js` (`charCount` counts code points, `byteCount`, `inStages` runs schemas in order so a request with several problems gets the same first message as before, `requiredText`, `isFilled`) and `profileFields.js` (the profile fields shared by registration and the edit endpoints: limits, `POSITIONS`, `MOBILE_NUMBER`, the messages, `playerName`, `venueName`, phone, position, `area()`, height, weight, `venueAddress`, `venueDescription`, `website`).
+- Routes run `validate({ body, query })` from `src/middleware/validate.js` after the rate limiters and auth checks. It puts the parsed, cleaned values on `req.valid.body` / `req.valid.query` (never reassign `req.query`: it's read-only in Express 5) and replies 400 `{ "error": "<first problem's message>" }`.
+- Options: `message` (one fixed reply for any problem; login uses `INVALID_LOGIN`, so a badly shaped login gets the same "Invalid email or password" as a wrong password) and `onInvalid(req, res, message)` (a different reply: `/auth/reset` uses `sendResetFailure`, which gives the browser form HTML pages with "Try again" where it helps; the verify and reset-page links use their HTML pages).
+- Unknown fields are stripped, not rejected (the app sends extras such as a top-level `name` for players).
+- Messages are short and human because the app shows `error` in an alert; tests and the app rely on the existing ones, so don't reword them unless their rule changes (DECISIONS.md 2026-11-20 and 2026-11-22).
+- Text limits count code points (a Bangla name isn't over-counted). Passwords are limited to 72 bytes (counted in UTF-8 bytes), because bcrypt ignores the rest.
+- The only `req.body` reads outside a schema: `sendResetFailure` peeking at the raw token to build the "Try again" link (only if `isWellFormedToken`), and `rateLimits.js` keying on `normalizeEmail(req.body?.email)`.
+- Conventions and limits: DECISIONS.md 2026-11-20, "Input validation conventions and limits".
+
+### 4.3 Ids
+
+**Ids from URL params are not in the schemas:** every one goes through `parseId` (`src/utils/ids.js`: a positive integer within Int range, else null → 400 "Invalid team id" and so on). Never use `Number(...)` or `parseInt(...)` on a URL id. Any id from a body that reaches Prisma must stay within `MAX_DB_INT` (2147483647, exported from `src/utils/ids.js`). Because validation middleware runs before the controller, a request with both a bad body and a bad URL id gets the body's message.
+
+### 4.4 Errors
+
+Controllers pass failures on with `next(err)` (Express 5 also forwards errors thrown in async handlers). `src/middleware/errorHandler.js`, mounted last, logs real errors and replies only `{ "error": "Something went wrong" }` (500), or `{ "error": "Invalid request body" }` (400) for an unreadable body (`entity.parse.failed`) or any error carrying a 4xx status (those aren't logged). A form request (`isFormRequest`) gets a "Something went wrong / Please try again later." HTML page with the same status instead. If a reply has already started, it sends nothing more. **Never put `error.message`, stacks or Prisma details in a response.**
+
+### 4.5 Database access and transactions
+
+- **One Prisma client**: `prisma` from `src/db.js`, imported by every controller. Nothing else in `src/` may call `new PrismaClient()` (each client opens its own connection pool, and hosted databases limit connections). `src/utils/deletion.js` and `visibility.js` take the client as a parameter. `scripts/createAdmin.js` and `tests/helpers.js` are separate programs with one client each.
+- **Any multi-step write uses a transaction.**
+- **Deletes go through `src/utils/deletion.js`:** `deleteUserAndData(db, userId)` and `deleteTeamAndMembers(db, teamId)` run every step in one interactive `$transaction` and return false when the row doesn't exist. Cascade (section 7) is only a safety net: deletes still remove dependents explicitly, in order (`TeamMember` rows, then the user's captained teams and their members, then profiles, then the `User`), until the account deletion feature reworks this. `deleteTeamAndMembers` (the admin route) takes the team lock first; `removeTeamRows(tx, teamId)` is the same delete as a step inside a caller's transaction that already holds the lock (the captain's delete and the last member leaving). `deleteUserAndData` deletes the user's captained teams **without** taking their team locks. (The comment at `deletion.js:44` saying the schema has no cascade is out of date.)
+- **The team lock:** writes to an existing team's membership rows or captain run inside `withLockedTeam` (`teamController.js`): one interactive `$transaction` whose first step is `lockTeam(tx, teamId)` (`src/utils/membership.js`: `SELECT id, "captainId" FROM "Team" WHERE id = … FOR UPDATE` with Prisma's tagged `$queryRaw`, never `$queryRawUnsafe`; null means 404 "Team not found"). Writes to one team therefore run one after the other, so the 15-member check (`countMembers` against `MAX_TEAM_MEMBERS`) can't be raced past. Exceptions: `createTeam` (a new team), `deleteTeamAndMembers` (takes the lock itself) and `deleteUserAndData` (no lock). New membership writes must use it.
+
+### 4.6 Profile visibility
+
+`src/utils/visibility.js` is the one place for "who may see what" (the rules: PRODUCT.md, "Profile visibility"; in plain words: ARCHITECTURE.md section 4). **Every endpoint that returns user or profile data must go through it, including new ones. Never hand-filter fields in a controller.**
+
+- `viewerFrom(req)` and `seesEverything(viewer, userId)` (yourself or the ADMIN).
+- `toVisibleUser(user, viewer, { canSeePhone })`: yourself or ADMIN get everything except secrets; others get only id, role, createdAt, name and the public profile.
+- `toPublicPlayer`: name and position; height, weight and `area` only if set; phone only with `canSeePhone`; never email. `GET /players` and the team member lists (`GET /teams`, `/teams/me`, `/teams/:teamId`) select `area`.
+- `toPublicVenue`: the business listing; the owner's login email only with `canSeeEmail`.
+- `withoutSecrets`: strips password, verify/reset tokens and their expiry times at any depth (used on admin replies).
+- `findAcceptedTeammateIds(prisma, viewerId)`: one query per request. No endpoint returns other players' phones yet (Player detail, later).
+- `toPlayerStats` shapes `GET /players/:id` (`totalTeams` and `joinedAt`, which is the account's `createdAt`).
+- Responses keep their field names; hidden fields are just left out.
+
+### 4.7 Shared helpers
+
+In `src/utils/`:
+
+
+- `email.js`: `normalizeEmail` trims and lowercases, null for non-strings or blanks. Register, login, forgot-password, resend-verification, the rate-limit keys, the mailer's example.com check and `createAdmin.js` all use it; any new place that reads an email must too. Stored emails were checked on 2026-11-20: all lowercase, no clashes.
+- `password.js`: the one strength rule (at least 8 characters with upper case, lower case, a number and one of `!@#$%^&*(),.?":{}|<>`), used by register, reset, change password and `createAdmin.js`.
+- `html.js`: `escapeHtml`. Use it for every value inserted into HTML, in emails or server-rendered pages.
+- `tokens.js`: generates verify/reset tokens, `isWellFormedToken` (64 lowercase hex characters), `hashToken` (SHA-256 hex), link lifetimes (verify 24 hours, reset 1 hour), the 5-minute email cooldown (`sentRecently`), `LOGIN_TOKEN_LIFETIME_SECONDS` (30 days) and `signLoginToken(user)`, the one place login tokens are signed.
+- `mailer.js`, `emailTemplates.js`: section 5.5.
+- `membership.js`: `MEMBERSHIP_FIELDS_NOT_IN_REPLIES` (`origin`, `acceptedAt` and `message`, left out of every reply with Prisma's `omit`; a reply that may show a join request's message adds it back only for the captain, the requester and the admin through `toMembershipReply(row, { withMessage: true })`, which also strips the same fields from rows loaded in full); `MAX_TEAM_MEMBERS` (15) and `TEAM_FULL_MESSAGE` ("Team is full (15/15)."); `isMember`, `isPendingInvite`, `isPendingRequest` name the kinds of row; `lockTeam`, `countMembers`.
+- `deletion.js`: section 4.5. `ids.js`: section 4.3. `visibility.js`: section 4.6.
+- `links.js`: `isWebLink`, the website rule (section 6.3).
+- `pages.js`: `messagePage` for server-rendered pages, `legalPage({ title, note, sections })` for the Terms and Privacy pages, and `isFormRequest` (`/auth/reset` answers HTML to the browser form and JSON to JSON requests).
+
+---
+
+## 5. Login, security and email
+
+### 5.1 Login tokens and `verifyToken`
+
+- Login signs (with `signLoginToken`, shared with change password) an HS256 JWT with claims `{ id, userId, role, email, tv }`, valid for 30 days; `tv` is the account's `tokenVersion`. The login reply is `{ token, user: { id, name, email, role } }`; the name comes from `playerProfile.name` or `ownerProfile.indoorName`.
+- `verifyToken` (`src/middleware/auth.js`, async) requires the header to be exactly `Bearer <token>` (Bearer case-insensitive, one space, no spaces in the token), verifies with `algorithms: ['HS256']`, requires the token's `id` to be a positive integer within `MAX_DB_INT`, then looks up the user by `id` and replies 401 "Invalid token" if the user is gone, the token has no integer `tv`, or `tv` isn't the current `tokenVersion` (a missing header is 401 "No token"). `req.user` (`{ id, userId, role, email }`) is built from the database row, never from the token's claims, so role and email changes apply at once. A database error is thrown and reaches the error handler (500), not a 401.
+- **Which routes need it:** every `/players`, `/owners`, `/teams` and `/admin` route, and `GET /auth/me` and `POST /auth/change-password`. The rest of `/auth`, `/legal/*` and `GET /` need no login.
+- **`tokenVersion`:** `resetPassword` and `changePassword` increment it in the same update as the new password, which logs the account out on every device; suspension must do the same when it's built (moderation feature; DECISIONS.md 2026-11-20, "Which events log out every device"). Normal log out only deletes the token on the phone.
+- **Login replies** are the same for an unknown email and a wrong password ("Invalid email or password", 400). An unknown email is still compared against a fixed dummy bcrypt hash, so both cases take about the same time. "Please verify your email" (403) is only returned after the password is correct.
+
+### 5.2 Role checks
+
+- `isAdmin` guards every `/admin` route (403 unless `req.user.role` is `ADMIN`).
+- `playersOnly` (403 for OWNER and ADMIN: only player accounts can create or join teams) guards every team action: create, edit, delete, invite, cancel invite, accept, reject, the join request routes, remove member, leave and transfer; and `GET /players/requests`.
+- `onlyRole(role, message)` guards a route for one kind of account, **before** the body is checked, so the wrong role always gets 403 whatever it sends: `PATCH /players/me` ("Players only"), `PATCH /owners/me` ("Owners only").
+- Checks inside controllers: `GET /players/me` (403 "Players only") and `GET /owners/me` (403 "Owners only"); every captain-only team action compares `team.captainId` with `req.user.id` (section 6.4).
+
+### 5.3 Abuse protection
+
+- **`app.set('trust proxy', 1)`** because the backend sits behind exactly one proxy (ngrok), so `req.ip` is the visitor's address from `X-Forwarded-For`. Without it every visitor would share ngrok's address and one rate-limit counter; trusting more hops would let visitors fake their address. Don't raise it.
+- **`helmet()`** with its default content security policy. Server-rendered pages (reset form, verify pages, legal pages) must not use inline scripts or styles.
+- **Rate limits** (`src/middleware/rateLimits.js`, express-rate-limit, 429), tuned for shared mobile IPs (DECISIONS.md 2026-11-19):
+
+  | Route | Limit |
+  |---|---|
+  | Login | Only failed attempts count (`skipSuccessfulRequests`; `requestWasSuccessful` also treats the 403 "please verify" as success, since the password was right): 10 / 15 min per IP + email, and 50 / 15 min per IP |
+  | Register | 20 / hour per IP |
+  | Forgot password, resend verification | Each 5 / hour per IP + email, and 20 / hour per IP |
+  | Reset (form POST) | 10 / 15 min per IP |
+  | Reset page and verify link (GET, opened in a browser) | 30 / 15 min per IP each; HTML "Too many attempts" pages |
+  | Change password | Only failures count (any reply of 400 or more): 10 / 15 min per account (`account:<user id>`, after `verifyToken`), and 50 / 15 min per IP |
+
+  Keys always go through express-rate-limit's `ipKeyGenerator` (IPv6 grouped by /56); emails are lowercased and trimmed. Counters are in memory and reset on restart.
+- **Email cooldown:** reset and resend-verification send nothing new to an account that got one in the last 5 minutes (`sentRecently`); the reply is unchanged and the earlier link still works.
+
+### 5.4 Email-link tokens
+
+The email link carries the random token; `User.verifyToken` and `User.resetToken` hold only `hashToken(token)` (SHA-256 hex; a fast hash is fine for long random tokens and allows a direct lookup, unlike passwords, which use bcrypt). Always store and look up the hash, require the expiry (`verifyTokenExpires` / `resetTokenExpires`) to be in the future, and clear both token and expiry once used. Check `isWellFormedToken` before any lookup of a token from a URL.
+
+### 5.5 Email
+
+- `src/utils/mailer.js` sends every account email through nodemailer 10 (needs Node.js 20+) and Gmail SMTP. `createMailer(transporter, { fromAddress, backendPublicUrl })` returns `sendMail` (skips `@example.com` with a log line, rejects `.invalid`), `sendVerificationEmail`, `sendResetEmail` and `sendPasswordChangedEmail` (no link in it). The server's instance is `mailer`, built on a Gmail transporter created when the module is imported (creating it makes no connection). `checkMailConnection()` logs the Gmail login result once at startup, called from `authController.js`.
+- `src/utils/emailTemplates.js` holds the email HTML; every value goes through `escapeHtml`.
+
+---
+
+## 6. Endpoints
+
+Status codes, in general: 400 bad input, 401 not logged in, 403 wrong role or not the captain, 404 gone, 409 the current state doesn't allow it, 429 too many attempts. Every error reply is `{ "error": "<message>" }`.
+
+### 6.1 Auth
+
+Files: `authRoutes.js`, `authController.js`, `authSchemas.js`.
+
+**`POST /auth/register`** (register limiter, `registerSchema`). The short sign-up forms (PRODUCT.md "Registration"; `docs/features/profiles-and-registration.md`). Checks in stages, first problem wins:
+1. email, password, role and `profileData` present ("Email, password, role, and profileData are required");
+2. role PLAYER or OWNER;
+3. email normalised, a valid address, at most 254 characters;
+4. password: the strength rule and at most 72 bytes;
+5. the role's profile. PLAYER: `name` (top level) 2–50, trimmed ("Name is required for PLAYER", "Name must be between 2 and 50 characters"); `profileData.phone` a Bangladeshi mobile number (`MOBILE_NUMBER`, `^01[3-9]\d{8}$`, after trimming the ends; else `PHONE_RULE_MESSAGE`, "Enter a Bangladeshi mobile number: 11 digits starting with 01, like 01712345678"); `profileData.position` exactly one of `POSITIONS` (else `POSITION_MESSAGE`); missing phone or position: "PLAYER profile requires phone and position". OWNER: `profileData.indoorName` 2–60, trimmed (missing: "Venue name is required");
+6. last, `acceptedTerms` exactly `true` (else `TERMS_REQUIRED`, "Please accept the Terms of Use and Privacy Policy"), the last key of each role's object so other problems are reported first.
+
+Height, weight, address and the venue's phone, address, description and website are no longer read (stripped). "Email already registered" is checked in the controller, after all of these. The controller creates the `User` (`verified: false`, `termsAcceptedAt: now`, the hashed verify token with a 24-hour expiry) and its profile in one nested create, then emails the verification link (`BACKEND_PUBLIC_URL/auth/verify?token=…`). Reply 201 `{ message, userId }`; if the email fails to send, still 201 with "Account created, but we couldn't send the verification email. Use 'Resend verification email' on the login screen." (the app matches this exact text), and the error is logged. The app sends `acceptedTerms` only as the Terms box's own value: never fake the Terms on either side.
+
+**`GET /auth/verify?token=…`** (verify-link limiter). Always answers with HTML pages (opened from an email). A token that isn't well-formed gets "Invalid or expired link" without a database lookup; so does an unknown hash or an expired link, with a hint to request a new email from the app's login screen. Otherwise it sets `verified`, clears the token and expiry, and shows "Email verified".
+
+**`POST /auth/login`** (login limiters, `validate` with `message: INVALID_LOGIN`). Section 5.1. Login is refused until `verified` is true.
+
+**`POST /auth/resend-verification`** (resend limiters). A missing, non-text or blank email is refused; otherwise normalised. For an existing unverified account outside the cooldown, a new token (hash saved, 24 hours, replacing the old link) and email. The reply is always "If that account needs verifying, we've sent a new email."
+
+**`POST /auth/forgot`** (forgot limiters). Email checked and normalised like resend. For an existing account outside the cooldown, a new reset token (hash saved, 1 hour) and an email linking to `BACKEND_PUBLIC_URL/auth/reset-password-page?token=…`. The same reply in every case.
+
+**`GET /auth/reset-password-page?token=…`** (reset-page limiter). A server-rendered HTML form built inline in `authRoutes.js` (not with `messagePage`), shown only for a well-formed token, else "Invalid or expired link". It POSTs to `/auth/reset`, which is why `express.urlencoded` is enabled, with `extended: false` so every form value is plain text (a repeated field becomes an array), never a nested object: `token[not]=x` is a field literally named `token[not]`.
+
+**`POST /auth/reset`** (reset limiter; `onInvalid: sendResetFailure`). Refuses a token that isn't text and a new password that fails the strength rule or 72 bytes. Finds the user by token hash with an unexpired link, then in one update: the new hash, token and expiry cleared, `verified: true` (the reset proves the email works), any leftover `verifyToken`/`verifyTokenExpires` cleared, `tokenVersion + 1`. Form requests get HTML pages ("Password changed"; for a weak password the rule plus "Try again"; for a bad or expired link a message to request a new reset); JSON requests get JSON.
+
+**`GET /auth/me`** (`verifyToken`): the caller's own `{ id, name, email, role, verified }` through `toVisibleUser`; 401 if the token's user no longer exists. Used by the app at start-up.
+
+**`POST /auth/change-password`** (feature 2, spec d endpoint 6; `verifyToken`, `changePasswordLimiters`, `changePasswordSchema`, `changePassword`; any role). Schema, in stages: both `currentPassword` and `newPassword` non-empty text ("Current password and new password are required"), the strength rule and 72 bytes for the new one, then new ≠ current (`SAME_PASSWORD`, "Your new password must be different from your current one"). A wrong current password is **400 "Current password is incorrect", never 401** (the app logs out on any 401 that carried a token). Success is one `update` whose `where` also requires the stored hash still to be the one just checked (P2025 → the same 400), setting the new hash, `tokenVersion + 1` and clearing `resetToken`/`resetTokenExpires`. The reply is `{ message: 'Password changed', token }` with a fresh token from `signLoginToken`, sent **before** `sendPasswordChangedEmail` runs (a failed send is only logged).
+
+### 6.2 Players
+
+Files: `playerRoutes.js`, `playerController.js`, `playerSchemas.js`.
+
+- **`GET /players/me`**: the player's own profile (`loadOwnPlayerProfile`), 403 "Players only" for other roles, 404 "Player profile not found".
+- **`PATCH /players/me`** (feature 2; `onlyRole('PLAYER', 'Players only')`, then `updatePlayerProfileSchema`). Every field each time (spec P11): `name` ("Name is required", "Name must be text", 2–50), `phone` ("Phone number is required", the mobile rule), `position` ("Position is required", the list), `height` (100–250 cm) and `weight` (30–200 kg), numbers or null, with their messages, and `area` (`area()`: trimmed, inner whitespace runs made one space, blank or missing null, 2–40 code points, "Area must be text" / "Area must be between 2 and 40 characters"; letters kept as typed). A missing, null or "" optional field clears it. One `updateMany` on the profile (404 "Player profile not found"), then the `GET /players/me` shape. The new name shows at once in `GET /auth/me` and team lists. The email can't be changed (not in v1.0).
+- **`GET /players/invites`**: the viewer's pending invites (`origin: invite` rows only), each team with `memberCount`, `maxMembers`, `captainId` and `team.captain` as `{ id, name }` through the visibility rules.
+- **`GET /players/requests`** (`playersOnly`): the viewer's pending join requests, newest first, with their message and the team's counts.
+- **`GET /players`**: every player, each with the public `playerProfile` (name, position, area when set).
+- **`GET /players/:id`**: stats only (`toPlayerStats`).
+
+### 6.3 Owners and venues
+
+Files: `ownerRoutes.js`, `ownerController.js`, `ownerSchemas.js`.
+
+- **`GET /owners/me`**: the owner's own profile with the listing (`loadOwnOwnerProfile`), 403 "Owners only" inside the controller, 404 "Owner profile not found". Phone, address, description and website may each be null.
+- **`PATCH /owners/me`** (feature 2, spec D2; `onlyRole('OWNER', 'Owners only')`, then `updateVenueSchema`). Every field each time: `indoorName` ("Venue name is required", "Venue name must be text", 2–60), then optional `phone` (`optionalPhone()`: missing, null, blank or spaces → null, else the mobile rule; venue phones are mobile only), `address` (at most 200), `website` (at most 200, then `isWebLink`, else "Website must start with http:// or https://"), `description` (at most 500). The optional texts are trimmed and blank becomes null (`trimmedOptionalText`, spec P13). One `updateMany` (404 "Owner profile not found"), then the `GET /owners/me` shape.
+- **The website rule (`isWebLink`, `src/utils/links.js`):** a pattern, not `new URL` (React Native's `URL` doesn't really parse links, and the app must give the same answer): `http://` or `https://` in any case, a host of letter/digit/`-`/`_` labels (any script) joined by dots, an optional port up to 65535 and an optional path, query or fragment; no spaces, no `user@`. The app's `src/utils/links.js` is the same function with the same test cases (DECISIONS.md 2026-11-22, "One website rule in the app and the backend"): change both together.
+- **`GET /owners`**: every venue listing, flattened, through `toPublicVenue` (the owner's email only for themselves and the admin). A new owner appears with only a venue name until they fill in the listing.
+
+### 6.4 Teams
+
+Files: `teamRoutes.js`, `teamController.js`, `teamSchemas.js`; feature 1, `docs/features/team-membership.md`.
+
+All writes are `playersOnly` and run under the team lock (section 4.5), except create. Captain-only actions compare `team.captainId` with `req.user.id`: edit, delete, invite, cancel invite, remove member, approve or reject a request, and transfer.
+
+- **`POST /teams/create`** (`createTeamSchema`): name required, text, trimmed, 2–40 code points; description optional, text if given, at most 200 after trimming, blank stored as null. Names needn't be unique. One step creates the `Team` (`captainId` = creator) and the captain's `TeamMember` row (`accepted`, `origin: 'creator'`, `acceptedAt` now). 201 with the team.
+- **`GET /teams`** and **`GET /teams/me`** (`toTeamListItem`): `members` holds accepted rows only; `pendingInvites` (invites only, never join requests) only when the viewer is that team's captain (non-captains don't get the field). `/teams/me` adds `memberCount`, `maxMembers` and, for the captain, `joinRequestCount`.
+- **`GET /teams/:teamId`** (any logged-in user; `toTeamDetail`): `memberCount`, `maxMembers` (`MAX_TEAM_MEMBERS`), `viewerState` (`captain`/`member`/`invited`/`requested`/`none`; venue owners and the admin are always `none`), `members` (accepted, captain first, then earliest `acceptedAt`, ties to the lower id; each through the visibility rules: name, position and area when set), `joinRequests` (oldest first, with `message`) and `pendingInvites` (newest first) only for the captain and the ADMIN, `myRequest` (`{ createdAt, message }`) only for the requester. 400 "Invalid team id", 404 "Team not found".
+- **`PATCH /teams/:teamId`** (`updateTeamSchema` = `createTeamSchema`, so a missing description becomes null; 403 "Only the team captain can edit this team."): replies with the `toTeamDetail` shape.
+- **`DELETE /teams/:teamId`** (captain): deletes the team and its rows (`removeTeamRows`).
+- **`POST /teams/:teamId/invite`** (`inviteSchema`: `userId` a positive whole number within `MAX_DB_INT`; the text "5" is refused). Order of checks, under the lock: captain (403) → full (409 `TEAM_FULL_MESSAGE`) → the invitee is an existing PLAYER (404 "Player not found") → a pending join request from them is approved instead (200 `{ message: 'Request approved', joined: true }`, `acceptedAt` now, message cleared) → any other row 400 "Player is already invited or in the team." → 201 with the new invite (`pending`, `origin: invite`).
+- **`POST /teams/:teamId/accept`** and **`/reject`**: act only on the caller's pending `origin: invite` row, else 404 "Invite not found". Accept sets `accepted` and `acceptedAt`, refused with 409 when the team is full (the invite stays pending); reject deletes the row.
+- **`DELETE /teams/:teamId/invites/:userId`** (captain; 403 "Only the team captain can cancel invites.", 404 "Invite not found", 200 "Invite cancelled").
+- **`DELETE /teams/:teamId/members/:userId`** (captain): removes accepted members only (a pending row gets 404 "Player not found in this team."). Join requests are declined with the request routes, never deleted through either of these.
+- **`POST /teams/:teamId/leave`**: 404 "You're not a member of this team." unless accepted; the captain gets 409 "Transfer captaincy before leaving the team." while other members exist, and as the only member deletes the team with all its rows (200 `{ message: 'Team deleted', teamDeleted: true }`); a member: 200 `{ message: 'You left the team.', teamDeleted: false }`.
+- **`POST /teams/:teamId/transfer`** with `{ userId }` (`transferSchema` = `inviteSchema`; 403 "Only the team captain can transfer captaincy."; to yourself 400 "You're already the captain."; the target must be an accepted member, else 404 "Player not found in this team."): one update of `captainId`, the old captain stays a member; 200 `{ message: 'Captaincy transferred', captainId }`.
+- **`POST /teams/:teamId/requests`** (`joinRequestSchema`: optional `message`, text, trimmed, at most 150 code points (`JOIN_REQUEST_MESSAGE_MAX`), blank stored as null): 201 with `{ id, teamId, userId, status, createdAt, message }`; 409 "You're already in this team." / "You've already asked to join this team." / `TEAM_FULL_MESSAGE`; a pending invite is accepted instead (200 `{ message: 'Joined team successfully', joined: true }`, `acceptedAt` now).
+- **`DELETE /teams/:teamId/requests/me`**: 200 "Request cancelled", 404 "Join request not found".
+- **`POST /teams/:teamId/requests/:userId/approve`** (captain): `accepted`, `acceptedAt` now, `message` null; 409 when full. **`.../reject`** (captain): deletes the row, 200 "Request declined". Non-captain: 403 "Only the team captain can approve or reject join requests."; a request that's gone: 404 "Join request not found".
+- **Players can't approve their own requests:** the old `POST /teams/:teamId/join` was removed in Phase 1 (a join request looked like an invite). Invite accept and reject, and `GET /players/invites`, act only on `origin: invite` rows.
+- **The join request message is seen only by the team's captain, the requester and the admin**: every query omits it (`MEMBERSHIP_FIELDS_NOT_IN_REPLIES`) and only those replies add it back.
+
+### 6.5 Admin
+
+Files: `adminRoutes.js`, `adminController.js`; every route has `verifyToken` and `isAdmin`.
+
+- `GET /admin/stats`: counts of users, players, owners, admins (`adminCount`) and teams.
+- Lists of users, teams (with `captain` and an accepted-only `memberCount`) and venues (`/admin/indoors`), with secrets stripped.
+- Deletes: `/admin/users/:id` (`deleteUser`: PLAYER and OWNER accounts), `/admin/indoors/:id` (`deleteIndoor`: OWNER accounts only, anything else 404 "Venue not found") and `/admin/teams/:id` (`deleteTeamAndMembers`). Both account routes share `deleteAccount`, which refuses with 403 when the target is the admin's own account or any ADMIN account.
+
+### 6.6 Legal pages
+
+File: `legalRoutes.js`.
+
+`GET /legal/terms` and `GET /legal/privacy` (feature 2, spec D1 and P17): no login and no rate limit, HTML built once at start-up by `legalPage({ title, note, sections })`. **Placeholder text** that says only what PRODUCT.md decides, with "This is a draft…" at the top; the real text is written in Phase 5. The sign-up forms and Settings open them in the phone's browser.
+
+---
+
+## 7. Data model
+
+File: `backend/prisma/schema.prisma`.
+
+- **`User`**: email (unique), password (bcrypt hash), `role` (`PLAYER`, `OWNER`, `ADMIN`), `createdAt`, `verified`, `verifyToken`/`verifyTokenExpires` and `resetToken`/`resetTokenExpires` (hashes, both token columns indexed), `tokenVersion` and `termsAcceptedAt`. It has an optional `PlayerProfile` or `OwnerProfile`, chosen by `role`; admins have neither.
+- **`User.tokenVersion`** (Int, default 0, migration `20261120133554_add_token_version`): login tokens carry it, and increasing it cancels all of the account's tokens. Only password reset, password change and (later) suspension increase it.
+- **`User.termsAcceptedAt`** (nullable): when the user ticked the Terms box at sign-up; null for older accounts and the script-made admin.
+- **`PlayerProfile`**: name, phone, `position`, optional height, weight and `area`. **`OwnerProfile`**: `indoorName`, then optional phone, address, description and website. Migration `20261121204305_profiles_registration` (hand-edited, converts and renames in place): `position` is the `Position` enum (`Goalkeeper`, `Defender`, `Midfielder`, `Forward`, `Any`, spelled as the app shows them; old free text was mapped, for example "gk" to Goalkeeper and "ATT" to Forward, everything unmatched to `Any`); `PlayerProfile.address` was renamed to `area` (the player's general area, never a full address); `OwnerProfile.phone` and `address` became nullable for the short owner sign-up.
+- **"Owner" only means a venue owner.** `Role.OWNER` is an indoor venue owner. The team side is called **captain** everywhere (schema, API, app): `Team.captainId` (relation `captain`; on `User`, `captainedTeams`, relation name "CaptainedTeams", with an index on `captainId`) is the *player* who captains the team, the creator unless captaincy is transferred. It is the only record of the captain (DECISIONS.md 2026-11-18): `TeamMember` has no `role` column (migration `20261120161908_captain_id` renamed `ownerId` in place and dropped `TeamMember.role`). The captain is also an accepted `TeamMember` of their team. A captaincy change must be a single update of `captainId`. Team replies carry `captainId`; the invites reply and the admin teams list carry `team.captain` / `captain`.
+- **`Team`**: name, optional description, `captainId`, `createdAt`.
+- **`TeamMember`** (migration `20261120171221_membership_data`): `status` is the `MembershipStatus` enum (`pending`, `accepted`; lowercase so replies and the app keep the same text; default `pending`). `origin` is the required `MembershipOrigin` enum: `invite`, `request` (join request) or `creator` (the captain's own row). `createdAt` (formerly `joinedAt`) is when the invite, request or team was created, not when the player joined. `acceptedAt` (nullable) is set when the row becomes accepted: by `createTeam` for the captain, by accepting an invite, approving a request, a join request that accepts an invite, and an invite that approves a request; existing accepted rows got their old `joinedAt`. `message` (nullable text, migration `20261121120000_join_request_message`) is a join request's optional message; null on every other row. **Longest-standing member** = earliest `acceptedAt`, ties to the lower `id` (for the captain handover in account deletion). Unique on `(teamId, userId)`; index on `(userId, status)`. Replies keep `createdAt` but never `origin` or `acceptedAt`, and `message` only for the captain, the requester and the admin. **Pending rows are not membership:** member lists, `memberCount`, `/players/:id` `totalTeams` and the admin member counts count accepted rows only. Rejecting an invite deletes the row.
+- **Delete rules** (migration `20261120171221_membership_data`): `PlayerProfile` and `OwnerProfile` cascade with their `User`; `TeamMember` cascades with its `Team` and with its `User`; `Team.captain` is `Restrict`, so the database refuses to delete a user who still captains a team (Postgres code 23001, which Prisma passes on as a `PrismaClientUnknownRequestError` without a `P` code; checked 2026-11-23) until the team is handed over or deleted. The code doesn't rely on cascade (section 4.5).
+
+---
+
+## 8. Mobile app
+
+Everything in `IndoorFootballApp/`.
+
+### 8.1 App shell
+
+- `App.js` wraps `SafeAreaProvider` (react-native-safe-area-context, for `Screen`) around `ThemeProvider`, which wraps a `ThemedStatusBar` (always `light-content`, background `colors.bg`, whatever the phone's light/dark setting) and `AuthProvider` (`src/contexts/AuthContext.js`) around `AppNavigator`.
+- `AppNavigator` switches on `user.role` between `AuthStack`, `PlayerNavigator`, `OwnerNavigator` and `AdminNavigator`, and gives `NavigationContainer` a theme built from tokens on top of React Navigation's `DarkTheme` (primary accent, background bg, card surface, text, border; fonts left at React Navigation's defaults).
+- **Android window:** `AppTheme` (`android/app/src/main/res/values/styles.xml`) sets `windowBackground` and `statusBarColor` to `@color/app_background` (`res/values/colors.xml`, `#0E1116`, which must match `palette.nearBlack` / `colors.bg`; native files can't read the JS tokens, and `__tests__/theme.test.js` checks the two match) and `windowLightStatusBar` false, so no white window shows before the first screen. Its parent stays `Theme.AppCompat.DayNight.NoActionBar` on purpose: the parent also sets Android's default text, input and alert colours, and the old screens (admin, the three Explore lists) haven't been checked for text that relies on those defaults, so the switch waits until they're restyled (a ROADMAP item). The navigation bar isn't set.
+- **Fonts:** static `.ttf` files in `assets/fonts/` (`BarlowCondensed-Bold`, `Inter-Regular`, `Inter-Medium`, `Inter-SemiBold`, `Inter-Bold`, from Google Fonts, with `OFL-*.txt` licenses), listed in `react-native.config.js` and copied by hand into `android/app/src/main/assets/fonts/` (no `react-native-asset` run; iOS isn't linked yet). `react-native.config.js` also still lists `react-native-vector-icons/Fonts`, and the Android fonts folder holds those `.ttf` files too, until Ionicons is removed. The file name is the `fontFamily` (also each font's PostScript name, for iOS later). **Android picks a custom font's weight by file, so text styles set `fontFamily` per weight and never `fontWeight`**; headings include `textTransform: 'uppercase'` and their letter spacing. Adding fonts needs a rebuild (`npm run android`).
+- **Images:** `assets/icons/` holds PNGs: `ball.png` is the Login logo; `player.png` and `viewteam.png` are used by the old lists; `home`, `invite`, `lgout`, `logout` and `myteam.png` are unused.
+
+### 8.2 Theme
+
+Files in `src/theme/`; the design is DESIGN.md sections 2–5.
+
+- `palette.js` (the only hex values), `colors.js` (meanings: bg, surface, border, text, textMuted, accent, onAccent, accentSoft, tabBar, tabIdle, danger, badge, onBadge, avatarBg, avatarText, shadow, scrim), `typography.js` (`fonts` and text styles display, title, cardTitle, section, body, bodyStrong, bodySmall, meta, pill, tabLabel, tabLabelActive, button, buttonSecondary, badge), `spacing.js` (scale xxs 4 … xxxl 28, layout tokens, `touchTarget` 44), `radius.js` (card 14, button 10, small 6 for the checkbox box, round 999), `shadows.js` (`floating`, with iOS shadow props and Android `elevation`), `icons.js` (`icon`: size 24, sizeSmall 16, strokeWidth 1.8), `sizes.js` (`sizes`: field 48, button 46, avatarSmall 38, avatarLarge 44, badge 18, dot 8, border 1, dialogMaxWidth 400, used as minimums for anything holding text, and logo 72 for the Login ball; `opacity`: disabled 0.45, pressed 0.8), `index.js` (the one `theme` object) and `ThemeProvider.js` (`ThemeProvider`, `useTheme()`; throws outside the provider). `ThemeProvider.js` imports `index.js`, never the reverse.
+- **Screens read the theme only through `useTheme()` and use only `colors` meanings, never `palette`.** No raw colours, fonts or loose sizes; a missing value becomes a token, recorded in DESIGN.md. Prefer the layout tokens (`screenPadding`, `cardPadding`, `listGap`, `detailGap`, `cardGap`) and use the size scale only for one-off gaps. Dark only, no switching.
+- `__tests__/theme.test.js` checks every token value against the DESIGN.md values written into the test, that every colour meaning exists in the palette, the contrast rules (computed in the test, no package) and the Android window colour.
+
+### 8.3 Shared components
+
+In `src/components/ui/` (DESIGN.md section 6). Screens are built from these, imported from `src/components/ui/index.js`. Every component takes an optional `style` for layout only. **They use tokens only:** `__tests__/components-composite.test.js` scans every file in the folder and fails on a raw hex/rgb/hsl colour, a hand-set `fontFamily` or a font name.
+
+- `Text` (`variant` = typography token, `color` = colour meaning).
+- `Screen` (`scroll`, `keyboardAware`, `edges` (default top), `scrollRef` (with `scroll`, a ref to the ScrollView); needs the root `SafeAreaProvider`).
+- `Button` (primary/secondary/danger, `icon`, `fullWidth`, `disabled`, `loading`: label kept but invisible under the spinner so the size never changes, presses blocked both by `disabled` and in the handler, `accessibilityState.busy`).
+- `IconButton` (approve/reject/plain, 44×44, warns in dev without `accessibilityLabel`).
+- `Card` (optional `onPress`), `Pill` (strong/soft), `Badge` (`badgeLabel`: nothing below 1, "99+" above 99), `Divider`, `EmptyState`, `NoticeLine`, `SectionHeader` (title and optional `right`), `TextLink`, `BackLink`, `ScreenHeader` (greeting or `back`, `display` title, `action`).
+- `Avatar` (`getInitials`: the first whole character of the first two words that start with a Unicode letter (`\p{L}`), uppercase; words starting with an emoji, flag, number or symbol are skipped; "?" if none. Whole characters come from `Intl.Segmenter` when the engine has it, else a fallback that keeps `\p{M}` marks and joins across a virama or ZWJ; `INITIALS_METHOD` says which, shown in the gallery. Initials capped at 1.3× font scale.) **The `\p{…}` patterns are built with `new RegExp('…', 'u')`**: the app's Babel preset (`@babel/plugin-transform-unicode-regex`) fails on `\p{…}` in a regex literal ("Expected atom"); Hermes supports Unicode property escapes.
+- `ListRow` (`last` hides its bottom `Divider`; `icon`, one of our Icon names shown in `textMuted` instead of the Avatar for rows that aren't people; `hint`, a third `meta`/`textMuted` line; `trailing`; `onPress`).
+- `TabBar` (React Navigation custom `tabBar`: icon from the `tabBarIconName` option, `title` label, `tabBarBadge`; emits `tabPress` with React Navigation's own `data.behavior` so the current tab's stack pops to top, then dispatches navigate to the tab; `tabLongPress`; tabs ≥ 44 tall with role `tab` and selected state; bottom inset from React Navigation or the safe area; hidden while the Android keyboard is open).
+- `ConfirmDialog` (Modal; back and outside tap cancel except while `loading`; `destructive` uses the danger Button; floating shadow, scrim).
+- Form pieces (feature 2): `TextField` (focus/error borders, warning icon with the error, helper, `secure` show/hide IconButton, `disabled`; label as the input's accessibilityLabel, error or helper as its hint; no lineHeight on the TextInput; other props go to `TextInput`), `Checkbox` (a 24×24 box, corner `radius.small`, in a 44×44 target, role `checkbox` with checked state, the label beside it read with it, `children` under the label stay separately tappable (the Terms links), an `error` line, `disabled`), `OptionGroup` (the position picker: label, chips in a wrapping row, each ≥ 44, chosen = accent/onAccent; a `radiogroup` of `radio`s with selected state; options as text or `{ value, label }`; `error`, `disabled`) and `SuggestionField` (the Area field: a `TextField` plus an inline list of up to 5 rows under it, each ≥ 44 with the `area` icon, labelled "Suggestion: {name}"; shown only while focused and `getSuggestions(value)` returns something; tapping a row calls `onChangeText(name)`; `disabled` shows none).
+- **UI gallery:** `src/screens/Dev/UIGalleryScreen.js` shows every component and two mock-ups of the design PNGs; `AuthStack` `require`s it only inside `__DEV__` and registers `UIGallery` only then, and `LoginScreen` shows its "UI gallery" link only when `__DEV__`. A release bundle (`npx react-native bundle --dev false`) contains none of it, because Metro inlines `__DEV__` and drops the dead branch before collecting dependencies; checked on 2026-11-21.
+
+### 8.4 Icons
+
+DESIGN.md section 7. `<Icon name size color accessibilityLabel />`, the only file that imports Lucide (`lucide-react-native` 1.70.0, drawn by `react-native-svg` 15.16.1, a native module: rebuild after changing it). Screens never import Lucide; they use our names (`ICON_NAMES`; the table is in DESIGN.md section 7). **Each Lucide icon is imported from its own file** (`lucide-react-native/icons/<kebab-name>`), because Metro doesn't drop unused code and the package's main entry would bundle every icon; to add one, import it, add one line to the `ICONS` map and update the count in `__tests__/Icon.test.js`. Defaults: `size` from `icon.size`, `color` from `colors.text`; stroke width always `icon.strokeWidth`. The glyph sits in a `View`: with `accessibilityLabel` it's `accessible`, role `image`, `importantForAccessibility` `yes`; without one it's hidden (`no-hide-descendants`, `accessibilityElementsHidden`). An unknown name renders `null` and `console.warn`s once per name, only when `__DEV__`. Ionicons (`react-native-vector-icons`) is now used only by the four admin screens; removing it is the last item of ROADMAP Step 4.
+
+### 8.5 Navigation
+
+Files in `src/navigation/`.
+
+- **Role navigators are bottom tabs with a native stack per tab** (PRODUCT.md, "App structure and navigation"), so pushed screens keep the tab bar. All three spread `tabNavigatorProps` from `tabs.js`: our `TabBar` as the custom `tabBar`, `backBehavior: 'firstRoute'` (Android back on another tab's first screen goes to the first tab; on the first tab's first screen it leaves the app) and no tab-level header. Each `Tab.Screen` sets `title` and `tabBarIconName`; `tabBarBadge` shows a Badge. Tab route names end in `Tab`:
+  - **Player** (`PlayerNavigator.js`): `MyTeamsTab` (`MyTeams` and `CreateTeam`, plus the team screens), `ExploreTab` (`PlayerExploreStack`), `NotificationsTab` (`Invites`, interim, plus the team screens), `ProfileTab` (`PlayerProfile`, `EditProfile`, `Settings`, `ChangePassword`).
+  - **Owner** (`OwnerNavigator.js`): `MyVenueTab` (`MyVenue`, `EditVenue`), `ExploreTab` (`OwnerExploreStack`), `NotificationsTab` (`OwnerNotifications`, interim empty state), `ProfileTab` (`OwnerProfile`, `Settings`, `ChangePassword`, and `EditVenue` again, so Settings → Edit venue goes back to Settings).
+  - **Admin** (`AdminNavigator.js`): `DashboardTab` (AdminDashboard), `ReportsTab` (AdminReports, interim empty state), `VenuesTab` (ManageIndoors), `UsersTab` (ManageUsers), `TeamsTab` (ManageTeams).
+- `AuthStack`: `Login`, `RoleSelection`, `PlayerRegister`, `OwnerRegister`, `CheckEmail`, `ForgotPassword` (and `UIGallery` in development), all with `headerShown: false`.
+- `ExploreStack.js` exports `PlayerExploreStack` and `OwnerExploreStack` (the same stack, `readOnly` for owners): the interim `screens/Shared/ExploreScreen` (three ListRows) → `Teams`, `Players`, `Indoors` (old screens with their stack headers), plus the team screens. A team in `TeamsListScreen` opens `TeamDetail` with `{ teamId }`. Owners see it read-only (TeamsListScreen hides Create Team for them, Team detail shows no buttons).
+- **The team screens** (`teamScreens.js`): `teamScreens(Stack, { readOnly })` returns one `Stack.Group` with `TeamDetail`, `RequestToJoin`, `TransferCaptaincy`, `EditTeam` and `InvitePlayers` (readOnly: `TeamDetail` only). It's spread into the player's My Teams and Notifications stacks and both Explore stacks, **because a screen can only navigate inside its own stack** (or a parent). (The comment at the top of `teamScreens.js` leaves out the Notifications stack.)
+- The rebuilt screens hide the stack header (`headerShown: false`) and draw their own `BackLink` or `ScreenHeader`. Team detail's back label names the route underneath (`MyTeams` → "My Teams", `Teams` → "All Teams", `Invites` → "Invites", else "Back"). Edit venue's reads "Settings" when opened with `{ from: 'Settings' }`, else "My Venue"; Edit profile's always reads "Profile".
+- Jumping to another tab uses the nested form: TeamsListScreen's Create Team does `navigate('MyTeamsTab', { screen: 'CreateTeam', initial: false })` (My Teams stays under it), My Teams' "Find a team" does `navigate('ExploreTab', { screen: 'Teams', initial: false })`, the owner Profile's "Your venue listing" does `navigate('MyVenueTab', { screen: 'MyVenue' })`.
+- No screen has a stack header button any more. If one is added: header buttons get `navigation` from the screen's options function, not `useNavigation()` (in a native-stack header it doesn't find the screen's navigator).
+
+### 8.6 Talking to the backend, the login and the session
+
+- **`src/api/api.js`:** a shared axios instance with `API_URL`. A request interceptor attaches `Authorization: Bearer <token>` from AsyncStorage (`src/utils/storage.js`, key `jwt`). The response interceptor calls the handler registered with `setSessionExpiredHandler` when a request that carried a token gets **401** (never for 403, never for `/auth/login`), and only if that token is the one saved now (`getToken()`; spec P30): a request sent with the old token just before a password change saved the fresh one is ignored, and so is any 401 once no token is saved. `__tests__/api-session.test.js` calls the interceptor's error handler directly.
+- **`AuthContext`** exposes `user`, `setUser`, `loading`, `serverUnreachable`, `retryRestoreSession`, `login`, `logout`, `register`, `resendVerification` and `changePassword`. It registers the session-expired handler: remove the token, clear `user`, alert "Your session has expired. Please log in again." once (a ref stops repeats; reset on login). `login` returns `{ success, error, needsVerification }` (403 → `needsVerification`). `register` passes `acceptedTerms` through untouched and throws an `Error` with the backend's message (or a connection message). `changePassword(current, next)` posts `/auth/change-password` and `saveToken`s the reply's fresh token before returning; a refusal is thrown as axios gave it. `logout()` removes the token, clears `user` and `serverUnreachable`; no server call.
+- **App start** (`AuthContext.restoreSession`): with a saved token, `AppNavigator` shows `StartupLoading` while `GET /auth/me` runs (15 s timeout). Success sets `user`; 401 removes the token; anything else sets `serverUnreachable` and shows `ServerUnreachable` with Retry (`retryRestoreSession`), keeping the token, plus a Log out link. Both views (`src/screens/Auth/StartupScreen.js`) render outside `NavigationContainer`, straight on the dark Android window, so they paint `colors.bg` and `colors.text` themselves through `useTheme()` (spinner in `colors.accent`); they still use React Native's built-in `ActivityIndicator` and `Button`.
+
+### 8.7 Checks repeated from the backend
+
+These must match the backend's rules and messages; change both together.
+
+- `src/utils/phone.js`: `cleanPhone` (removes spaces and dashes, then a leading `+88` or `88` only when `01` follows, so a number that isn't a Bangladeshi mobile is never turned into one), `isMobileNumber` with the backend's `MOBILE_NUMBER`, `PHONE_RULE_MESSAGE`. The field keeps what was typed; only the checked and sent value is tidied.
+- `src/utils/password.js`: the backend's `isStrongPassword` and 72-byte limit, `newPasswordProblem`, `PASSWORD_HELPER` listing the only symbols the backend counts, `!@#$%^&*(),.?":{}|<>` (a dash or underscore isn't one).
+- `src/utils/links.js`: `isWebLink` (the same pattern as `backend/src/utils/links.js`) and `WEBSITE_MESSAGE`. Every screen that shows a website opens it only when it passes, otherwise shows plain text (`MyVenueScreen`, `IndoorsListScreen`).
+- `src/constants/positions.js` (`POSITIONS`, as the backend's enum) and `src/constants/areas.js` (`AREAS`, the spec's P6 starter list, and `suggestAreas(text)`: case and outer spaces ignored, names starting with the text first, then names containing it, each A–Z, at most `MAX_SUGGESTIONS` (5), none for empty text or a name typed in full).
+- `src/screens/Auth/signUpCommon.js`: each sign-up field's first problem with the backend's messages where it has one (`charCount`, `PLAYER_NAME`, `VENUE_NAME`, `nameProblem`, `emailProblem`, `phoneProblem`, `positionProblem`, `confirmProblem`, `termsProblem`), `checkPlayerSignUp`, `checkOwnerSignUp`.
+- `src/screens/Player/profileChecks.js`: `checkProfileEdit` (sign-up's name, phone and position checks, `tidyArea` and 2–40 code points, `readMeasurement`: empty null, a comma as the decimal point, the backend's number and range messages; the body with every field).
+- `src/screens/Owner/venueChecks.js`: `checkVenueEdit` (the backend's `updateVenueSchema` rules and messages; the body with every field, trimmed, empty optional fields `null`) and `descriptionCount`.
+- `checkTeamForm(name, description)` in `TeamFormScreen.js`: `createTeamSchema`'s limits in code points with the backend's messages.
+- `acceptedTerms` is only ever the Terms box's own value.
+
+### 8.8 Screens
+
+**Patterns shared by the rebuilt screens:**
+- Every button that sends a request uses the `Button` `loading` state and a guard against a second tap: the feature 2 screens (auth, sign-up, profile, venue, settings) use a `useRef` `busy` guard that blocks a second tap in the same instant; the feature 1 team screens (`TeamDetailScreen`, `InvitesScreen`, `TeamFormScreen`, `RequestToJoinScreen`, My Teams' Cancel) use a `busy` **state**, which only takes effect after the next render.
+- Field problems found before sending show as `TextField` errors under the field (changing a field clears its error); the backend's `error` shows in an alert. Long forms use `useScrollToFirstError(order)` from `signUpCommon.js`: each field's wrapping `View` reports its position through `onLayoutOf(key)`, and the `Screen`'s `scrollRef` scrolls up to the first field with a problem, minus `spacing.xl` (`firstErrorOffset` is the pure rule).
+- Screens that load on focus use the `focus` listener (it also fires on first open) and a `RefreshControl` (in a `ScrollView` inside a non-scrolling `Screen`, or in a `FlatList`). A failed first load shows `TeamLoadState` (`src/screens/Team/teamCommon.js`: a spinner, or `errorMessage` with Try again); a failed reload keeps the content. `TeamLoadState` is used by the team screens, both profiles, Edit profile, My Venue and Edit venue.
+- Edit screens send every field each time (spec P11) and have no "Discard changes?" dialog (P31).
+
+**Auth** (`src/screens/Auth/`, feature 2):
+- `LoginScreen`: ball logo at `sizes.logo`, "ConnectArena" and the slogan; Email and Password `TextField`s with "Email is required" / "Password is required" before sending; a "Forgot password?" `TextLink`; Log in with `loading`; after the 403 a `NoticeLine` ("Your email isn't verified yet.") and a secondary "Resend verification email" with `loading`, hidden again when the email changes; "New here?" + "Create an account" → `RoleSelection`; the dev-only "UI gallery" link.
+- `RoleSelectionScreen`: back "Log in", two `Card`s → `PlayerRegister` / `OwnerRegister`.
+- `PlayerRegisterScreen` (Name, Email, Phone with the tidy-up, Position `OptionGroup`, Password with `PASSWORD_HELPER`, Confirm password, `TermsAgreement`, Create account) and `OwnerRegisterScreen` (a line saying the listing comes later; Venue name, Email, Password, Confirm, `TermsAgreement`, Create account). Both run their check first, keep the button enabled while Terms is unticked (P20), and send `register({ …, profileData, acceptedTerms: form.agreed })` with the trimmed name (players, top level) and email and `cleanPhone`'s number; a refusal alerts "Sign-up failed" with the backend's message. Success calls `showCheckEmail(navigation, email, reply)`, which `reset`s the stack to `Login` → `CheckEmail` with `{ email, sendFailed }` (`sendFailed(reply)` matches the backend's exact `SEND_FAILED_MESSAGE`, since the API has no flag for it).
+- `signUpCommon.js` also holds `TermsAgreement` (a `Checkbox` with "I agree to the Terms of Use and Privacy Policy." and two `TextLink`s under it) and `openLegalPage(page)` (`Linking.openURL(`${API_URL}/legal/<page>`)`; a failure alerts "Couldn't open the page").
+- `CheckEmailScreen`: "We've sent a link to {email}. Open it to verify your account, then log in. The link works for 24 hours." or `SEND_FAILED_TEXT`; Resend email (secondary, `loading`) calls `resendVerification(email)` and shows the reply as a line under it, an error in an alert; Back to log in and the back link `navigate('Login')`.
+- `ForgotPasswordScreen`: `POST /auth/forgot` with the trimmed email; on success the form is replaced by `RESET_SENT_TEXT` and "Back to log in", no alert; a refusal alerts "Not sent" with the backend's message.
+- `StartupScreen`: section 8.6.
+
+**Player profile** (`src/screens/Player/`, feature 2):
+- `PlayerProfileScreen`: `ScreenHeader` "Profile" with the gear `IconButton` → `Settings`; loads `GET /players/me`; a `Card` with the large `Avatar`, the name, the position `Pill` and the area with a small `area` icon; a "Details" `Card` of icon `ListRow`s (Position, Area, Height "172 cm", Weight, Phone with `PHONE_HINT`, Email with `EMAIL_HINT`), empty optional ones showing `NOT_ADDED`; Edit profile (secondary) → `EditProfile`. "Couldn't load your profile."
+- `EditProfileScreen`: loads `GET /players/me` itself, so Settings could open it too; Name, Phone, Position `OptionGroup`, Area `SuggestionField` with `suggestAreas` and `AREA_HELPER`, Height and Weight with `decimal-pad`, Email disabled with `EMAIL_LOCKED`; `checkProfileEdit`; `PATCH /players/me`, then `setUser` with the reply's name and `goBack`; a refusal alerts "Not saved" with the backend's message.
+- `InvitesScreen`: Team screens below.
+
+**Venue owner** (`src/screens/Owner/`, feature 2):
+- `MyVenueScreen`: `ScreenHeader` "My Venue"; loads `GET /owners/me`; "Couldn't load your venue."; the venue name in `title`, then a "Listing" `Card` of icon `ListRow`s: Phone (`phone`), Address (`area`), Website (`website`), Description (`description`), each `NOT_ADDED` when empty; the website is a `TextLink` opening `openWebsite` only when `isWebLink` passes, otherwise plain text; a primary Edit venue `Button` → `EditVenue`.
+- `EditVenueScreen`: loads `GET /owners/me`; Venue name, Phone (optional, `cleanPhone` including `+88`), Address (optional, multiline), Website (optional, `url` keyboard, helper "Starts with https://"), Description (optional, multiline; the helper is the live count `descriptionCount`, "120 / 500 characters", counted trimmed in code points; going over is allowed and caught on Save); `checkVenueEdit`; `PATCH /owners/me`, then `setUser` with the new name (an owner's app name is the venue name) and `goBack`; a refusal alerts "Not saved".
+- `OwnerProfileScreen` (the Profile tab, P32): `ScreenHeader` "Profile" with the gear → `Settings`; loads `GET /owners/me`; "Couldn't load your profile."; a `Card` with the venue name's large `Avatar`, the name in `cardTitle`, a soft `Pill` "Venue owner", then an Email `ListRow` with the hint "Only you can see this. Email can't be changed yet."; a second `Card` with the tappable "Your venue listing" row (`venue` icon, chevron) → the My Venue tab.
+- `OwnerNotificationsScreen`: the interim "No notifications yet." `IndoorsListScreen`: an old list (section 8.9).
+
+**Settings and Change password** (`src/screens/Shared/`, feature 2):
+- `SettingsScreen`: back "Profile", a `Card` of icon `ListRow`s with a `forward` chevron: Edit profile → `EditProfile` (for a venue owner, **Edit venue** → `navigate('EditVenue', { from: 'Settings' })`), Change password → `ChangePassword`, Terms of Use and Privacy Policy → `openLegalPage`; a danger "Log out" `Button` with a `ConfirmDialog` "Log out?" that calls `logout()`. Registered in both roles' Profile stacks. (The old About and Support rows, and the old reset-link "Change Password" button, went with the deleted `PlayerSettingsScreen` and `OwnerSettingsScreen`.)
+- `ChangePasswordScreen`: Current password, a "Forgot your current password?" `TextLink`, New password with `PASSWORD_HELPER`, Confirm new password; `checkPasswordChange` ("Current password is required", "New password is required", `newPasswordProblem`, `SAME_PASSWORD`, `confirmProblem`); `AuthContext.changePassword`; then one alert "Password changed" / `CHANGED_MESSAGE` and `goBack`; a 400 `WRONG_CURRENT` shows under Current password, never an alert or a logout; any other refusal (for example the 429) alerts "Not changed"; the Forgot link opens a `ConfirmDialog` "Send a reset link?" whose "Send link" (`loading`) posts `/auth/forgot` with `user.email`, then shows `resetSentText(email)` under the link.
+- `ExploreScreen`: the interim Explore (section 8.5).
+
+**Team screens** (`src/screens/Team/`, feature 1, `docs/features/team-membership.md`):
+- `teamCommon.js`: `useTeam(teamId, navigation)` (loads `GET /teams/:teamId` on focus; 404 → alert "Team not found" / "This team no longer exists." and `goBack`; "Couldn't load this team."), `TeamLoadState`, `showActionError` (404/409 → alert "Something changed" plus the backend's `error` and reload via `onStale`, else "Error"), `MESSAGE_MAX` (150), `charCount`, `limitChars`, `personName`, `personPosition`.
+- `TeamDetailScreen` (params `{ teamId }`): renders by `viewerState`; visitor buttons only for `user.role === 'PLAYER'`. Captain: "Captain" and "x / 15 members" pills, Invite players (disabled with "Team is full (x/y)" when full), Transfer captaincy (hidden when alone), the join requests with messages and decline/approve, the pending invites (X to cancel), the members (remove), Edit team, Leave team and Delete team. Member: a "Player" pill, the members and Leave team. Invited: "{captain} invited you to this team", Accept invite (disabled when full) and Decline. Request sent: a "Your request" card with the message and Cancel request. Any other player: Request to join (disabled when full). Venue owner: read-only. Actions run one at a time (`busy`), then reload. Confirmation dialogs (one `ConfirmDialog`, worded by `dialogFor(kind, team, row)` with the spec's exact text): leave, transferFirst (a captain with members; its button navigates to TransferCaptaincy, sends nothing), leaveAndDelete, remove, delete, declineRequest, cancelInvite ("Keep invite"). Leave, leave-and-delete and delete `goBack` on success; the others reload. Edit team navigates to `EditTeam` with `{ teamId, teamName, description }`; Invite players to `InvitePlayers` with `{ teamId, teamName }`.
+- `TeamFormScreen`: one screen for two routes, `CreateTeam` (My Teams stack, no params; `POST /teams/create`, then `navigation.replace('TeamDetail', { teamId })`, so Back goes to My Teams) and `EditTeam` (team screens group; `PATCH /teams/:teamId` with both fields, then `goBack`; a 404 alerts and goes back). `checkTeamForm` errors under the fields.
+- `RequestToJoinScreen` (`{ teamId, teamName }`): an optional message trimmed to `MESSAGE_MAX` code points with `limitChars`, because TextInput's `maxLength` counts UTF-16 units.
+- `TransferCaptaincyScreen` (`{ teamId, teamName }`): loads the team itself, lists the members except the captain; picking one asks "Make {name} captain?" and posts the transfer.
+- `MyTeamsScreen` (no stack header; a "Create team" button with the `add` icon in its header): loads `GET /teams/me` and `GET /players/requests` together on focus and on pull to refresh; "Couldn't load your teams.". Team cards (→ `TeamDetail` with `{ teamId }`): Avatar, name, `${memberCount} / ${maxMembers} members`, Captain (strong) or Player (soft) pill, two-line description, and for the captain with `joinRequestCount > 0` a NoticeLine "N join request(s) waiting for you". A "Requests sent" card (only when there are any) lists each request with "Waiting for the captain", its message and Cancel (`DELETE /teams/:teamId/requests/me`, no dialog). Empty state only with no teams and no requests: "You're not in a team yet.", Create team and a "Find a team" TextLink.
+- `InvitesScreen` (`src/screens/Player/`, the interim Notifications tab): `GET /players/invites` on focus and on pull to refresh; one Card per invite (→ `TeamDetail`) with the team name, "{captain} invited you · x / y members", and Accept (disabled with "Team is full (x/y)" when full) and Decline side by side, both with loading; 404/409 → `showActionError` and reload; "No invites right now."; "Couldn't load your invites.".
+- `InvitePlayersScreen` (`{ teamId, teamName }`): loads the team through `useTeam` and `GET /players` on focus; lists players except the captain, `members`, `pendingInvites` and `joinRequests`, filtered by name on the phone; an invite marks the row "Invited" (or "Joined" when the reply has `joined: true`) without leaving or reloading; a 400, 404 or 409 alerts "Something changed" and reloads both; full team: "Team is full (x/y)" and every Invite disabled.
+- `TeamsListScreen` (old style): shows "+ Create Team" only to `PLAYER`s, and the captain's name from the team's `members` (the captain is always an accepted member). UI text calls the team creator "Captain"; "owner" in the app means a venue owner.
+
+### 8.9 Old screens
+
+Seven screens still have their old hand-written light styles (raw colours, `react-native-linear-gradient`, inline styles) until the restyle (ROADMAP Step 4): the four admin screens (`AdminDashboard`, `ManageIndoorsScreen`, `ManageTeamsScreen`, `ManageUsersScreen`, which also use Ionicons) and the three Explore lists (`TeamsListScreen`, `PlayersListScreen`, `IndoorsListScreen`). They keep their stack headers. `AdminReportsScreen` is the interim empty state.
+
+### 8.10 App tests
+
+Jest, in `__tests__/`.
+
+- One file per area: `App.test.tsx` (renders the app), `theme.test.js`, `Icon.test.js`, `components-basic`, `components-forms`, `components-composite` (and the token guard), `ui-gallery`, `tab-bar`, `navigation` (renders each role's navigator with a fake API and checks tabs, pushed screens, cross-tab jumps and Android back via the container ref's `goBack`/`canGoBack`), `api-session`, `auth-screens`, `sign-up-checks`, `sign-up-screens`, `areas`, `links`, `player-profile`, `owner-venue`, `settings-password` and the team files (`team-detail`, `team-form`, `team-invite-players`, `team-invites-screen`, `team-my-teams`, `team-request-transfer`).
+- Screen tests mock `src/api/api` and wrap the screen in `ThemeProvider` and an `AuthContext.Provider`.
+- Find Pressables by their accessibility label and a function `style` (`findByType(Pressable)` doesn't match). A dialog's confirm button can share its opener's label ("Leave team", "Delete team", "Log out"): press the last match. A tab that's still mounted can show the same text as the current one: press the last match there too.

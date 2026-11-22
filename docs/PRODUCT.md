@@ -1,6 +1,6 @@
 # ConnectArena: Product Requirements
 
-What the app should do, what's in each release, the approved business rules, and the decisions that are still open. How the app works *today* is in [ARCHITECTURE.md](ARCHITECTURE.md). The task list is in [ROADMAP.md](ROADMAP.md). The reasons behind decisions are in [DECISIONS.md](DECISIONS.md).
+What the app should do, what's in each release, the approved business rules, and the decisions that are still open. How the app works *today* is in [ARCHITECTURE.md](ARCHITECTURE.md) (technical detail in [TECHNICAL.md](TECHNICAL.md)). The task list is in [ROADMAP.md](ROADMAP.md). The reasons behind decisions are in [DECISIONS.md](DECISIONS.md).
 
 ---
 

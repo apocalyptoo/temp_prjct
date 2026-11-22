@@ -96,5 +96,6 @@ npx prettier --check src App.js   # formatting
 - [docs/ROADMAP.md](docs/ROADMAP.md): the plan and task tracker
 - [docs/DECISIONS.md](docs/DECISIONS.md): decisions and the reasons behind them
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the app works, in plain English
+- [docs/TECHNICAL.md](docs/TECHNICAL.md): the technical reference (conventions, endpoints, data model, tests, tooling)
 - [docs/DESIGN.md](docs/DESIGN.md): the visual design system
-- [CLAUDE.md](CLAUDE.md): working rules, commands and the easy-to-break conventions for Claude Code (the technical reference is section 10 of [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md))
+- [CLAUDE.md](CLAUDE.md): working rules, commands and the easy-to-break conventions for Claude Code (the detail is in [docs/TECHNICAL.md](docs/TECHNICAL.md))
