@@ -362,7 +362,7 @@ Screens are built from ready-made pieces in `src/components/ui/`, so each piece 
 - **Layout and text:** `Screen` (the dark background, side padding, room for the status bar, optional scrolling), `Text` (every piece of text, with a style name such as `body` or `display`), `ScreenHeader`, `SectionHeader`, `Divider`, `TabBar` (the bottom tab bar).
 - **Actions:** `Button` (main, secondary or danger; with a `loading` state that shows a spinner and ignores taps while a request runs), `IconButton` (approve, reject or plain), `TextLink`, `BackLink`.
 - **Content:** `Card`, `ListRow`, `Avatar` (initials in a circle), `Pill`, `Badge`, `NoticeLine` ("● 2 join requests waiting for you"), `EmptyState`, `Icon`.
-- **Forms and questions:** `TextField` (label, error message, password show/hide), `ConfirmDialog` ("Delete this team?" with Cancel and Confirm).
+- **Forms and questions:** `TextField` (label, error message, password show/hide), `Checkbox` (a tick box with its sentence, for the Terms at sign-up), `OptionGroup` (pick one of a few choices, like the position), `ConfirmDialog` ("Delete this team?" with Cancel and Confirm).
 
 They take their colours, fonts and sizes only from the theme. A test reads every file in the folder and fails if one contains a colour code or a font name, so that rule can't slip.
 

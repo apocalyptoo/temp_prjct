@@ -169,7 +169,7 @@ describe('spacing, radius, shadows and touch target', () => {
       detailGap: 18,
       cardGap: 12,
     });
-    expect(radius).toEqual({ card: 14, button: 10, round: 999 });
+    expect(radius).toEqual({ card: 14, button: 10, small: 6, round: 999 });
     expect(touchTarget).toBe(44);
     expect(sizes).toEqual({
       field: 48,

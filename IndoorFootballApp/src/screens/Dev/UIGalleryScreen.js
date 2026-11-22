@@ -11,6 +11,7 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   ConfirmDialog,
   Divider,
   EmptyState,
@@ -18,6 +19,7 @@ import {
   IconButton,
   ListRow,
   NoticeLine,
+  OptionGroup,
   Pill,
   Screen,
   ScreenHeader,
@@ -29,6 +31,7 @@ import {
 } from '../../components/ui';
 import { ICON_NAMES } from '../../components/ui/Icon';
 import { INITIALS_METHOD } from '../../components/ui/Avatar';
+import { POSITIONS } from '../../constants/positions';
 
 const FAKE_REQUEST_MS = 2000;
 
@@ -190,6 +193,8 @@ export default function UIGalleryScreen({ navigation }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogBusy, setDialogBusy] = useState(false);
   const [buttonBusy, setButtonBusy] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [position, setPosition] = useState(null);
 
   const fakeRequest = setBusy => done => {
     setBusy(true);
@@ -362,6 +367,42 @@ export default function UIGalleryScreen({ navigation }) {
             helper="Not your full address"
           />
           <TextField label="Disabled" value="Can't edit this" disabled />
+        </Section>
+
+        <Section title="Checkbox">
+          <Checkbox
+            checked={agreed}
+            onChange={setAgreed}
+            label="I agree to the Terms of Use and Privacy Policy."
+            error={
+              agreed
+                ? undefined
+                : 'Please accept the Terms of Use and Privacy Policy'
+            }
+          >
+            <Row>
+              <TextLink title="Terms of Use" onPress={() => {}} />
+              <TextLink title="Privacy Policy" onPress={() => {}} />
+            </Row>
+          </Checkbox>
+          <Checkbox checked label="Ticked" onChange={() => {}} />
+          <Checkbox checked={false} label="Disabled" disabled />
+        </Section>
+
+        <Section title="Option group">
+          <OptionGroup
+            label="Position"
+            options={POSITIONS}
+            value={position}
+            onChange={setPosition}
+            error={position ? undefined : 'Choose a position'}
+          />
+          <OptionGroup
+            label="Disabled"
+            options={POSITIONS}
+            value="Forward"
+            disabled
+          />
         </Section>
 
         <Section title="Notices, links and empty state">

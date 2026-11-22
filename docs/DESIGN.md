@@ -129,6 +129,7 @@ Two font families, both from Google Fonts (free to use in apps under the Open Fo
 **Corner radius** (`radius` tokens):
 - `card` 14: cards and sections
 - `button` 10: buttons and icon buttons
+- `small` 6: small square controls (the checkbox box), so they don't look round
 - `round` 999: pills, badges and avatars (fully round)
 
 **Touch targets:** anything tappable is at least **44×44** (`touchTarget` token).
@@ -203,6 +204,10 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 - Password fields have a show/hide button inside the field on the right: 44×44, icon `show` or `hide`, labelled "Show password" / "Hide password".
 - Disabled: `opacity.disabled` and not editable.
 - The field grows with the phone's font size (a minimum height only). Screen readers hear the label and the error with the field.
+
+**Checkbox** (added with feature 2, for the Terms box at sign-up). A 24×24 box (corner `small`) inside a 44×44 touch target, with the sentence beside it in `body`. Unticked: `surface` with a 1px `border`; ticked: `accent` with the `approve` check (`icon.sizeSmall`) in `onAccent`. Tapping the box or the sentence toggles it. Links that belong with it (Terms of Use, Privacy Policy) sit in their own row under the sentence, lined up with it: a link inside a wrapped sentence can't be 44 tall. An error shows under it like a text field's (`warning` icon plus the message in `meta` / `danger`), and the box's border turns `danger`. Screen readers hear a checkbox with its sentence, whether it's ticked, and the error.
+
+**Option group** (added with feature 2, the position picker). A label above (`bodySmall` / `textMuted`), then the options as chips in a wrapping row, each at least 44 tall, radius `button`. Chosen: `accent` background, `onAccent` text (`button`); the others: `surface` with a 1px `border` and `text` (`buttonSecondary`). One choice at a time. An error shows under it like a text field's. Screen readers hear a radio group with its label, and each option as a radio button with its selected state.
 
 **Section header.** A heading row inside a card: the title (`section`) on the left and an optional item on the right, such as a soft Pill ("2 new") or a TextLink ("See all 11").
 
