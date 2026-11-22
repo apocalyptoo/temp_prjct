@@ -16,6 +16,7 @@ import {
   checkOwnerSignUp,
   checkPlayerSignUp,
   emailProblem,
+  firstErrorOffset,
   phoneProblem,
 } from '../src/screens/Auth/signUpCommon';
 import { POSITIONS } from '../src/constants/positions';
@@ -204,5 +205,23 @@ describe('The whole sign-up forms', () => {
     expect(checkOwnerSignUp({ ...goodOwner, agreed: false }).errors.terms).toBe(
       'Please accept the Terms of Use and Privacy Policy',
     );
+  });
+});
+
+describe('Scrolling to the first problem (firstErrorOffset)', () => {
+  const order = ['name', 'email', 'phone', 'terms'];
+  const positions = { name: 100, email: 180, phone: 260, terms: 600 };
+
+  test('the first field in order with a problem, minus the margin', () => {
+    expect(
+      firstErrorOffset(order, { email: 'x', terms: 'y' }, positions, 20),
+    ).toBe(160);
+    expect(firstErrorOffset(order, { terms: 'y' }, positions, 20)).toBe(580);
+  });
+
+  test('never above the top, and nothing when there is no problem or no position yet', () => {
+    expect(firstErrorOffset(order, { name: 'x' }, { name: 10 }, 20)).toBe(0);
+    expect(firstErrorOffset(order, { name: null }, positions, 20)).toBeNull();
+    expect(firstErrorOffset(order, { phone: 'x' }, {}, 20)).toBeNull();
   });
 });

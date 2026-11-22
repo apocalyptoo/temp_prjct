@@ -2,7 +2,7 @@
 // registration.md, section e): the checks run before sending, with the backend's own
 // messages where it has one, so each problem shows under its field (the backend still
 // checks everything again), and the Terms box with its links.
-import React from 'react';
+import React, { useRef } from 'react';
 import { Alert, Linking, StyleSheet, View } from 'react-native';
 import { API_URL } from '../../api/api';
 import { Checkbox, TextLink } from '../../components/ui';
@@ -114,6 +114,34 @@ export function checkOwnerSignUp({
     confirm: confirmProblem(password, confirm),
     terms: termsProblem(agreed),
   });
+}
+
+// ── Scrolling to the first problem ──
+// The forms are long, so a problem near the top can be off screen when Create account
+// is tapped at the bottom. Each field reports where it sits (onLayoutOf), and
+// scrollToFirstError scrolls up to the first field with a problem, with a little space
+// above it.
+
+// Where to scroll for the first field (in `order`) that has a problem, or null.
+export function firstErrorOffset(order, errors, positions, margin) {
+  const first = order.find(key => errors[key]);
+  if (first === undefined || positions[first] === undefined) return null;
+  return Math.max(0, positions[first] - margin);
+}
+
+export function useScrollToFirstError(order) {
+  const { spacing } = useTheme();
+  const scrollRef = useRef(null);
+  const positions = useRef({});
+  // A field's distance from the top of the form (it must sit directly in the Screen).
+  const onLayoutOf = key => event => {
+    positions.current[key] = event.nativeEvent.layout.y;
+  };
+  const scrollToFirstError = errors => {
+    const y = firstErrorOffset(order, errors, positions.current, spacing.xl);
+    if (y !== null) scrollRef.current?.scrollTo({ y, animated: true });
+  };
+  return { scrollRef, onLayoutOf, scrollToFirstError };
 }
 
 // ── The pieces both forms show ──

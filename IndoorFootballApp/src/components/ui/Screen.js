@@ -16,12 +16,15 @@ import { useTheme } from '../../theme/ThemeProvider';
 //   for the keyboard (adjustResize in AndroidManifest.xml), so this matters for iOS.
 // edges: which sides keep clear of the status bar and notches. Default the top only,
 //   because a header or the bottom tab bar covers the others.
+// scrollRef: with scroll, a ref to the ScrollView, so a form can scroll to a field
+//   (for example the first one with a problem).
 // style: layout only (for example paddingTop), never colours or fonts.
 export default function Screen({
   children,
   scroll = false,
   keyboardAware = false,
   edges = ['top'],
+  scrollRef,
   style,
 }) {
   const { colors, spacing } = useTheme();
@@ -29,6 +32,7 @@ export default function Screen({
 
   const content = scroll ? (
     <ScrollView
+      ref={scrollRef}
       style={styles.fill}
       contentContainerStyle={[styles.grow, sides, style]}
       keyboardShouldPersistTaps="handled"

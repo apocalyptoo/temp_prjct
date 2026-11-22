@@ -5,7 +5,14 @@
 // app goes afterwards, the Terms links, a double tap, and AuthContext's register.
 
 import React, { useContext } from 'react';
-import { Alert, Linking, Text as NativeText, TextInput } from 'react-native';
+import {
+  Alert,
+  Linking,
+  ScrollView,
+  Text as NativeText,
+  TextInput,
+  View,
+} from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { AuthContext, AuthProvider } from '../src/contexts/AuthContext';
@@ -269,6 +276,38 @@ describe('Player sign-up', () => {
       node => node.props.accessibilityRole === 'checkbox',
     );
     expect(box.props.accessibilityState.checked).toBe(false);
+  });
+
+  test('a problem near the top scrolls the form up to that field', async () => {
+    const renderer = await render(
+      <PlayerRegisterScreen navigation={navigationMock()} />,
+      { register: jest.fn() },
+    );
+    // Lay the fields out as a phone would: each wrapper reports where it sits.
+    // (Only the field wrappers: their sole props are onLayout and the field itself.)
+    const wrappers = renderer.root.findAll(
+      node =>
+        node.type === View &&
+        Object.keys(node.props).sort().join() === 'children,onLayout',
+    );
+    expect(wrappers).toHaveLength(7);
+    await act(async () =>
+      wrappers.forEach((wrapper, index) =>
+        wrapper.props.onLayout({
+          nativeEvent: { layout: { y: 200 + index * 100 } },
+        }),
+      ),
+    );
+    const scrollView = renderer.root.findByType(ScrollView).instance;
+    const scrollTo = jest.fn();
+    scrollView.scrollTo = scrollTo;
+
+    // Everything filled in except the email (the second field, at 300).
+    await fillPlayer(renderer);
+    await type(renderer, 'Email', '');
+    await press(renderer, TERMS);
+    await press(renderer, 'Create account');
+    expect(scrollTo).toHaveBeenCalledWith({ y: 280, animated: true });
   });
 
   test('the password helper lists the symbols the backend counts', async () => {

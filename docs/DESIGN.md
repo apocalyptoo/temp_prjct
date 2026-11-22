@@ -160,7 +160,7 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 
 **Text.** Every piece of text uses it: `<Text variant="bodySmall" color="textMuted">`. `variant` is any typography token (default `body`), `color` is any colour meaning (default `text`). Screens never set fonts by hand.
 
-**Screen.** The standard screen container: `bg` background, `screenPadding` on the sides, keeps clear of the status bar and notches (the `edges` it protects; by default the top only, because a header or the tab bar covers the others). Optional `scroll` (content scrolls) and `keyboardAware` (form fields stay above the keyboard). The app is wrapped in one `SafeAreaProvider` for this.
+**Screen.** The standard screen container: `bg` background, `screenPadding` on the sides, keeps clear of the status bar and notches (the `edges` it protects; by default the top only, because a header or the tab bar covers the others). Optional `scroll` (content scrolls) and `keyboardAware` (form fields stay above the keyboard). Long forms scroll up to the first field with a problem when the main button finds one, so an error is never off screen. The app is wrapped in one `SafeAreaProvider` for this.
 
 **Primary button.** `accent` background, `onAccent` text (Inter 14/700), radius 10, height at least 44–46. Optional leading icon. Use one per screen for the main action ("Create team", "Invite players").
 

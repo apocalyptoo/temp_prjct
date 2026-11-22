@@ -4,7 +4,7 @@
 // the problem under its field; the backend's refusal shows in an alert. On success,
 // Check your email takes the form's place.
 import React, { useContext, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, View } from 'react-native';
 import { AuthContext } from '../../contexts/AuthContext';
 import { useTheme } from '../../theme/ThemeProvider';
 import {
@@ -19,6 +19,7 @@ import {
   checkOwnerSignUp,
   showCheckEmail,
   TermsAgreement,
+  useScrollToFirstError,
   VENUE_NAME,
 } from './signUpCommon';
 
@@ -36,6 +37,14 @@ export default function OwnerRegisterScreen({ navigation }) {
   const [saving, setSaving] = useState(false);
   // Stops a second tap from sending a second request before the button shows it's busy.
   const busy = useRef(false);
+  // The fields in the order they appear, so a problem near the top isn't missed.
+  const { scrollRef, onLayoutOf, scrollToFirstError } = useScrollToFirstError([
+    'venueName',
+    'email',
+    'password',
+    'confirm',
+    'terms',
+  ]);
 
   // Changing a field clears its error (the Terms box's error is called "terms").
   const set = key => value => {
@@ -50,7 +59,10 @@ export default function OwnerRegisterScreen({ navigation }) {
     if (busy.current) return;
     const { ok, errors: found } = checkOwnerSignUp(form);
     setErrors(found);
-    if (!ok) return;
+    if (!ok) {
+      scrollToFirstError(found);
+      return;
+    }
 
     busy.current = true;
     setSaving(true);
@@ -75,6 +87,7 @@ export default function OwnerRegisterScreen({ navigation }) {
     <Screen
       scroll
       keyboardAware
+      scrollRef={scrollRef}
       style={{ gap: spacing.xl, paddingBottom: spacing.xxxl }}
     >
       <ScreenHeader
@@ -85,50 +98,60 @@ export default function OwnerRegisterScreen({ navigation }) {
         You'll add your venue's address, phone and other details after you log
         in.
       </Text>
-      <TextField
-        label="Venue name"
-        value={form.venueName}
-        onChangeText={set('venueName')}
-        error={errors.venueName}
-        helper={`${VENUE_NAME.min}–${VENUE_NAME.max} characters`}
-        autoCapitalize="words"
-        editable={!saving}
-      />
-      <TextField
-        label="Email"
-        value={form.email}
-        onChangeText={set('email')}
-        error={errors.email}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        autoComplete="email"
-        editable={!saving}
-      />
-      <TextField
-        label="Password"
-        value={form.password}
-        onChangeText={set('password')}
-        error={errors.password}
-        helper={PASSWORD_HELPER}
-        secure
-        autoComplete="new-password"
-        editable={!saving}
-      />
-      <TextField
-        label="Confirm password"
-        value={form.confirm}
-        onChangeText={set('confirm')}
-        error={errors.confirm}
-        secure
-        autoComplete="new-password"
-        editable={!saving}
-      />
-      <TermsAgreement
-        agreed={form.agreed}
-        onChange={set('agreed')}
-        error={errors.terms}
-        disabled={saving}
-      />
+      <View onLayout={onLayoutOf('venueName')}>
+        <TextField
+          label="Venue name"
+          value={form.venueName}
+          onChangeText={set('venueName')}
+          error={errors.venueName}
+          helper={`${VENUE_NAME.min}–${VENUE_NAME.max} characters`}
+          autoCapitalize="words"
+          editable={!saving}
+        />
+      </View>
+      <View onLayout={onLayoutOf('email')}>
+        <TextField
+          label="Email"
+          value={form.email}
+          onChangeText={set('email')}
+          error={errors.email}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+          editable={!saving}
+        />
+      </View>
+      <View onLayout={onLayoutOf('password')}>
+        <TextField
+          label="Password"
+          value={form.password}
+          onChangeText={set('password')}
+          error={errors.password}
+          helper={PASSWORD_HELPER}
+          secure
+          autoComplete="new-password"
+          editable={!saving}
+        />
+      </View>
+      <View onLayout={onLayoutOf('confirm')}>
+        <TextField
+          label="Confirm password"
+          value={form.confirm}
+          onChangeText={set('confirm')}
+          error={errors.confirm}
+          secure
+          autoComplete="new-password"
+          editable={!saving}
+        />
+      </View>
+      <View onLayout={onLayoutOf('terms')}>
+        <TermsAgreement
+          agreed={form.agreed}
+          onChange={set('agreed')}
+          error={errors.terms}
+          disabled={saving}
+        />
+      </View>
       <Button
         title="Create account"
         onPress={create}
