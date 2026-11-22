@@ -108,9 +108,19 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 🔹 REGISTER (UPDATED FOR ROLE SYSTEM)
-
-  const register = async ({ name, email, password, role, profileData }) => {
+  // 🔹 REGISTER: the short sign-up forms (docs/features/profiles-and-registration.md).
+  // acceptedTerms is passed on exactly as the form gives it (true only when the Terms box
+  // is ticked): it's never filled in here. Returns the backend's reply ({ message,
+  // userId }); a refusal throws an Error with the backend's message (for example "Email
+  // already registered"), or a plain one when the server couldn't be reached.
+  const register = async ({
+    name,
+    email,
+    password,
+    role,
+    profileData,
+    acceptedTerms,
+  }) => {
     try {
       const res = await api.post('/auth/register', {
         name,
@@ -118,11 +128,14 @@ export const AuthProvider = ({ children }) => {
         password,
         role,
         profileData,
+        acceptedTerms,
       });
-
       return res.data;
     } catch (err) {
-      throw new Error(err.response?.data?.error || 'Registration failed');
+      throw new Error(
+        err.response?.data?.error ||
+          "Couldn't reach the server. Please check your connection and try again.",
+      );
     }
   };
 

@@ -388,7 +388,7 @@ The login state lives in a **context** (`AuthContext.js`). A React context is a 
 `src/navigation/AppNavigator.js` reads `user` from the context and picks a whole set of screens:
 
 ```
-no user logged in  → AuthStack        (Login, role choice, Player/Owner register, Forgot password)
+no user logged in  → AuthStack        (Login, role choice, Player/Owner sign-up, Check your email, Forgot password)
 user.role PLAYER   → PlayerNavigator  tabs: My Teams · Explore · Notifications · Profile
 user.role OWNER    → OwnerNavigator   tabs: My Venue · Explore · Notifications · Profile
 user.role ADMIN    → AdminNavigator   tabs: Dashboard · Reports · Venues · Users · Teams
@@ -444,8 +444,9 @@ When any request that carried the token gets a 401 (for example the token's 30 d
 
 ### Registration and email verification
 
-1. On the Login screen, the user taps **Signup**, picks Player or Owner, and fills in the form (`PlayerRegisterScreen.js` or `OwnerRegisterScreen.js`). _Until task F2.2 rebuilds these screens, sign-up from the app fails: the old screens don't send the Terms of Use agreement the backend now requires, and the backend never assumes it._
-2. The app sends `POST /auth/register` with email, password, role, the short profile details and `acceptedTerms: true` (the ticked Terms box).
+1. On the Login screen, the user taps **Create an account**, picks **I'm a player** or **I run a venue**, and fills in the short form (`PlayerRegisterScreen.js` or `OwnerRegisterScreen.js`): for a player, name, email, phone, position (picked from five buttons), password twice and the Terms box; for a venue owner, venue name, email, password twice and the Terms box. The two links under the box open the Terms of Use and Privacy Policy pages in the phone's browser.
+   Before sending, the screen checks every field with the backend's own rules and messages (`signUpCommon.js`) and shows each problem under its field: for example "Passwords don't match", or the password rule, whose helper lists exactly which symbols count. The phone number is tidied first (`src/utils/phone.js`): spaces and dashes are removed, and so is a leading +88 or 88 before "01", so "+880 1712-345678" is sent as "01712345678". The Create account button stays tappable when the Terms box is unticked and then shows the error under the box. It spins while the request runs, and a second tap does nothing.
+2. The app sends `POST /auth/register` with email, password, role, the short profile details and `acceptedTerms`, which is the Terms box's own value: the app never fills it in.
 3. Before the controller runs, `registerSchema` (`src/validation/authSchemas.js`) checks the request (see "How requests are checked"). Every field must be the right type, and the checks run in this order, so a request with several problems gets the first one's message:
    - email, password, role and profile details are all there ("Email, password, role, and profileData are required")
    - the role is PLAYER or OWNER
@@ -457,6 +458,7 @@ When any request that carried the token gets a 401 (for example the token's 30 d
    Then the controller checks that the email is new ("Email already registered").
 4. It saves the User and their profile in a single step, with `verified` set to false and `termsAcceptedAt` set to now. It also saves the hash of a new random verification token and an expiry 24 hours away.
 5. It emails a link containing the token itself to `BACKEND_PUBLIC_URL/auth/verify?token=…` through Gmail. If sending fails, the account still exists, so the reply is still a success (201). It says "Account created, but we couldn't send the verification email. Use 'Resend verification email' on the login screen." The error is logged on the server.
+   In the app, a success replaces the form with **Check your email** (`CheckEmailScreen.js`): "We've sent a link to … The link works for 24 hours.", or, when the reply says sending failed, "Your account is ready, but we couldn't send the email. Tap Resend to try again." Its **Resend email** button sends a new link (the reply shows under it), and **Back to log in** returns to Login. The form isn't kept underneath, so Back also goes to Login.
 6. Clicking the link opens the backend in a browser. If the token isn't shaped like one the backend makes (64 lowercase hex characters), it shows an "Invalid or expired link" page without touching the database. It shows the same page if no user has that token's hash, or if the link is more than 24 hours old, with a hint to request a new email from the app's login screen. Otherwise it marks the user verified, clears the token and its expiry, and shows an "Email verified" page telling them they can now log in in the app.
 
 ### Editing a player profile

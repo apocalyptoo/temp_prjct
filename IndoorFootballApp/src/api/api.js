@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { getToken } from '../utils/storage';
 
-const API_URL =
+// The backend's address. Also used to open its web pages (the Terms of Use and Privacy
+// Policy) in the phone's browser.
+export const API_URL =
   process.env.API_URL ||
   'https://demonstrational-nonfatal-judson.ngrok-free.dev';
 

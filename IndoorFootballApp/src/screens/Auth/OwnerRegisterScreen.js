@@ -1,181 +1,140 @@
-import React, { useState, useContext } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
+// Venue owner sign-up (docs/features/profiles-and-registration.md, section e). The short
+// form: venue name, email, password twice and the Terms box; the rest of the listing is
+// filled in on My Venue after logging in. Checked before sending (signUpCommon.js), with
+// the problem under its field; the backend's refusal shows in an alert. On success,
+// Check your email takes the form's place.
+import React, { useContext, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 import { AuthContext } from '../../contexts/AuthContext';
+import { useTheme } from '../../theme/ThemeProvider';
+import {
+  Button,
+  Screen,
+  ScreenHeader,
+  Text,
+  TextField,
+} from '../../components/ui';
+import { PASSWORD_HELPER } from '../../utils/password';
+import {
+  checkOwnerSignUp,
+  showCheckEmail,
+  TermsAgreement,
+  VENUE_NAME,
+} from './signUpCommon';
 
 export default function OwnerRegisterScreen({ navigation }) {
   const { register } = useContext(AuthContext);
+  const { spacing } = useTheme();
+  const [form, setForm] = useState({
+    venueName: '',
+    email: '',
+    password: '',
+    confirm: '',
+    agreed: false,
+  });
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+  // Stops a second tap from sending a second request before the button shows it's busy.
+  const busy = useRef(false);
 
-  const [indoorName, setIndoorName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [website, setWebsite] = useState('');
-  const [description, setDescription] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  // Changing a field clears its error (the Terms box's error is called "terms").
+  const set = key => value => {
+    const errorKey = key === 'agreed' ? 'terms' : key;
+    setForm(current => ({ ...current, [key]: value }));
+    setErrors(current =>
+      current[errorKey] ? { ...current, [errorKey]: null } : current,
+    );
+  };
 
-  const onRegister = async () => {
+  const create = async () => {
+    if (busy.current) return;
+    const { ok, errors: found } = checkOwnerSignUp(form);
+    setErrors(found);
+    if (!ok) return;
+
+    busy.current = true;
+    setSaving(true);
+    const email = form.email.trim();
     try {
-      // Basic validation
-      if (
-        !indoorName ||
-        !email ||
-        !phone ||
-        !address ||
-        !password ||
-        !confirmPassword
-      ) {
-        return Alert.alert('Error', 'Please fill all required fields');
-      }
-
-      if (!/^\d{11}$/.test(phone)) {
-        return Alert.alert('Error', 'Phone number must be exactly 11 digits');
-      }
-
-      if (password !== confirmPassword) {
-        return Alert.alert('Error', 'Passwords do not match');
-      }
-
-      const res = await register({
-        name: indoorName, // backend expects name field
-        email: email.trim(),
-        password,
+      const reply = await register({
+        email,
+        password: form.password,
         role: 'OWNER',
-        profileData: {
-          indoorName,
-          phone,
-          address,
-          website,
-          description,
-        },
+        profileData: { indoorName: form.venueName.trim() },
+        acceptedTerms: form.agreed,
       });
-
-      Alert.alert(
-        'Success',
-        res?.message || 'Check your email to verify your account',
-      );
-
-      navigation.navigate('Login');
+      showCheckEmail(navigation, email, reply);
     } catch (err) {
-      Alert.alert('Error', err.message || 'Registration failed');
+      Alert.alert('Sign-up failed', err.message);
+      busy.current = false;
+      setSaving(false);
     }
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Indoor Owner Registration</Text>
-
-      <TextInput
-        placeholder="Indoor Name"
-        value={indoorName}
-        onChangeText={setIndoorName}
-        style={styles.input}
+    <Screen
+      scroll
+      keyboardAware
+      style={{ gap: spacing.xl, paddingBottom: spacing.xxxl }}
+    >
+      <ScreenHeader
+        back={{ label: 'Back', onPress: navigation.goBack }}
+        title="Venue sign-up"
       />
-
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
+      <Text variant="body" color="textMuted">
+        You'll add your venue's address, phone and other details after you log
+        in.
+      </Text>
+      <TextField
+        label="Venue name"
+        value={form.venueName}
+        onChangeText={set('venueName')}
+        error={errors.venueName}
+        helper={`${VENUE_NAME.min}–${VENUE_NAME.max} characters`}
+        autoCapitalize="words"
+        editable={!saving}
+      />
+      <TextField
+        label="Email"
+        value={form.email}
+        onChangeText={set('email')}
+        error={errors.email}
         keyboardType="email-address"
-        style={styles.input}
+        autoCapitalize="none"
+        autoComplete="email"
+        editable={!saving}
       />
-
-      <TextInput
-        placeholder="Phone Number (must be 11 digits)"
-        value={phone}
-        onChangeText={setPhone}
-        keyboardType="phone-pad"
-        style={styles.input}
+      <TextField
+        label="Password"
+        value={form.password}
+        onChangeText={set('password')}
+        error={errors.password}
+        helper={PASSWORD_HELPER}
+        secure
+        autoComplete="new-password"
+        editable={!saving}
       />
-
-      <TextInput
-        placeholder="Address"
-        value={address}
-        onChangeText={setAddress}
-        style={styles.input}
+      <TextField
+        label="Confirm password"
+        value={form.confirm}
+        onChangeText={set('confirm')}
+        error={errors.confirm}
+        secure
+        autoComplete="new-password"
+        editable={!saving}
       />
-      <TextInput
-        placeholder="Website (Optional)"
-        value={website}
-        onChangeText={setWebsite}
-        style={styles.input}
+      <TermsAgreement
+        agreed={form.agreed}
+        onChange={set('agreed')}
+        error={errors.terms}
+        disabled={saving}
       />
-
-      <TextInput
-        placeholder="Description (Optional)"
-        value={description}
-        onChangeText={setDescription}
-        style={styles.input}
+      <Button
+        title="Create account"
+        onPress={create}
+        loading={saving}
+        fullWidth
       />
-
-      <TextInput
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={styles.input}
-      />
-
-      <TextInput
-        placeholder="Confirm Password"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-        style={styles.input}
-      />
-
-      <TouchableOpacity style={styles.button} onPress={onRegister}>
-        <Text style={styles.buttonText}>Register as Owner</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  // Temporary: this screen had no background of its own, so it showed React
-  // Navigation's light default. Now that the navigator is dark, that old light grey is
-  // pinned here so the screen looks exactly as before. Replaced when registration is
-  // rebuilt (Phase 4, Step 3).
-  screen: {
-    backgroundColor: '#F2F2F2',
-  },
-  container: {
-    padding: 24,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    backgroundColor: '#fff',
-  },
-  button: {
-    backgroundColor: '#000',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

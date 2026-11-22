@@ -1,207 +1,160 @@
-import React, { useState, useContext } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
+// Player sign-up (docs/features/profiles-and-registration.md, section e). The short
+// form: name, email, phone, position, password twice and the Terms box. Every field is
+// checked before sending (signUpCommon.js), with the problem under its field; the
+// backend's refusal (for example "Email already registered") shows in an alert. On
+// success, Check your email takes the form's place.
+import React, { useContext, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 import { AuthContext } from '../../contexts/AuthContext';
+import { useTheme } from '../../theme/ThemeProvider';
+import {
+  Button,
+  OptionGroup,
+  Screen,
+  ScreenHeader,
+  TextField,
+} from '../../components/ui';
+import { POSITIONS } from '../../constants/positions';
+import { cleanPhone } from '../../utils/phone';
+import { PASSWORD_HELPER } from '../../utils/password';
+import {
+  checkPlayerSignUp,
+  PLAYER_NAME,
+  showCheckEmail,
+  TermsAgreement,
+} from './signUpCommon';
 
 export default function PlayerRegisterScreen({ navigation }) {
   const { register } = useContext(AuthContext);
+  const { spacing } = useTheme();
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    position: null,
+    password: '',
+    confirm: '',
+    agreed: false,
+  });
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+  // Stops a second tap from sending a second request before the button shows it's busy.
+  const busy = useRef(false);
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [position, setPosition] = useState('');
-  const [height, setHeight] = useState('');
-  const [weight, setWeight] = useState('');
-  const [address, setAddress] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  // Changing a field clears its error (the Terms box's error is called "terms").
+  const set = key => value => {
+    const errorKey = key === 'agreed' ? 'terms' : key;
+    setForm(current => ({ ...current, [key]: value }));
+    setErrors(current =>
+      current[errorKey] ? { ...current, [errorKey]: null } : current,
+    );
+  };
 
-  const onRegister = async () => {
+  const create = async () => {
+    if (busy.current) return;
+    const { ok, errors: found } = checkPlayerSignUp(form);
+    setErrors(found);
+    if (!ok) return;
+
+    busy.current = true;
+    setSaving(true);
+    const email = form.email.trim();
     try {
-      // Basic validation
-      if (
-        !name ||
-        !email ||
-        !phone ||
-        !position ||
-        !password ||
-        !confirmPassword
-      ) {
-        return Alert.alert('Error', 'Please fill all required fields');
-      }
-
-      if (!/^\d{11}$/.test(phone)) {
-        return Alert.alert('Error', 'Phone number must be exactly 11 digits');
-      }
-
-      if (height) {
-        const h = parseFloat(height);
-        if (isNaN(h) || h < 100 || h > 250) {
-          return Alert.alert('Error', 'Height must be between 100 and 250 cm');
-        }
-      }
-
-      if (weight) {
-        const w = parseFloat(weight);
-        if (isNaN(w) || w < 30 || w > 200) {
-          return Alert.alert('Error', 'Weight must be between 30 and 200 kg');
-        }
-      }
-
-      if (password !== confirmPassword) {
-        return Alert.alert('Error', 'Passwords do not match');
-      }
-
-      const res = await register({
-        name,
-        email: email.trim(),
-        password,
+      const reply = await register({
+        name: form.name.trim(),
+        email,
+        password: form.password,
         role: 'PLAYER',
-        profileData: {
-          name,
-          phone,
-          position,
-          height: height ? parseFloat(height) : null,
-          weight: weight ? parseFloat(weight) : null,
-          address,
-        },
+        profileData: { phone: cleanPhone(form.phone), position: form.position },
+        acceptedTerms: form.agreed,
       });
-
-      Alert.alert(
-        'Success',
-        res?.message || 'Check your email to verify your account',
-      );
-
-      navigation.navigate('Login');
+      showCheckEmail(navigation, email, reply);
     } catch (err) {
-      Alert.alert('Error', err.message || 'Registration failed');
+      Alert.alert('Sign-up failed', err.message);
+      busy.current = false;
+      setSaving(false);
     }
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Player Registration</Text>
-
-      <TextInput
-        placeholder="Full Name"
-        value={name}
-        onChangeText={setName}
-        style={styles.input}
+    <Screen
+      scroll
+      keyboardAware
+      style={{ gap: spacing.xl, paddingBottom: spacing.xxxl }}
+    >
+      <ScreenHeader
+        back={{ label: 'Back', onPress: navigation.goBack }}
+        title="Player sign-up"
       />
-
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
+      <TextField
+        label="Name"
+        value={form.name}
+        onChangeText={set('name')}
+        error={errors.name}
+        helper={`${PLAYER_NAME.min}–${PLAYER_NAME.max} characters`}
+        autoCapitalize="words"
+        autoComplete="name"
+        editable={!saving}
+      />
+      <TextField
+        label="Email"
+        value={form.email}
+        onChangeText={set('email')}
+        error={errors.email}
         keyboardType="email-address"
-        style={styles.input}
+        autoCapitalize="none"
+        autoComplete="email"
+        editable={!saving}
       />
-
-      <TextInput
-        placeholder="Phone Number (Must be 11 digits)"
-        value={phone}
-        onChangeText={setPhone}
+      <TextField
+        label="Phone"
+        value={form.phone}
+        onChangeText={set('phone')}
+        error={errors.phone}
+        helper="Bangladeshi mobile number, like 01712345678. Your teammates use it to reach you."
         keyboardType="phone-pad"
-        style={styles.input}
+        autoComplete="tel"
+        editable={!saving}
       />
-
-      <TextInput
-        placeholder="Playing Position"
-        value={position}
-        onChangeText={setPosition}
-        style={styles.input}
+      <OptionGroup
+        label="Position"
+        options={POSITIONS}
+        value={form.position}
+        onChange={set('position')}
+        error={errors.position}
+        disabled={saving}
       />
-
-      <TextInput
-        placeholder="Height Between 100-250 cm (optional)"
-        value={height}
-        onChangeText={setHeight}
-        keyboardType="numeric"
-        style={styles.input}
+      <TextField
+        label="Password"
+        value={form.password}
+        onChangeText={set('password')}
+        error={errors.password}
+        helper={PASSWORD_HELPER}
+        secure
+        autoComplete="new-password"
+        editable={!saving}
       />
-
-      <TextInput
-        placeholder="Weight Between 30-200 kg (optional)"
-        value={weight}
-        onChangeText={setWeight}
-        keyboardType="numeric"
-        style={styles.input}
+      <TextField
+        label="Confirm password"
+        value={form.confirm}
+        onChangeText={set('confirm')}
+        error={errors.confirm}
+        secure
+        autoComplete="new-password"
+        editable={!saving}
       />
-
-      <TextInput
-        placeholder="Address (optional)"
-        value={address}
-        onChangeText={setAddress}
-        style={styles.input}
+      <TermsAgreement
+        agreed={form.agreed}
+        onChange={set('agreed')}
+        error={errors.terms}
+        disabled={saving}
       />
-
-      <TextInput
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={styles.input}
+      <Button
+        title="Create account"
+        onPress={create}
+        loading={saving}
+        fullWidth
       />
-
-      <TextInput
-        placeholder="Confirm Password"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-        style={styles.input}
-      />
-
-      <TouchableOpacity style={styles.button} onPress={onRegister}>
-        <Text style={styles.buttonText}>Register as Player</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  // Temporary: this screen had no background of its own, so it showed React
-  // Navigation's light default. Now that the navigator is dark, that old light grey is
-  // pinned here so the screen looks exactly as before. Replaced when registration is
-  // rebuilt (Phase 4, Step 3).
-  screen: {
-    backgroundColor: '#F2F2F2',
-  },
-  container: {
-    padding: 24,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    backgroundColor: '#fff',
-  },
-  button: {
-    backgroundColor: '#000',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

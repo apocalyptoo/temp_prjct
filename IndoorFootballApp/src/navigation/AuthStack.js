@@ -5,6 +5,7 @@ import LoginScreen from '../screens/Auth/LoginScreen';
 import RoleSelectionScreen from '../screens/Auth/RoleSelectionScreen';
 import PlayerRegisterScreen from '../screens/Auth/PlayerRegisterScreen';
 import OwnerRegisterScreen from '../screens/Auth/OwnerRegisterScreen';
+import CheckEmailScreen from '../screens/Auth/CheckEmailScreen';
 import ForgotPasswordScreen from '../screens/Auth/ForgotPasswordScreen';
 
 // Developer-only component gallery. It's required inside the __DEV__ check (not
@@ -17,33 +18,20 @@ const UIGalleryScreen = __DEV__
 
 const Stack = createNativeStackNavigator();
 
+// Logged out: Login, the role choice, the two sign-up forms, Check your email and Forgot
+// password (docs/features/profiles-and-registration.md, section e). Every screen draws
+// its own title and back link, so the stack header is off.
 export default function AuthStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: true }}>
-      {/* The rebuilt screens draw their own header and back link. */}
-      <Stack.Screen
-        name="Login"
-        component={LoginScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="RoleSelection"
-        component={RoleSelectionScreen}
-        options={{ headerShown: false }}
-      />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
       <Stack.Screen name="PlayerRegister" component={PlayerRegisterScreen} />
       <Stack.Screen name="OwnerRegister" component={OwnerRegisterScreen} />
-      <Stack.Screen
-        name="ForgotPassword"
-        component={ForgotPasswordScreen}
-        options={{ headerShown: false }}
-      />
+      <Stack.Screen name="CheckEmail" component={CheckEmailScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       {UIGalleryScreen ? (
-        <Stack.Screen
-          name="UIGallery"
-          component={UIGalleryScreen}
-          options={{ headerShown: false }}
-        />
+        <Stack.Screen name="UIGallery" component={UIGalleryScreen} />
       ) : null}
     </Stack.Navigator>
   );

@@ -1,7 +1,12 @@
 // Shared by the player and venue owner sign-up forms (docs/features/profiles-and-
 // registration.md, section e): the checks run before sending, with the backend's own
-// messages where it has one, so each problem shows under its field. The backend still
-// checks everything again.
+// messages where it has one, so each problem shows under its field (the backend still
+// checks everything again), and the Terms box with its links.
+import React from 'react';
+import { Alert, Linking, StyleSheet, View } from 'react-native';
+import { API_URL } from '../../api/api';
+import { Checkbox, TextLink } from '../../components/ui';
+import { useTheme } from '../../theme/ThemeProvider';
 import { POSITIONS } from '../../constants/positions';
 import {
   cleanPhone,
@@ -110,3 +115,63 @@ export function checkOwnerSignUp({
     terms: termsProblem(agreed),
   });
 }
+
+// ── The pieces both forms show ──
+
+// The backend's reply when the account was made but the verification email failed to
+// send (backend authController.register). The API has no yes/no field for this, so the
+// exact text is matched; Check your email then says so and offers Resend.
+export const SEND_FAILED_MESSAGE =
+  "Account created, but we couldn't send the verification email. Use 'Resend verification email' on the login screen.";
+
+export const sendFailed = reply => reply?.message === SEND_FAILED_MESSAGE;
+
+// After a successful sign-up: Check your email, with Log in underneath, so Back goes to
+// Log in rather than to the filled-in form or the role choice.
+export const showCheckEmail = (navigation, email, reply) =>
+  navigation.reset({
+    index: 1,
+    routes: [
+      { name: 'Login' },
+      { name: 'CheckEmail', params: { email, sendFailed: sendFailed(reply) } },
+    ],
+  });
+
+// Opens the backend's Terms of Use or Privacy Policy page in the phone's browser.
+export async function openLegalPage(page) {
+  try {
+    await Linking.openURL(`${API_URL}/legal/${page}`);
+  } catch {
+    Alert.alert(
+      "Couldn't open the page",
+      'Please check your connection and try again.',
+    );
+  }
+}
+
+// "I agree to the Terms of Use and Privacy Policy." with the two links under it
+// (P20: the form's button stays enabled; an unticked box shows its error here).
+export function TermsAgreement({ agreed, onChange, error, disabled }) {
+  const { spacing } = useTheme();
+  return (
+    <Checkbox
+      checked={agreed}
+      onChange={onChange}
+      label="I agree to the Terms of Use and Privacy Policy."
+      error={error}
+      disabled={disabled}
+    >
+      <View style={[styles.links, { columnGap: spacing.xl }]}>
+        <TextLink title="Terms of Use" onPress={() => openLegalPage('terms')} />
+        <TextLink
+          title="Privacy Policy"
+          onPress={() => openLegalPage('privacy')}
+        />
+      </View>
+    </Checkbox>
+  );
+}
+
+const styles = StyleSheet.create({
+  links: { flexDirection: 'row', flexWrap: 'wrap' },
+});
