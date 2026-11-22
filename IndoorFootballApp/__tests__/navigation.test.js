@@ -115,11 +115,24 @@ const REPLIES = {
     },
   },
   '/admin/stats': {
-    totalUsers: 3,
-    totalPlayers: 1,
-    totalOwners: 1,
-    totalTeams: 1,
+    userCount: 3,
+    playerCount: 1,
+    ownerCount: 1,
+    teamCount: 1,
+    adminCount: 1,
+    pendingVenueCount: 1,
   },
+  // The admin's venue list: one venue waiting for review.
+  '/admin/indoors': [
+    {
+      ...VENUE,
+      email: 'arena@example.com',
+      verified: true,
+      approvedAt: null,
+      reviewNote: null,
+      missingFields: [],
+    },
+  ],
 };
 
 // The old screens update their state after their (fake) loads finish, which React
@@ -422,7 +435,7 @@ describe('Admin navigator', () => {
 
     const expected = {
       Reports: 'AdminReports',
-      Venues: 'ManageIndoors',
+      Venues: 'AdminVenues',
       Users: 'ManageUsers',
       Teams: 'ManageTeams',
     };
@@ -433,5 +446,19 @@ describe('Admin navigator', () => {
 
     await goBack(navigationRef);
     expect(current(navigationRef)).toBe('AdminDashboard');
+
+    // A venue in the Venues tab opens its review screen inside the tab, and back
+    // returns to the list.
+    await pressTab(renderer, 'Venues');
+    expect(current(navigationRef)).toBe('AdminVenues');
+    await pressText(renderer, 'Floodlight Arena');
+    expect(current(navigationRef)).toBe('AdminVenue');
+    expect(navigationRef.getCurrentRoute().params).toEqual({
+      userId: 5,
+      venueName: 'Floodlight Arena',
+    });
+    expect(tabLabels(renderer)).toHaveLength(5);
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('AdminVenues');
   });
 });

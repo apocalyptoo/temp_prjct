@@ -1,6 +1,7 @@
 // Admin: bottom tabs Dashboard · Reports · Venues · Users · Teams (docs/PRODUCT.md,
 // "App structure and navigation"). Each tab has its own stack, like the other roles.
-// The management screens keep their old headers until they're restyled.
+// The Users and Teams management screens keep their old headers until they're
+// restyled; the Dashboard and the Venues tab are rebuilt (docs/features/venues.md, P22).
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -8,7 +9,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { tabNavigatorProps } from './tabs';
 import AdminDashboard from '../screens/Admin/AdminDashboard';
 import AdminReportsScreen from '../screens/Admin/AdminReportsScreen';
-import ManageIndoorsScreen from '../screens/Admin/ManageIndoorsScreen';
+import AdminVenuesScreen from '../screens/Admin/AdminVenuesScreen';
+import AdminVenueScreen from '../screens/Admin/AdminVenueScreen';
 import ManageUsersScreen from '../screens/Admin/ManageUsersScreen';
 import ManageTeamsScreen from '../screens/Admin/ManageTeamsScreen';
 
@@ -48,9 +50,14 @@ function VenuesTab() {
   return (
     <VenuesStack.Navigator>
       <VenuesStack.Screen
-        name="ManageIndoors"
-        component={ManageIndoorsScreen}
-        options={{ title: 'Manage Indoors' }}
+        name="AdminVenues"
+        component={AdminVenuesScreen}
+        options={{ headerShown: false }}
+      />
+      <VenuesStack.Screen
+        name="AdminVenue"
+        component={AdminVenueScreen}
+        options={{ headerShown: false }}
       />
     </VenuesStack.Navigator>
   );

@@ -27,7 +27,7 @@ Every account has exactly one role, chosen when the account is created.
 |---|---|---|
 | **Player** | Someone who plays | Sign up, log in, see and edit their profile, change their password; create a team, edit or delete it, invite players, remove members, hand over the captaincy, leave a team; accept or decline invites; ask to join a team (and cancel), and as captain approve or decline requests; browse all teams, players and venues |
 | **Owner** | Someone who runs an indoor venue | Sign up, log in, fill in and edit their venue listing, see their account, change their password; browse all teams (read-only), players and venues |
-| **Admin** | The person running the app | See counts (users, players, owners, admins, teams), list and delete users, teams and venues (deleting a venue deletes the owner's account). Review venues: approve them, leave a note for the owner, move a live venue back to review (in the backend now; the screens arrive with the venues feature). The admin screens can't delete the admin's own account or any admin account |
+| **Admin** | The person running the app | See counts (users, players, owners, admins, teams), list and delete users, teams and venues (deleting a venue deletes the owner's account). Review venues: approve them, leave a note for the owner, move a live venue back to review. The admin screens can't delete the admin's own account or any admin account |
 
 Admin accounts can't be created from the app. They're made with a script (see [section 8](#8-configuration)).
 
@@ -309,7 +309,7 @@ The app's look lives in one folder, `src/theme/`, as named values called **token
 
 The status bar always shows white icons on the dark background, and Android's own window behind the app is dark too, so no white flash shows while the app starts. The token files and their values: [TECHNICAL.md 8.1–8.2](TECHNICAL.md#82-theme).
 
-**Not every screen uses the new look yet.** The admin screens and two old lists in Explore (Teams and Players) still have their old light styles and icons; they're restyled later (ROADMAP Step 4). Everything else is built in the new design.
+**Not every screen uses the new look yet.** Three admin screens (Dashboard, Users and Teams) and two old lists in Explore (Teams and Players) still have their old light styles and icons; they're restyled later (ROADMAP Step 4). Everything else is built in the new design.
 
 ### Shared components
 
@@ -353,7 +353,7 @@ Each logged-in role gets a **bottom tab bar**, and **each tab has its own stack*
 What each tab holds today:
 - **Player:** My Teams (your teams and join requests → Team detail → invite players, hand over the captaincy, edit team; create team), Explore, Notifications (for now the Invites screen, which opens Team detail), Profile (your details with Edit profile, and a gear that opens Settings: Edit profile, Change password, the Terms of Use and Privacy Policy pages, and Log out).
 - **Venue owner:** My Venue (the listing, with Edit venue), Explore (teams read-only, players and venues), Notifications (for now just "No notifications yet."), Profile (the account: venue name, "Venue owner" and email, a link to My Venue, and the gear to Settings, where **Edit venue** replaces Edit profile).
-- **Admin:** Dashboard, Reports (for now just "Reports arrive with moderation."), Venues, Users and Teams (the old management screens).
+- **Admin:** Dashboard (the old counts screen), Reports (for now just "Reports arrive with moderation."), Venues (the venue review, see "Venue review"), Users and Teams (the old management screens).
 - **Explore** (players and owners) is for now a simple screen with three rows, Teams, Players and Venues. Teams and Players open the old lists; tapping a team opens Team detail. Venues opens the new venue list (see "Finding a venue").
 
 These "for now" screens are placeholders that later features replace (PRODUCT.md, "App structure and navigation"). A screen can only open screens in its own stack, so the team screens are added to every stack that can open a team. Route names and stacks: [TECHNICAL.md 8.5](TECHNICAL.md#85-navigation).
@@ -425,7 +425,7 @@ The **Profile** tab shows the player's name, position, area, height, weight, pho
 
 ### Venue review (admin)
 
-A new venue starts as **Pending review**: players can't find it yet. The admin sees the waiting venues first and approves one only when its address, area and phone are filled in and its owner has verified their email; the backend refuses otherwise and says what's missing. While a venue waits, the admin can leave the owner a short note ("Please add the road number"), which the owner sees on My Venue. Approving makes the venue live at once and clears the note. A live venue can be moved back to review, with a note saying why: it disappears from discovery until the admin approves it again. The owner's side (the status, the note and the checklist on My Venue) is in the app; the admin's screens arrive with task F3.4, and the backend does it all already.
+A new venue starts as **Pending review**: players can't find it yet. The admin sees the waiting venues first and approves one only when its address, area and phone are filled in and its owner has verified their email; the backend refuses otherwise and says what's missing. While a venue waits, the admin can leave the owner a short note ("Please add the road number"), which the owner sees on My Venue. Approving makes the venue live at once and clears the note. A live venue can be moved back to review, with a note saying why: it disappears from discovery until the admin approves it again. In the app, the admin's **Venues** tab shows the waiting venues first (each saying what's missing, or "Complete", and whether the owner has verified their email), then the live ones. Each opens a review screen with the whole listing. There, **Approve** stays greyed out, with the reason under it, until the venue is complete and its owner verified; the note has its own field and Save button; a live venue has **Move back to review**, which asks for the note and then for a confirmation. If the venue changed in the meantime (the owner emptied a field, say), the backend refuses, the app says "Something changed" with the reason and reloads. The owner sees the status, the note and the checklist on My Venue.
 
 ### Finding a venue
 
