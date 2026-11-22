@@ -84,7 +84,7 @@ export default function PlayerProfileScreen({ navigation }) {
             <IconButton
               icon="settings"
               accessibilityLabel="Settings"
-              onPress={() => navigation.navigate('PlayerSettings')}
+              onPress={() => navigation.navigate('Settings')}
             />
           }
         />

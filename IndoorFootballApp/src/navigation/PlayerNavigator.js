@@ -13,7 +13,8 @@ import TeamFormScreen from '../screens/Team/TeamFormScreen';
 import InvitesScreen from '../screens/Player/InvitesScreen';
 import PlayerProfileScreen from '../screens/Player/PlayerProfileScreen';
 import EditProfileScreen from '../screens/Player/EditProfileScreen';
-import PlayerSettingsScreen from '../screens/Player/PlayerSettingsScreen';
+import SettingsScreen from '../screens/Shared/SettingsScreen';
+import ChangePasswordScreen from '../screens/Shared/ChangePasswordScreen';
 
 const Tab = createBottomTabNavigator();
 const MyTeamsStack = createNativeStackNavigator();
@@ -53,9 +54,8 @@ function NotificationsTab() {
   );
 }
 
-// Profile and Edit profile draw their own header (the Profile title with its Settings
-// gear, Edit profile's back link). The old Settings screen keeps the stack header until
-// it's replaced.
+// Profile, Edit profile, Settings and Change password each draw their own header (the
+// Profile title with its Settings gear, the others a back link).
 function ProfileTab() {
   return (
     <ProfileStack.Navigator>
@@ -70,9 +70,14 @@ function ProfileTab() {
         options={{ headerShown: false }}
       />
       <ProfileStack.Screen
-        name="PlayerSettings"
-        component={PlayerSettingsScreen}
-        options={{ title: 'Settings' }}
+        name="Settings"
+        component={SettingsScreen}
+        options={{ headerShown: false }}
+      />
+      <ProfileStack.Screen
+        name="ChangePassword"
+        component={ChangePasswordScreen}
+        options={{ headerShown: false }}
       />
     </ProfileStack.Navigator>
   );

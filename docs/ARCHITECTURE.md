@@ -397,7 +397,7 @@ user.role ADMIN    → AdminNavigator   tabs: Dashboard · Reports · Venues · 
 Each logged-in role gets a **bottom tab bar** (our own `TabBar` component), and **each tab has its own stack**. So when you open a team from My Teams, Team detail is put on top of the My Teams stack and the tab bar stays visible. Each tab remembers where you were: switching to Explore and back keeps you on Team detail. Tapping the tab you're already on takes you back to that tab's first screen.
 
 What each tab holds today:
-- **Player:** My Teams (your teams → team detail → invite players, transfer captaincy, edit team, request to join; create team), Explore, Notifications (for now the Invites screen, which opens Team detail), Profile (your details, with a gear that opens Settings and an Edit profile button).
+- **Player:** My Teams (your teams → team detail → invite players, transfer captaincy, edit team, request to join; create team), Explore, Notifications (for now the Invites screen, which opens Team detail), Profile (your details, with a gear that opens Settings and an Edit profile button; Settings has Edit profile, Change password, the Terms of Use and Privacy Policy pages, and Log out).
 - **Venue owner:** My Venue (the owner profile, which shows the venue listing), Explore (read-only for owners), Notifications (for now just "No notifications yet."), Profile (for now the Settings screen).
 - **Admin:** Dashboard, Reports (for now just "Reports arrive with moderation."), Venues, Users and Teams (the old management screens).
 - **Explore** (players and owners) is for now a simple screen with three rows, Teams, Players and Venues, opening the old lists. Tapping a team in the Teams list opens Team detail.
@@ -436,7 +436,7 @@ The loading and "Can't reach the server" views are in `src/screens/Auth/StartupS
 
 ### Expired or invalid login while using the app
 
-When any request that carried the token gets a 401 (for example the token's 30 days are up, or the password was reset on another phone, which logs out every phone), the response interceptor in `api.js` tells `AuthContext`. It removes the saved token, clears `user` (so the app swaps to the login screen) and shows an alert: "Your session has expired. Please log in again." If several requests fail at once, the alert shows only once. **Log out** in Settings or on the admin dashboard also removes the saved token.
+When any request that carried the token gets a 401 (for example the token's 30 days are up, or the password was reset on another phone, which logs out every phone), the response interceptor in `api.js` tells `AuthContext`, but only if that request carried the token saved right now. (Right after a password change, the app saves a fresh token; a request that was sent with the old one a moment earlier gets a 401 too, and must not log out the phone that changed the password.) It removes the saved token, clears `user` (so the app swaps to the login screen) and shows an alert: "Your session has expired. Please log in again." If several requests fail at once, the alert shows only once. **Log out** in Settings or on the admin dashboard also removes the saved token.
 
 ---
 
@@ -496,7 +496,7 @@ Known problems in this flow: see [ROADMAP.md](ROADMAP.md), Phases 1 and 2.
 
 ### Password reset
 
-1. The user taps **Forgot password?** on the Login screen and enters their email on **Forgot password** (or taps **Change Password** in the old Settings screens, until task F2.3 replaces them). The app sends `POST /auth/forgot`. The rebuilt Forgot password screen then replaces its form with "If that email has an account, we've sent a reset link. It works for 1 hour." and a **Back to log in** button, instead of an alert.
+1. The user taps **Forgot password?** on the Login screen and enters their email on **Forgot password** (or, when logged in, taps **Forgot your current password?** on Change password, which sends the link to the account's own email; venue owners still have the old Settings screen's **Change Password** button until task F2.4). The app sends `POST /auth/forgot`. The rebuilt Forgot password screen then replaces its form with "If that email has an account, we've sent a reset link. It works for 1 hour." and a **Back to log in** button, instead of an alert.
 2. A missing, non-text or blank email is refused; otherwise it's lowercased and trimmed. If the email exists, the backend saves the hash of a new random reset token, which expires in 1 hour, and emails a link containing the token to `BACKEND_PUBLIC_URL/auth/reset-password-page?token=…`. If it already sent a reset email to that account in the last 5 minutes, it sends nothing new. The reply is the same in every case, whether or not the email exists.
 3. The link opens a small web form served by the backend. It only shows the form if the token looks like one the backend makes (64 lowercase hex characters); anything else gets an "Invalid or expired link" page. The form submits the new password to `POST /auth/reset`.
 4. The backend refuses a token that isn't plain text, and a new password that fails the same strength rule as registration. Otherwise it hashes the token, finds the user with that hash and an unexpired link, saves the new password hash, clears the token and its expiry, and marks the account verified. The reset proves the email works, so it also clears any leftover verification link.
@@ -506,13 +506,13 @@ Known security problems in this flow: see [ROADMAP.md](ROADMAP.md), Phase 1.
 
 ### Changing the password while logged in
 
-`POST /auth/change-password` (the Change password screen arrives with task F2.3). Any logged-in account can use it.
+`POST /auth/change-password`, from **Settings → Change password** (`ChangePasswordScreen.js`; venue owners get it with task F2.4). Any logged-in account can use it. The screen asks for the current password, the new one (with the same rule as sign-up shown under it) and the new one again, and checks them before sending.
 
 1. The app sends the current password and the new one.
 2. `changePasswordSchema` checks that both are there, that the new one follows the same strength rule as sign-up (and is at most 72 bytes), and that it isn't the same as the current one.
 3. The controller compares the current password with the stored hash. If it's wrong, the reply is 400 "Current password is incorrect". It's deliberately not 401: the app treats a 401 as "your session has expired" and logs out, and a typo shouldn't do that. Wrong attempts are rate-limited (see "Protection against abuse and leaks").
 4. In one database update, it saves the new password's hash, raises the token version by one (so every other phone is logged out) and cancels any password reset link that was still waiting. The update only applies if the stored password hasn't changed since step 3, so two changes at the same moment can't both succeed.
-5. The reply is `{ "message": "Password changed", "token": "…" }`: a fresh login token with the new version number. The app saves it, so this phone stays logged in.
+5. The reply is `{ "message": "Password changed", "token": "…" }`: a fresh login token with the new version number. `changePassword()` in `AuthContext` saves it before anything else, so this phone stays logged in; any other phone gets a 401 on its next request and shows "Your session has expired". The app then shows one alert, "Password changed: You're still logged in on this phone. Any other phones have been logged out.", and goes back to Settings. A wrong current password shows under that field instead, and never logs anyone out.
 6. Then, without making the reply wait, the backend emails the account a short notice: the password was changed, and if it wasn't you, use Forgot password on the login screen. The email has no link in it (links in "your account changed" emails are what phishing copies). If sending fails, it's logged; the password is already changed.
 
 ### Team invites

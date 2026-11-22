@@ -33,19 +33,24 @@ export const setSessionExpiredHandler = handler => {
 // response interceptor: a 401 on a request that carried a token means the login has
 // expired or is invalid. Only 401: a 403 means "not allowed", not "logged out". The login
 // request is never treated this way (a failed login is handled by the login screen).
+// And only when the request carried the token that's saved now (P30): after a password
+// change the app saves a fresh token, and a request sent with the old one just before
+// must not log out the very phone that changed the password. With no token saved, the
+// user is already logged out, so there's nothing to do either.
 api.interceptors.response.use(
   response => response,
-  error => {
+  async error => {
     const { config, response } = error;
-    const sentToken = Boolean(config?.headers?.Authorization);
+    const sentWith = config?.headers?.Authorization;
     const isLoginRequest = config?.url === '/auth/login';
     if (
       response?.status === 401 &&
-      sentToken &&
+      sentWith &&
       !isLoginRequest &&
       onSessionExpired
     ) {
-      onSessionExpired();
+      const saved = await getToken();
+      if (saved && sentWith === `Bearer ${saved}`) onSessionExpired();
     }
     return Promise.reject(error);
   },

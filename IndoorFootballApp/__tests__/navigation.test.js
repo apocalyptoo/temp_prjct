@@ -265,7 +265,7 @@ describe('Player navigator', () => {
     )[0];
     await ReactTestRenderer.act(() => gear.props.onPress());
     await settle();
-    expect(current(navigationRef)).toBe('PlayerSettings');
+    expect(current(navigationRef)).toBe('Settings');
   });
 });
 

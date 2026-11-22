@@ -139,6 +139,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // 🔹 CHANGE PASSWORD while logged in (POST /auth/change-password). The backend logs out
+  // every other phone and replies with a fresh token for this one, which is saved before
+  // anything else, so this phone stays logged in (requests still in flight with the old
+  // token can't log it out: see api.js). A refusal is thrown as axios gave it, so the
+  // screen can tell "Current password is incorrect" (400) from the rest.
+  const changePassword = async (currentPassword, newPassword) => {
+    const res = await api.post('/auth/change-password', {
+      currentPassword,
+      newPassword,
+    });
+    await saveToken(res.data.token);
+    return res.data;
+  };
+
   // 🔹 LOGOUT: forget the saved token as well as the user, so the next app start
   // shows the login screen. No server call, so it also works from the
   // "Can't reach the server" screen (which it closes).
@@ -160,6 +174,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         register,
         resendVerification,
+        changePassword,
       }}
     >
       {children}

@@ -163,7 +163,7 @@ describe('Profile', () => {
   test('the gear opens Settings and Edit profile opens the form', async () => {
     const { renderer, navigation } = await showProfile();
     await press(renderer, 'Settings');
-    expect(navigation.navigate).toHaveBeenCalledWith('PlayerSettings');
+    expect(navigation.navigate).toHaveBeenCalledWith('Settings');
     await press(renderer, 'Edit profile');
     expect(navigation.navigate).toHaveBeenCalledWith('EditProfile');
   });
