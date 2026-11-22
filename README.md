@@ -97,4 +97,4 @@ npx prettier --check src App.js   # formatting
 - [docs/DECISIONS.md](docs/DECISIONS.md): decisions and the reasons behind them
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the app works, in plain English
 - [docs/DESIGN.md](docs/DESIGN.md): the visual design system
-- [CLAUDE.md](CLAUDE.md): working rules and technical reference for Claude Code
+- [CLAUDE.md](CLAUDE.md): working rules, commands and the easy-to-break conventions for Claude Code (the technical reference is section 10 of [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md))
