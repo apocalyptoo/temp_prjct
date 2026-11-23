@@ -91,6 +91,19 @@ const REPLIES = {
   '/owners': { items: [VENUE], page: 1, limit: 20, total: 1 },
   '/owners/5': VENUE,
   '/teams/me': [TEAM],
+  // The paged player list (Explore → Players).
+  '/players': {
+    items: [
+      {
+        id: 12,
+        name: 'Listed Player',
+        playerProfile: { name: 'Listed Player', position: 'Forward' },
+      },
+    ],
+    page: 1,
+    limit: 20,
+    total: 1,
+  },
   // The paged team list (Explore → Teams): light rows, without member rows.
   '/teams': {
     items: [

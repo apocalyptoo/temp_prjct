@@ -3,6 +3,7 @@ import {
   createTeam,
   getTeams,
   invitePlayer,
+  listInviteCandidates,
   acceptInvite,
   rejectInvite,
   getMyTeams,
@@ -28,6 +29,7 @@ import {
   transferSchema,
   updateTeamSchema,
 } from '../validation/teamSchemas.js';
+import { playerListQuerySchema } from '../validation/playerSchemas.js';
 
 const router = express.Router();
 
@@ -46,6 +48,8 @@ router.post('/:teamId/leave', verifyToken, playersOnly, leaveTeam);
 router.post('/:teamId/transfer', verifyToken, playersOnly, validate({ body: transferSchema }), transferCaptaincy);
 router.patch('/:teamId', verifyToken, playersOnly, validate({ body: updateTeamSchema }), updateTeam);
 router.delete('/:teamId', verifyToken, playersOnly, deleteTeam);
+// The search behind Invite players (captain only; docs/features/explore.md, d endpoint 7).
+router.get('/:teamId/invite-candidates', verifyToken, playersOnly, validate({ query: playerListQuerySchema }), listInviteCandidates);
 router.get('/me', verifyToken, getMyTeams); // must be above /:teamId
 router.get('/:teamId', verifyToken, getTeam);
 router.get('/', verifyToken, validate({ query: teamListQuerySchema }), getTeams);

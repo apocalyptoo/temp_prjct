@@ -20,7 +20,9 @@ export default function PlayersListScreen() {
     setLoading(true);
     try {
       const res = await api.get('/players');
-      setPlayers(res.data);
+      // The list comes in pages now ({ items, page, limit, total }). This old screen
+      // shows the first page only, until Explore is rebuilt (feature 3b, task F3b.4).
+      setPlayers(res.data.items);
     } catch (err) {
       console.error('loadPlayers status:', err.response?.status);
       console.error('loadPlayers data:', err.response?.data);

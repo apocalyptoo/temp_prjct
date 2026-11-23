@@ -256,17 +256,18 @@ describe('Team lists', () => {
 });
 
 describe('GET /players', () => {
-  test("each player has their public position in playerProfile; others' email stays hidden", async (t) => {
+  test("each player has their public position in playerProfile; emails stay hidden and the viewer isn't listed", async (t) => {
     const viewer = await playerNamed(t, 'Viewer Player');
     const other = await playerNamed(t, 'Listed Player', 'Goalkeeper');
 
-    const players = await getJson('/players', viewer.jwt);
-    const listed = players.find((p) => p.id === other.user.id);
-    const self = players.find((p) => p.id === viewer.user.id);
+    const { items } = await getJson('/players?search=Listed+Player&limit=50', viewer.jwt);
+    const listed = items.find((p) => p.id === other.user.id);
 
     assert.equal(listed.name, 'Listed Player');
     assert.deepEqual(listed.playerProfile, { name: 'Listed Player', position: 'Goalkeeper' });
     assert.equal('email' in listed, false);
-    assert.equal(self.email, viewer.user.email, 'you still see your own email');
+    // The list is for finding other players (docs/features/explore.md, P4).
+    const own = await getJson('/players?search=Viewer+Player&limit=50', viewer.jwt);
+    assert.equal(own.items.some((p) => p.id === viewer.user.id), false);
   });
 });

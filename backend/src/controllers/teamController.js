@@ -4,6 +4,7 @@ import { removeTeamRows } from '../utils/deletion.js';
 import { parseId } from '../utils/ids.js';
 import { escapeLike } from '../utils/search.js';
 import { pageArgs, pagedReply } from '../utils/paging.js';
+import { findPlayerPage } from '../utils/discovery.js';
 import {
   MEMBERSHIP_FIELDS_NOT_IN_REPLIES,
   MAX_TEAM_MEMBERS,
@@ -103,6 +104,31 @@ export const invitePlayer = async (req, res, next) => {
       return [201, invite];
     });
     return sendReply(res, reply);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// ── The players a captain can invite (captain only) ──
+// GET /teams/:teamId/invite-candidates (docs/features/explore.md, d endpoint 7, P15):
+// the search behind Invite players. The players the captain could find in Explore
+// (src/utils/discovery.js), minus everyone who already has a row in this team: the
+// captain, the members, the invited players and the players who asked to join. The
+// same filters, order, rows and paging as GET /players. It only reads, so it doesn't
+// take the team lock; a full team still gets its list (the invite itself is refused).
+export const listInviteCandidates = async (req, res, next) => {
+  try {
+    const teamId = parseId(req.params.teamId);
+    if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
+
+    const team = await prisma.team.findUnique({ where: { id: teamId }, select: { captainId: true } });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    if (team.captainId !== req.user.id) return res.status(403).json({ error: 'Only the team captain can invite players.' });
+
+    const { items, total } = await findPlayerPage(prisma, viewerFrom(req), req.valid.query, {
+      teamMembers: { none: { teamId } },
+    });
+    return res.json(pagedReply(items, total, req.valid.query));
   } catch (error) {
     return next(error);
   }

@@ -18,6 +18,16 @@ async function getJson(path, jwt) {
 const uniqueWord = () => `Zp${crypto.randomBytes(4).toString('hex')}`;
 const twoDigits = (n) => String(n).padStart(2, '0');
 
+// `count` verified players with a profile, named "<word> Player 01", "… 02", and so on.
+async function makePlayers(t, word, count) {
+  for (let n = 1; n <= count; n += 1) {
+    await createTestUser(t, {
+      verified: true,
+      playerProfile: { create: { name: `${word} Player ${twoDigits(n)}`, phone: '01712345678', position: 'Any' } },
+    });
+  }
+}
+
 // Each paged list: how to make `count` rows whose names contain `word` (named so that
 // A-to-Z order is the order they were numbered in), the path that lists them, and the
 // field that identifies a row. `setup` returns the jwt to ask with.
@@ -49,6 +59,34 @@ const LISTS = [
         await prisma.team.create({ data: { name: `${word} Team ${twoDigits(n)}`, captainId: viewer.user.id } });
       }
       return { jwt: viewer.jwt, path: (params) => `/teams?${new URLSearchParams({ search: word, ...params })}` };
+    },
+  },
+  {
+    name: 'GET /players',
+    idOf: (row) => row.id,
+    async setup(t, word, count) {
+      await makePlayers(t, word, count);
+      const viewer = await createLoggedInUser(t, { role: 'PLAYER' });
+      return { jwt: viewer.jwt, path: (params) => `/players?${new URLSearchParams({ search: word, ...params })}` };
+    },
+  },
+  {
+    name: 'GET /teams/:teamId/invite-candidates',
+    idOf: (row) => row.id,
+    async setup(t, word, count) {
+      await makePlayers(t, word, count);
+      const captain = await createLoggedInUser(t, { role: 'PLAYER' });
+      const team = await prisma.team.create({
+        data: {
+          name: 'Paging Team',
+          captainId: captain.user.id,
+          members: { create: { userId: captain.user.id, status: 'accepted', origin: 'creator', acceptedAt: new Date() } },
+        },
+      });
+      return {
+        jwt: captain.jwt,
+        path: (params) => `/teams/${team.id}/invite-candidates?${new URLSearchParams({ search: word, ...params })}`,
+      };
     },
   },
 ];

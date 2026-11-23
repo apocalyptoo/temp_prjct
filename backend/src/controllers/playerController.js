@@ -2,6 +2,8 @@ import { prisma } from '../db.js';
 import { viewerFrom, toVisibleUser, toPlayerStats } from '../utils/visibility.js';
 import { parseId } from '../utils/ids.js';
 import { MEMBERSHIP_FIELDS_NOT_IN_REPLIES, MAX_TEAM_MEMBERS } from '../utils/membership.js';
+import { findPlayerPage } from '../utils/discovery.js';
+import { pagedReply } from '../utils/paging.js';
 
 // Counts a team's accepted members in the same query (pending rows aren't members).
 const ACCEPTED_MEMBER_COUNT = { _count: { select: { members: { where: { status: 'accepted' } } } } };
@@ -9,47 +11,19 @@ const ACCEPTED_MEMBER_COUNT = { _count: { select: { members: { where: { status: 
 // A team's member count and limit, for lists of invites and requests.
 const withCounts = ({ _count, ...team }) => ({ ...team, memberCount: _count.members, maxMembers: MAX_TEAM_MEMBERS });
 
+// GET /players: the player list of Explore (docs/features/explore.md, d endpoint 5).
+// One page of the players the viewer may find (src/utils/discovery.js: verified player
+// accounts with a profile, without the viewer), with optional search by name and
+// filters by area and position, by name A to Z. Each row is { id, createdAt, name,
+// playerProfile: { name, position, area } } and never has an email.
 export const listPlayers = async (req, res, next) => {
   try {
-    const players = await prisma.user.findMany({
-      where: {
-        role: 'PLAYER',
-        playerProfile: { isNot: null }, // avoids null profiles breaking mapping
-      },
-      select: {
-        id: true,
-        email: true,
-        createdAt: true,
-        playerProfile: {
-          select: { name: true, position: true, area: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    // { id, name, email, playerProfile } (the app reads id and name); the visibility
-    // rules then drop the email for everyone except yourself (and the admin). The
-    // position and area are public and sit in playerProfile, the same shape as team members.
-    const viewer = viewerFrom(req);
-    const result = players.map((p) =>
-      toVisibleUser(
-        {
-          id: p.id,
-          email: p.email,
-          createdAt: p.createdAt,
-          name: p.playerProfile?.name || 'Unknown',
-          playerProfile: p.playerProfile,
-        },
-        viewer
-      )
-    );
-
-    return res.json(result);
+    const { items, total } = await findPlayerPage(prisma, viewerFrom(req), req.valid.query);
+    return res.json(pagedReply(items, total, req.valid.query));
   } catch (err) {
     return next(err);
   }
 };
-
 
 // The logged-in player's own profile: everything except secrets. Shared by
 // GET /players/me and the reply of PATCH /players/me.

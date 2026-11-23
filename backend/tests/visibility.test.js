@@ -65,7 +65,7 @@ describe('Other users never see email or phone', () => {
     const player = await playerWithProfile(t);
     const stranger = await playerWithProfile(t);
 
-    const list = await get('/players', stranger.jwt);
+    const list = (await get('/players?search=Test+Player&limit=50', stranger.jwt)).items;
     const entry = list.find((p) => p.id === player.user.id);
 
     assert.ok(entry, 'the player should be listed');

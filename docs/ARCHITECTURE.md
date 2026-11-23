@@ -148,9 +148,9 @@ Three terms used in this layout:
 | Prefix | What it handles |
 |---|---|
 | `/auth` | Sign up, verify the email, log in, resend the verification email, forgot and reset password (no login needed); who is logged in, and change password (login needed) |
-| `/players` | My player profile and editing it, my invites, my join requests, all players, a player's stats |
+| `/players` | My player profile and editing it, my invites, my join requests, the player list (search by name, filter by area and position), a player's stats |
 | `/owners` | My venue profile and editing the listing; the list of live venues (search by name, filter by area) and one venue's details |
-| `/teams` | Create, list, one team, edit, delete, invites, join requests, removing members, leaving, handing over the captaincy |
+| `/teams` | Create, the team list (search by name, filter by area), one team, edit, delete, invites and the search for players to invite, join requests, removing members, leaving, handing over the captaincy |
 | `/legal` | The Terms of Use and Privacy Policy pages (placeholder text until launch) |
 | `/admin` | Counts (including how many venues wait for review), and listing and deleting users, teams and venues; reviewing venues: approve, note, move back to review (admin only) |
 
@@ -197,6 +197,8 @@ The backend decides which fields each person may see, following "Profile visibil
 | Password hashes and email-link tokens | Nobody, ever |
 
 Hidden fields are simply left out of the reply. The helpers: [TECHNICAL.md 4.6](TECHNICAL.md#46-profile-visibility).
+
+**Who can be found.** A second small file, `src/utils/discovery.js`, decides which players show up in a list or a search at all: player accounts with a profile whose email is verified, and never the person who is looking. The player list and the search a captain uses to invite players both ask it, so the two always agree. Blocked and suspended players will be left out in the same place (moderation feature).
 
 ### How requests are checked (validation)
 

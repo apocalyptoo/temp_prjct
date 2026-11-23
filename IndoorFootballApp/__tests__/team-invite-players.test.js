@@ -61,7 +61,10 @@ const settle = () =>
 function serve({ team = TEAM, players = PLAYERS } = {}) {
   api.get.mockImplementation(path =>
     path === '/players'
-      ? Promise.resolve({ data: players })
+      ? // One page of the paged player list (docs/features/explore.md, d.1).
+        Promise.resolve({
+          data: { items: players, page: 1, limit: 50, total: players.length },
+        })
       : Promise.resolve({ data: team }),
   );
 }
@@ -125,7 +128,7 @@ describe('Who is listed', () => {
     const text = shownText(renderer);
 
     expect(api.get).toHaveBeenCalledWith('/teams/7');
-    expect(api.get).toHaveBeenCalledWith('/players');
+    expect(api.get).toHaveBeenCalledWith('/players', { params: { limit: 50 } });
     expect(text).toContain('Invite players');
     expect(text).toContain('2 / 15 members');
     expect(text).toContain('Fahim Rahman');

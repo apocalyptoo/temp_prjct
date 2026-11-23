@@ -48,8 +48,11 @@ export default function InvitePlayersScreen({ route, navigation }) {
 
   const loadPlayers = useCallback(async () => {
     try {
-      const res = await api.get('/players');
-      setPlayers(res.data);
+      // The player list comes in pages now ({ items, page, limit, total }). Until this
+      // screen gets its server-side search (feature 3b, task F3b.5), it asks for the
+      // largest page (50 players) and still filters by name on the phone.
+      const res = await api.get('/players', { params: { limit: 50 } });
+      setPlayers(res.data.items);
       setPlayersFailed(false);
     } catch {
       setPlayersFailed(true);
