@@ -1,6 +1,6 @@
 # Feature 3b: Explore and Player detail (spec)
 
-Phase 4, Step 3. Task F3b.0, written 2026-11-23. **Status: approved 2026-11-23** (DECISIONS.md, "Explore feature spec approved"). Nothing in it is built yet.
+Phase 4, Step 3. Task F3b.0, written 2026-11-23. **Status: approved 2026-11-23** (DECISIONS.md, "Explore feature spec approved"). **The backend (task F3b.1) was built on 2026-11-23**; the screens (F3b.2 to F3b.5) aren't built yet. Details settled while building the backend: the teams query is one fixed SQL text in which an unused filter is switched off, with a second small query for `total`; an empty `page=` or `limit=` is refused like any other non-number; until F3b.5, the old Invite players screen asks `GET /players` for the largest page (50) and still filters on the phone, and the old lists and `VenueList` show the first page only.
 
 **How to read the markers:**
 - **Decided**: one of the owner's four decisions of 2026-11-23 (DECISIONS.md, "Explore details"), or a rule already in PRODUCT.md or DECISIONS.md.

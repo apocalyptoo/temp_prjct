@@ -82,6 +82,7 @@ Backend
 - Emails through `normalizeEmail`; values in HTML through `escapeHtml`; email-link tokens stored only as `hashToken(...)`; login tokens only from `signLoginToken`. (TECH 4.7, 5.4)
 - Password reset, password change and (later) suspension increase `tokenVersion`. A wrong current password is 400, never 401: the app logs out on a 401. (TECH 5.1, 6.1)
 - Route order: `/me`, `/invites`, `/requests` above `/:id`. (TECH 4.1)
+- Any list or search of players goes through `src/utils/discovery.js` (who can be found). Paged lists take `page` and `limit` from `src/validation/listQuery.js` and reply through `src/utils/paging.js`. Text search goes through `containsText`; raw SQL only as a tagged `$queryRaw` with a fixed text, never `$queryRawUnsafe`. (TECH 4.2, 4.7, 6.4)
 
 App
 - Theme only through `useTheme()`, colour meanings never `palette`; no raw colours, fonts or loose sizes (a test scans `src/components/ui`). A missing value becomes a token, recorded in DESIGN.md. (TECH 8.2, DESIGN 2–5)

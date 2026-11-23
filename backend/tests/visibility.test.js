@@ -118,13 +118,15 @@ describe('Other users never see email or phone', () => {
     );
   });
 
-  test('GET /players/:id returns only the stats, nothing private', async (t) => {
+  test('GET /players/:id: a stranger gets the public profile, nothing private', async (t) => {
     const player = await playerWithProfile(t);
     const viewer = await playerWithProfile(t);
 
-    const stats = await get(`/players/${player.user.id}`, viewer.jwt);
+    const seen = await get(`/players/${player.user.id}`, viewer.jwt);
 
-    assert.deepEqual(Object.keys(stats).sort(), ['joinedAt', 'totalTeams']);
+    assert.deepEqual(Object.keys(seen).sort(), ['createdAt', 'id', 'inviteOptions', 'name', 'playerProfile', 'role', 'teams']);
+    // height is set, weight isn't; no phone for a stranger, and never the email.
+    assert.deepEqual(seen.playerProfile, { name: 'Test Player', position: 'Forward', height: 175, area: 'Dhanmondi 27' });
   });
 });
 

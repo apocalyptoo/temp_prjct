@@ -148,7 +148,7 @@ Three terms used in this layout:
 | Prefix | What it handles |
 |---|---|
 | `/auth` | Sign up, verify the email, log in, resend the verification email, forgot and reset password (no login needed); who is logged in, and change password (login needed) |
-| `/players` | My player profile and editing it, my invites, my join requests, the player list (search by name, filter by area and position), a player's stats |
+| `/players` | My player profile and editing it, my invites, my join requests, the player list (search by name, filter by area and position), one player's public profile with their teams |
 | `/owners` | My venue profile and editing the listing; the list of live venues (search by name, filter by area) and one venue's details |
 | `/teams` | Create, the team list (search by name, filter by area), one team, edit, delete, invites and the search for players to invite, join requests, removing members, leaving, handing over the captaincy |
 | `/legal` | The Terms of Use and Privacy Policy pages (placeholder text until launch) |
@@ -191,7 +191,7 @@ The backend decides which fields each person may see, following "Profile visibil
 |---|---|
 | Everything about an account | The user themselves and the admin |
 | A player's name, position, and height, weight and area (each only if set) | Any logged-in user. The area is a general area like "Dhanmondi 27", never a full address |
-| A player's phone | Only accepted teammates (no screen shows it yet: that arrives with Player detail) |
+| A player's phone | Only accepted teammates. The backend sends it with a player's profile (`GET /players/:id`); the Player detail screen that shows it is being built (feature 3b) |
 | Email | Only the user themselves and the admin |
 | A venue listing (name, area, address, phone, website, opening hours, pricing info, description) | Any logged-in user, once the admin has approved it: it's a business listing. The owner's login email, the review status and the admin's note stay hidden |
 | Password hashes and email-link tokens | Nobody, ever |

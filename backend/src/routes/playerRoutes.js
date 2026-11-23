@@ -3,7 +3,7 @@ import {
   listPlayers,
   getPendingInvites,
   getMyRequests,
-  getPlayerStats,
+  getPlayer,
   getMyPlayerProfile,
   updateMyPlayerProfile,
 } from '../controllers/playerController.js';
@@ -19,6 +19,7 @@ router.patch('/me', verifyToken, onlyRole('PLAYER', 'Players only'), validate({ 
 router.get('/invites', verifyToken, getPendingInvites); // must be before /:id
 router.get('/requests', verifyToken, playersOnly, getMyRequests); // must be before /:id
 router.get('/', verifyToken, validate({ query: playerListQuerySchema }), listPlayers);
-router.get('/:id', verifyToken, getPlayerStats);
+// One player's public profile (Player detail). Must stay below /me, /invites and /requests.
+router.get('/:id', verifyToken, getPlayer);
 
 export default router;

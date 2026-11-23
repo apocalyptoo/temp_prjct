@@ -93,13 +93,10 @@ export function toVisibleUser(user, viewer, { canSeePhone = false } = {}) {
   return out;
 }
 
-// GET /players/:id: only the stats, nothing about the account itself.
-export const toPlayerStats = ({ totalTeams, user }) => ({ totalTeams, joinedAt: user?.createdAt });
-
 // The ids of the viewer's accepted teammates: accepted members of any team in which the
 // viewer is also accepted. One query per request, not one per player. Pass the result's
-// .has(userId) as canSeePhone. (No endpoint shows other players' phones yet; this is
-// ready for the Player detail screen in Phase 4.)
+// .has(userId) as canSeePhone. For a single player, isAcceptedTeammate below asks the
+// same question with a cheaper query.
 export async function findAcceptedTeammateIds(prisma, viewerId) {
   const rows = await prisma.teamMember.findMany({
     where: {
@@ -111,4 +108,22 @@ export async function findAcceptedTeammateIds(prisma, viewerId) {
     distinct: ['userId'],
   });
   return new Set(rows.map((row) => row.userId));
+}
+
+// Whether `viewerId` and `userId` are accepted teammates: both accepted members of at
+// least one same team (a pending invite or join request doesn't count). This is the
+// rule for seeing a player's phone (docs/PRODUCT.md, "Profile visibility"); pass the
+// result as canSeePhone. Used by GET /players/:id (Player detail).
+export async function isAcceptedTeammate(prisma, viewerId, userId) {
+  if (viewerId === userId) return false;
+  const shared = await prisma.team.findFirst({
+    where: {
+      AND: [
+        { members: { some: { userId: viewerId, status: 'accepted' } } },
+        { members: { some: { userId, status: 'accepted' } } },
+      ],
+    },
+    select: { id: true },
+  });
+  return shared !== null;
 }

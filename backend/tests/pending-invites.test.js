@@ -111,15 +111,9 @@ describe('GET /players/invites', () => {
   });
 });
 
-describe('Player stats count only accepted memberships', () => {
-  test('totalTeams ignores pending invites', async (t) => {
-    const { captain, member, invitee, outsider } = await setUpTeam(t);
-
-    assert.equal((await getJson(`/players/${invitee.user.id}`, outsider.jwt)).totalTeams, 0);
-    assert.equal((await getJson(`/players/${member.user.id}`, outsider.jwt)).totalTeams, 1);
-    assert.equal((await getJson(`/players/${captain.user.id}`, outsider.jwt)).totalTeams, 1);
-  });
-
+// GET /players/:id is the public profile now (its teams hold accepted memberships only:
+// tests/player-detail.test.js). The old stats reply with totalTeams is gone.
+describe('GET /players/:id', () => {
   test('a bad player id gets 400 instead of a server error', async (t) => {
     const { outsider } = await setUpTeam(t);
 

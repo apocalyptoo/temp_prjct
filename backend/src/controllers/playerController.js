@@ -1,7 +1,12 @@
 import { prisma } from '../db.js';
-import { viewerFrom, toVisibleUser, toPlayerStats } from '../utils/visibility.js';
+import { viewerFrom, toVisibleUser, isAcceptedTeammate } from '../utils/visibility.js';
 import { parseId } from '../utils/ids.js';
-import { MEMBERSHIP_FIELDS_NOT_IN_REPLIES, MAX_TEAM_MEMBERS } from '../utils/membership.js';
+import {
+  MEMBERSHIP_FIELDS_NOT_IN_REPLIES,
+  MAX_TEAM_MEMBERS,
+  isMember,
+  isPendingInvite,
+} from '../utils/membership.js';
 import { findPlayerPage } from '../utils/discovery.js';
 import { pagedReply } from '../utils/paging.js';
 
@@ -143,19 +148,100 @@ export const getMyRequests = async (req, res, next) => {
   }
 };
 
-//  get player stats
-export const getPlayerStats = async (req, res, next) => {
+// By name A to Z ignoring case, then by id.
+const byName = (a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()) || a.id - b.id;
+
+// For "Invite to my team" on Player detail (docs/features/explore.md, P14): the teams
+// the viewer captains, each with what inviting this player to it would meet:
+// - member / invited / requested: the player already has that row in the team;
+// - full: the team has no free spot (the player's own state wins over this);
+// - canInvite: the captain can send the invite.
+// An empty list when the viewer captains no team.
+async function inviteOptionsFor(captainId, playerId) {
+  const teams = await prisma.team.findMany({
+    where: { captainId },
+    select: {
+      id: true,
+      name: true,
+      ...ACCEPTED_MEMBER_COUNT,
+      members: { where: { userId: playerId }, select: { status: true, origin: true } },
+    },
+  });
+  const stateOf = (own, memberCount) => {
+    if (own) return isMember(own) ? 'member' : isPendingInvite(own) ? 'invited' : 'requested';
+    return memberCount >= MAX_TEAM_MEMBERS ? 'full' : 'canInvite';
+  };
+  return teams.sort(byName).map((team) => ({
+    teamId: team.id,
+    name: team.name,
+    memberCount: team._count.members,
+    maxMembers: MAX_TEAM_MEMBERS,
+    state: stateOf(team.members[0], team._count.members),
+  }));
+}
+
+// GET /players/:id: one player's public profile, for Player detail
+// (docs/features/explore.md, d endpoint 6, P13). Any logged-in user may ask.
+// - The profile goes through the visibility rules: name and position always; height,
+//   weight and area only if set; the phone only for an accepted teammate, the player
+//   themselves and the admin. The email is never selected here, so nobody gets it from
+//   this endpoint (your own is on GET /players/me).
+// - teams: the teams they are an accepted member of (pending invites and requests
+//   aren't public), the ones they captain first, then by name.
+// - inviteOptions: only for a player looking at someone else (see inviteOptionsFor).
+// An id that isn't a player account with a profile (a venue owner's or the admin's id
+// too) is 404 "Player not found". Unverified players still have a page: discovery
+// leaves them out of lists and searches, not this endpoint (spec Q3).
+//
+// Moderation hook (docs/features/explore.md, section g): what a blocked or suspended
+// player's page shows (most likely this same 404) is decided there, and blocked
+// players get no inviteOptions for each other.
+export const getPlayer = async (req, res, next) => {
   try {
     const id = parseId(req.params.id);
     if (id === null) return res.status(400).json({ error: 'Invalid player id' });
-    // Only accepted memberships count; a pending invite isn't a team yet.
-    const totalTeams = await prisma.teamMember.count({ where: { userId: id, status: 'accepted' } });
-    const user = await prisma.user.findUnique({ where: { id }, select: { createdAt: true } });
-    res.json(toPlayerStats({ totalTeams, user }));
+    const viewer = viewerFrom(req);
+
+    const player = await prisma.user.findFirst({
+      where: { id, role: 'PLAYER', playerProfile: { isNot: null } },
+      select: {
+        id: true,
+        role: true,
+        createdAt: true,
+        playerProfile: {
+          select: { name: true, phone: true, position: true, height: true, weight: true, area: true },
+        },
+        teamMembers: {
+          where: { status: 'accepted' },
+          select: {
+            team: { select: { id: true, name: true, area: true, captainId: true, ...ACCEPTED_MEMBER_COUNT } },
+          },
+        },
+      },
+    });
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+
+    const { teamMembers, ...account } = player;
+    const canSeePhone = await isAcceptedTeammate(prisma, viewer.id, id);
+    const profile = toVisibleUser({ ...account, name: account.playerProfile.name }, viewer, { canSeePhone });
+
+    const teams = teamMembers
+      .map(({ team }) => ({
+        id: team.id,
+        name: team.name,
+        area: team.area,
+        memberCount: team._count.members,
+        maxMembers: MAX_TEAM_MEMBERS,
+        isCaptain: team.captainId === id,
+      }))
+      .sort((a, b) => b.isCaptain - a.isCaptain || byName(a, b));
+
+    const reply = { ...profile, teams };
+    if (viewer.role === 'PLAYER' && viewer.id !== id) {
+      reply.inviteOptions = await inviteOptionsFor(viewer.id, id);
+    }
+    return res.json(reply);
   } catch (err) {
     return next(err);
   }
 };
-
-
-
