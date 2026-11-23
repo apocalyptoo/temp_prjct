@@ -475,3 +475,21 @@ The owner's decisions for feature 3b (Explore: Teams and Players, and Player det
 
 **Alternatives considered:** search by name only, with no team area (the plan before the review; rejected), hiding full teams from the list (rejected), a separate pagination item after moderation (the earlier order; rejected: double work).
 **Consequence:** `Team.area` is a schema change and needs the owner's approval in the backend task. The feature spec is `docs/features/explore.md`; everything in it beyond these four decisions is a proposal until the owner approves it.
+
+### 2026-11-23: Explore feature spec approved
+The owner approved `docs/features/explore.md`: its five defaults (D1–D5), all of Claude Code's proposals (P1–P31, listed in the spec's section k), and these answers to its open questions:
+- **The Invites screen doesn't change.** "Position · Area" goes on Team detail's rows (Members, Join requests, Invited), Invite players and Explore → Players. The Invites screen shows a team and its captain's name, not a player row.
+- **The position filter is exact.** "Goalkeeper" lists goalkeepers only; players who chose "Any" are found with the "Any" filter.
+- **Players who haven't verified their email aren't listed** in Explore → Players or in a captain's invite search. Their Player detail page still opens.
+- **The admin's lists don't get paging in this feature.** The "Pagination on list endpoints" item is ticked when feature 3b is done; paging and search for the admin's Users, Teams and Venues lists is a new item under Moderation, built when that feature reworks the Users tab.
+- **A player who has asked to join shows as "Asked to join" on Player detail's invite card**, with no button. The captain approves the request on Team detail.
+
+**Why:**
+- The player decides about an invite by the team, which the invite card opens; the captain's own position adds little.
+- An exact filter is predictable. Most accounts choose "Any", so adding them to every position filter would make the filter nearly useless. Widening it later is a small change.
+- An unverified account can't log in, so it can't accept an invite, and anyone can sign up with someone else's email. It's the same idea as not approving a venue whose owner hasn't verified (2026-11-23, "Venues feature spec approved").
+- One admin can live with full lists at launch size, and the moderation feature rebuilds the Users tab anyway. Step 4 (restyle without changing behaviour) is the wrong place for paging.
+- The captain usually reaches a requester's page from the Join requests card, one Back away, and Invite players already leaves requesters out for the same reason.
+
+**Alternatives considered:** the captain's position and area on the invite card (rejected), position filters that also list the "Any" players (rejected for now), listing unverified players as today (rejected), paging the admin endpoints in this feature (deferred to moderation), an Approve button on Player detail (deferred).
+**Consequence:** the backend task (F3b.1) builds exactly the API in the spec. The `team_area` migration still needs the owner's approval when it's created.

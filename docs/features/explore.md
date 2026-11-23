@@ -1,12 +1,12 @@
 # Feature 3b: Explore and Player detail (spec)
 
-Phase 4, Step 3. Task F3b.0, written 2026-11-23. **Status: draft, waiting for the owner's approval.** Nothing in it is built yet.
+Phase 4, Step 3. Task F3b.0, written 2026-11-23. **Status: approved 2026-11-23** (DECISIONS.md, "Explore feature spec approved"). Nothing in it is built yet.
 
 **How to read the markers:**
 - **Decided**: one of the owner's four decisions of 2026-11-23 (DECISIONS.md, "Explore details"), or a rule already in PRODUCT.md or DECISIONS.md.
-- **[Dn, proposed]**: a default from the task brief. A proposal until the owner confirms it.
-- **[Pn, proposed]**: a design choice proposed by Claude Code, with its one-line reason. All are listed in section k, so each can be approved or rejected.
-- **Qn**: a question or contradiction the docs and code don't settle, with options and a recommendation, in section j. The sections above use the recommended answer and say so.
+- **[Dn, approved]**: a default from the task brief, confirmed by the owner on 2026-11-23.
+- **[Pn, approved]**: a design choice proposed by Claude Code, with its one-line reason, approved by the owner on 2026-11-23. All are listed in section k.
+- **Qn**: a question or contradiction found while writing the spec. The owner answered them on 2026-11-23; the answers are in section j and built into the sections above.
 
 ---
 
@@ -25,7 +25,7 @@ The "Explore: Teams and Players, Player detail" items in ROADMAP Step 3, which c
 9. **"Position · Area" on player rows** (review finding 12), and player rows opening Player detail.
 10. **The old screens go:** `TeamsListScreen`, `PlayersListScreen`, the interim Explore and Venues screens. Afterwards no old-style screen is reachable by players or venue owners (review finding 9).
 
-Not covered: Report and Block on Player detail, hiding blocked and suspended users (moderation feature; this spec only says where they go, section g); the Notifications screen (feature 5); the admin's Users and Teams tabs, which stay as they are **[D5, proposed]**; paging of the admin's lists (Q4); a team's or player's photo (no photos in v1.0).
+Not covered: Report and Block on Player detail, hiding blocked and suspended users (moderation feature; this spec only says where they go, section g); the Notifications screen (feature 5); the admin's Users and Teams tabs, which stay as they are **[D5, approved]**; paging of the admin's lists (a later ROADMAP item, with moderation: Q4); a team's or player's photo (no photos in v1.0).
 
 ## b. Rules
 
@@ -40,16 +40,16 @@ The rules are in PRODUCT.md and are not copied here:
 Details PRODUCT.md doesn't settle, as used in this spec:
 
 - **Team area is exactly the player Area** (decided): the same `area()` piece in the backend (spaces at both ends removed, every run of spaces inside made one, 2–40 characters after tidying, blank means no area, letters kept as typed) and the same suggestion list in the app (`src/constants/areas.js`).
-- **[D1, proposed] Paging:** offset paging with `page` and `limit`, 20 rows per page, `total` in the reply, the same on all three lists. The app loads the next page as the user scrolls.
-- **[D2, proposed] Search and every filter run on the backend**, ignoring case and matching part of the text (`containsText`), sent 400 ms after typing stops, like `VenueList` today.
-- **[P1, proposed] Paging limits:** `page` from 1 to 1000 (default 1), `limit` from 1 to 50 (default 20). A page past the end is an empty page, not an error. Reason: a cap keeps one request small and stops very deep offsets, which get slow; nobody scrolls past 20,000 rows, they search.
-- **[P2, proposed] Order.** Teams: teams with a free spot first (decided), then by name A to Z, ties by id. Players: by name A to Z, ties by id. Venues: unchanged (name A to Z, venues spec P12). Reason: a list people scan by name, the same as venues; and paging needs an order that never changes between two requests, which the id tie-break gives.
-- **[P3, proposed] The position filter is one position at a time**, and it matches that position exactly: "Goalkeeper" lists players whose position is Goalkeeper. Players who chose "Any" are found with the "Any" filter (Q2). Reason: predictable, and the same one-choice control as the position picker.
-- **[P4, proposed] Who is left out of player lists:** the viewer themselves, and accounts that aren't PLAYER accounts with a profile. Unverified players too, if Q3 is answered that way. Blocked and suspended players are left out by the moderation feature, in the same place (section g).
-- **[P5, proposed] Search limits:** `search` at most 60 characters and the `area` filter at most 40, on all lists, as the venue list has today. Reason: one rule and one set of messages for every list.
+- **[D1, approved] Paging:** offset paging with `page` and `limit`, 20 rows per page, `total` in the reply, the same on all three lists. The app loads the next page as the user scrolls.
+- **[D2, approved] Search and every filter run on the backend**, ignoring case and matching part of the text (`containsText`), sent 400 ms after typing stops, like `VenueList` today.
+- **[P1, approved] Paging limits:** `page` from 1 to 1000 (default 1), `limit` from 1 to 50 (default 20). A page past the end is an empty page, not an error. Reason: a cap keeps one request small and stops very deep offsets, which get slow; nobody scrolls past 20,000 rows, they search.
+- **[P2, approved] Order.** Teams: teams with a free spot first (decided), then by name A to Z, ties by id. Players: by name A to Z, ties by id. Venues: unchanged (name A to Z, venues spec P12). Reason: a list people scan by name, the same as venues; and paging needs an order that never changes between two requests, which the id tie-break gives.
+- **[P3, approved] The position filter is one position at a time**, and it matches that position exactly: "Goalkeeper" lists players whose position is Goalkeeper. Players who chose "Any" are found with the "Any" filter (Q2). Reason: predictable, and the same one-choice control as the position picker.
+- **[P4, approved] Who is left out of player lists:** the viewer themselves, and accounts that aren't PLAYER accounts with a profile. Players who haven't verified their email are left out too (Q3). Blocked and suspended players are left out by the moderation feature, in the same place (section g).
+- **[P5, approved] Search limits:** `search` at most 60 characters and the `area` filter at most 40, on all lists, as the venue list has today. Reason: one rule and one set of messages for every list.
 - **"Full"** means `memberCount >= maxMembers` (15 accepted members), as everywhere else.
-- **[D3, proposed] Player detail shows** the name, position, area, height and weight if set, the player's teams (each opens Team detail), and the phone only to accepted teammates.
-- **[D4, proposed] Inviting from Player detail:** a captain of several teams picks the team from a list; teams that are full, or where the player is already a member, invited or has asked to join, are shown disabled with the reason. (How the list is shown: P24. The "has asked to join" case: Q5.)
+- **[D3, approved] Player detail shows** the name, position, area, height and weight if set, the player's teams (each opens Team detail), and the phone only to accepted teammates.
+- **[D4, approved] Inviting from Player detail:** a captain of several teams picks the team from a list; teams that are full, or where the player is already a member, invited or has asked to join, are shown disabled with the reason. (How the list is shown: P24. The "has asked to join" case: Q5.)
 
 ## c. Data changes
 
@@ -61,7 +61,7 @@ One migration, `team_area`. **It needs the owner's approval when it's created in
 
 Nothing else changes in the database.
 
-**[P6, proposed] No new indexes for the searches.** Reasons:
+**[P6, approved] No new indexes for the searches.** Reasons:
 - "Matches part of the text, ignoring case" is a Postgres `ILIKE '%text%'`. An ordinary index can't speed that up; only a trigram index (the `pg_trgm` extension) can. At v1.0's size (thousands of rows, short text) Postgres reads the whole table in a few milliseconds, and the extension would tie the migration to whatever the hosting allows, which isn't chosen yet (Phase 5).
 - The position filter has five values, so an index on it would rarely be used.
 - The member count per team uses the existing unique index on `TeamMember (teamId, userId)`; the players' and venues' lookups use the existing unique `userId` indexes.
@@ -74,7 +74,7 @@ Nothing else changes in the database.
 ### d.1 Shared rules
 
 - **Validation:** every query and body goes through a zod schema; controllers read only `req.valid`. URL ids go through `parseId`. Unknown fields are dropped.
-- **[P7, proposed] One set of list pieces**, in a new `src/validation/listQuery.js`: `searchFilter()`, `areaFilter()` (both moved from `ownerSchemas.js`, same behaviour and messages), `positionFilter()`, `pageParam()` and `limitParam()`; and a small `src/utils/paging.js` with `pageArgs({ page, limit })` (Prisma's `skip` and `take`) and `pagedReply(items, total, { page, limit })`. Reason: three lists and the invite search share one rule, one set of messages and one reply shape.
+- **[P7, approved] One set of list pieces**, in a new `src/validation/listQuery.js`: `searchFilter()`, `areaFilter()` (both moved from `ownerSchemas.js`, same behaviour and messages), `positionFilter()`, `pageParam()` and `limitParam()`; and a small `src/utils/paging.js` with `pageArgs({ page, limit })` (Prisma's `skip` and `take`) and `pagedReply(items, total, { page, limit })`. Reason: three lists and the invite search share one rule, one set of messages and one reply shape.
 - **The query rules**, first problem wins, in this order:
   - `search`: text, trimmed, blank ignored, at most 60. "Search must be text", "Search must be at most 60 characters" (today's messages).
   - `area`: text, tidied like an Area, blank ignored, at most 40. "Area must be text", "Area must be at most 40 characters" (today's messages).
@@ -90,7 +90,7 @@ Nothing else changes in the database.
 
   `total` is how many rows match the search and filters for this viewer. The app has loaded everything once `page × limit >= total`.
 - **Visibility:** every user or profile in a reply goes through `src/utils/visibility.js`. **The team and player endpoints below (1, 5, 6 and 7) don't select an email from the database at all**, so no viewer gets one from them, not even the admin or the player themselves (your own email is on `/players/me`). The venue list keeps today's rule (the owner's email only for that owner and the admin).
-- **[P8, proposed] "Who can be found" lives in one new file, `src/utils/discovery.js`:** `discoverablePlayers(viewer)` returns the Prisma condition for the players this viewer may find (P4), used by the players list and the invite search. The moderation feature adds "not suspended" and "no block in either direction" there, and the matching conditions for teams and venues. Reason: one place for the rule, like `visibility.js`, instead of a condition repeated in each controller.
+- **[P8, approved] "Who can be found" lives in one new file, `src/utils/discovery.js`:** `discoverablePlayers(viewer)` returns the Prisma condition for the players this viewer may find (P4), used by the players list and the invite search. The moderation feature adds "not suspended" and "no block in either direction" there, and the matching conditions for teams and venues. Reason: one place for the rule, like `visibility.js`, instead of a condition repeated in each controller.
 - **Messages:** existing messages keep their words. **Status codes** as before: 400 bad input, 403 wrong role or not the captain, 404 gone.
 
 ### d.2 Endpoints at a glance
@@ -116,7 +116,7 @@ Every error reply is `{ "error": "<message>" }`.
 
 - `search` matches part of the team's name; `area` part of the team's area. A team without an area never matches an area filter.
 - Order: teams with a free spot first, then name A to Z, then id (P2).
-- **[P9, proposed] Each row is light** (today's reply loads every membership row of every team, with every member's profile):
+- **[P9, approved] Each row is light** (today's reply loads every membership row of every team, with every member's profile):
 
   ```json
   { "id": 7, "name": "Dhanmondi Strikers", "description": "Weekend 5-a-side crew.",
@@ -126,10 +126,10 @@ Every error reply is `{ "error": "<message>" }`.
   ```
 
   No `members` and no `pendingInvites` any more (a captain gets those from `GET /teams/:teamId`). `memberCount` counts accepted members only. The captain goes through the visibility rules, as in `GET /players/invites`. Reason for the captain's name: team names needn't be unique, so it tells two "FC Mirpur" apart.
-- **[P10, proposed] `viewerState` on each row** (`captain`, `member`, `invited`, `requested` or `none`, the same words as Team detail; venue owners and the admin always `none`). Reason: the card can say "you're in this team" or "you've asked" without opening it. It's one lookup on the existing `(teamId, userId)` index.
-- **[P11, proposed] The page is read with one SQL query**, through Prisma's tagged `$queryRaw` (values sent as parameters, never `$queryRawUnsafe`; the search text through `escapeLike`), plus a count. Reason: "teams with a free spot first" means sorting by a count of accepted members compared with 15, which Prisma's `findMany` can't do. The alternative, storing a member count on `Team`, would be a second copy of a fact that could disagree with the membership rows.
+- **[P10, approved] `viewerState` on each row** (`captain`, `member`, `invited`, `requested` or `none`, the same words as Team detail; venue owners and the admin always `none`). Reason: the card can say "you're in this team" or "you've asked" without opening it. It's one lookup on the existing `(teamId, userId)` index.
+- **[P11, approved] The page is read with one SQL query**, through Prisma's tagged `$queryRaw` (values sent as parameters, never `$queryRawUnsafe`; the search text through `escapeLike`), plus a count. Reason: "teams with a free spot first" means sorting by a count of accepted members compared with 15, which Prisma's `findMany` can't do. The alternative, storing a member count on `Team`, would be a second copy of a fact that could disagree with the membership rows.
 
-**2. `POST /teams/create`** and **3. `PATCH /teams/:teamId`** (changed). The body gains `area`, checked after `name` and `description` with the player `area()` piece: "Area must be text", "Area must be between 2 and 40 characters"; blank, null or missing is stored as null. **[P12, proposed]** The app always sends all three fields, and a missing `area` clears it, exactly like `description` today (feature 1's P7). Reason: one schema for create and edit, no partial-update rules. Replies as today, now with `area`.
+**2. `POST /teams/create`** and **3. `PATCH /teams/:teamId`** (changed). The body gains `area`, checked after `name` and `description` with the player `area()` piece: "Area must be text", "Area must be between 2 and 40 characters"; blank, null or missing is stored as null. **[P12, approved]** The app always sends all three fields, and a missing `area` clears it, exactly like `description` today (feature 1's P7). Reason: one schema for create and edit, no partial-update rules. Replies as today, now with `area`.
 
 **4. `GET /teams/:teamId`, `GET /teams/me`, `GET /players/invites`**: the team object carries `area` (null when not set). No other change.
 
@@ -146,7 +146,7 @@ Every error reply is `{ "error": "<message>" }`.
 
   `area` only when set. Height, weight and phone aren't in the list.
 
-**6. `GET /players/:id`** (changed; any logged-in user). **[P13, proposed]** The existing path becomes the public profile; its old reply (`totalTeams`, `joinedAt`) goes, with `toPlayerStats`. Reason: no screen uses the old reply, and "one player" belongs at this address.
+**6. `GET /players/:id`** (changed; any logged-in user). **[P13, approved]** The existing path becomes the public profile; its old reply (`totalTeams`, `joinedAt`) goes, with `toPlayerStats`. Reason: no screen uses the old reply, and "one player" belongs at this address.
 
 ```json
 { "id": 19, "role": "PLAYER", "createdAt": "…", "name": "Nayeem Islam",
@@ -160,10 +160,10 @@ Every error reply is `{ "error": "<message>" }`.
 
 - `playerProfile` through `toVisibleUser`: name and position always; height, weight and area only if set; **`phone` only when the viewer is an accepted teammate** (both accepted members of at least one team), the player themselves, or the admin. The teammate check lives in `visibility.js` (next to `findAcceptedTeammateIds`). Never the email (d.1). For the player themselves and the admin, empty optional fields come as `null` instead of being left out (as `toVisibleUser` does everywhere).
 - `teams`: the teams they're an **accepted** member of (pending invites and requests aren't public), the ones they captain first, then by name. Each with its area, counts and `isCaptain`.
-- **[P14, proposed] `inviteOptions`**, only when the viewer is a player looking at someone else: one entry per team **the viewer captains** (an empty list when they captain none), with `state`: `canInvite`, `member`, `invited`, `requested` or `full` (the player's own state wins over `full`). Reason: Player detail can show "Invite to my team" with the reasons at once, without a second request (D4). Venue owners, the admin and the player themselves don't get the field.
+- **[P14, approved] `inviteOptions`**, only when the viewer is a player looking at someone else: one entry per team **the viewer captains** (an empty list when they captain none), with `state`: `canInvite`, `member`, `invited`, `requested` or `full` (the player's own state wins over `full`). Reason: Player detail can show "Invite to my team" with the reasons at once, without a second request (D4). Venue owners, the admin and the player themselves don't get the field.
 - 400 "Invalid player id"; **404 "Player not found"** when the id isn't a player account with a profile (a venue owner's or the admin's id too).
 
-**7. `GET /teams/:teamId/invite-candidates`** (new; `playersOnly`; `playerListQuerySchema`). **[P15, proposed]** Its own route under the team, instead of a parameter on `GET /players`. Reason: it's captain-only and about one team, like the other team routes.
+**7. `GET /teams/:teamId/invite-candidates`** (new; `playersOnly`; `playerListQuerySchema`). **[P15, approved]** Its own route under the team, instead of a parameter on `GET /players`. Reason: it's captain-only and about one team, like the other team routes.
 - 400 "Invalid team id"; 404 "Team not found"; not the captain: 403 "Only the team captain can invite players." (the invite endpoint's message).
 - The players `GET /players` would list for this viewer, **minus everyone who has any row in this team** (the captain, members, invited players and players who asked to join, as the screen leaves them out today). Same filters, order, rows and paging as endpoint 5.
 - A read: it doesn't take the team lock. A full team still gets its list; the invite itself is refused as today.
@@ -176,29 +176,29 @@ Built from `src/components/ui` with theme tokens only. Every button that sends a
 
 ### Shared pieces
 
-- **[P16, proposed] A new shared component, `SectionTabs`** (`src/components/ui`, with tests, a gallery entry and a DESIGN.md section 6 entry): a row of equal-width segments in a `surface` box with a `border` line, each at least 44 tall; the chosen one has an `accentSoft` background and `accent` text, the others `textMuted`. Role `tablist`, each segment a `tab` with its selected state. Reason: none of the existing components switches between sections; `OptionGroup` is a form field (a label, wrapping chips, radio buttons) and reads wrongly to screen readers here.
-- **[P17, proposed] A `usePagedList` hook** (`src/hooks/`), used by all three sections and Invite players; `VenueList` is rebuilt on it. It holds the search text and filters, waits 400 ms after typing stops (`SEARCH_DELAY_MS`; at once on a tapped suggestion, a tapped position, the keyboard's Search key and Clear search), drops replies that arrive after a newer request, loads the next page when the list nears its end (`onEndReached`) while `page × limit < total`, one page request at a time, and skips a row it already has (with offset paging a row can come twice when the list changed between two pages). Reason: paging, the typing pause and the stale-reply guard are the same three times; one tested copy.
+- **[P16, approved] A new shared component, `SectionTabs`** (`src/components/ui`, with tests, a gallery entry and a DESIGN.md section 6 entry): a row of equal-width segments in a `surface` box with a `border` line, each at least 44 tall; the chosen one has an `accentSoft` background and `accent` text, the others `textMuted`. Role `tablist`, each segment a `tab` with its selected state. Reason: none of the existing components switches between sections; `OptionGroup` is a form field (a label, wrapping chips, radio buttons) and reads wrongly to screen readers here.
+- **[P17, approved] A `usePagedList` hook** (`src/hooks/`), used by all three sections and Invite players; `VenueList` is rebuilt on it. It holds the search text and filters, waits 400 ms after typing stops (`SEARCH_DELAY_MS`; at once on a tapped suggestion, a tapped position, the keyboard's Search key and Clear search), drops replies that arrive after a newer request, loads the next page when the list nears its end (`onEndReached`) while `page × limit < total`, one page request at a time, and skips a row it already has (with offset paging a row can come twice when the list changed between two pages). Reason: paging, the typing pause and the stale-reply guard are the same three times; one tested copy.
 - **States every section has:** the first load (spinner; on failure "Couldn't load teams." / "…players." / "…venues." with Try again); pull to refresh (back to page 1 with the current search); a spinner under the list while the next page loads; if that page fails, "Couldn't load more." with a **Try again** link under the list (the rows stay); nothing at all ("No teams yet." and so on); nothing matching ("No teams match your search." with a **Clear search** link that empties the search and every filter).
-- **[P18, proposed] A loaded list stays as it is when the user opens a row and comes back:** same rows, same scroll position, same search. It reloads on pull to refresh and whenever the search or a filter changes, not on every return. Reason: reloading on return (what `VenueList` does today) would throw the user back to the first 20 rows after every detail screen. Trade-off: a change made elsewhere shows after a pull to refresh.
+- **[P18, approved] A loaded list stays as it is when the user opens a row and comes back:** same rows, same scroll position, same search. It reloads on pull to refresh and whenever the search or a filter changes, not on every return. Reason: reloading on return (what `VenueList` does today) would throw the user back to the first 20 rows after every detail screen. Trade-off: a change made elsewhere shows after a pull to refresh.
 - **`personMeta(row)`** in `teamCommon.js` (review finding 12): the position and the area joined with " · " ("Goalkeeper · Mirpur 10"), or just the position when there's no area. It replaces `personPosition` on every player row.
 
 ### Explore (rebuilt)
 
 One screen (`ExploreScreen`, route `Explore`, optional param `{ section }`), the same for players and venue owners.
 
-- **[P19, proposed] Layout:** the `ScreenHeader` "Explore" and the `SectionTabs` (Teams · Players · Venues) stay at the top; under them, the chosen section's list fills the rest, with its search and filter fields as the top of the list, so they scroll away with it. Each section is loaded the first time it's shown and then keeps its search, filters, rows and scroll position while the user switches sections. Teams is shown first. Reason: the results get the screen; switching back and forth doesn't lose a search.
+- **[P19, approved] Layout:** the `ScreenHeader` "Explore" and the `SectionTabs` (Teams · Players · Venues) stay at the top; under them, the chosen section's list fills the rest, with its search and filter fields as the top of the list, so they scroll away with it. Each section is loaded the first time it's shown and then keeps its search, filters, rows and scroll position while the user switches sections. Teams is shown first. Reason: the results get the screen; switching back and forth doesn't lose a search.
 - My Teams' "Find a team" link opens Explore with `{ section: 'teams' }`.
 - **Venue owners** see the same three sections. Nothing in them sends a request for an owner except the lists themselves: no Create team, no Request to join (Team detail is already read-only), no Invite card on Player detail.
 
 ### Teams section
 
 - A "Search teams" `TextField` (`search` icon) and an "Area" `SuggestionField` (the shared area list), as in the venue list.
-- One tappable `Card` per team (opens Team detail), like the My Teams card: `Avatar` with the team's initials, the name (`cardTitle`), "Captain: {name}" and "{memberCount} / {maxMembers} members" (`meta`), the area with the small `area` icon (when set), and the description (up to 2 lines, when set). **[P20, proposed]** Pills on the card: **"Full"** (soft) when the team is full (decided: marked "Full"), and the viewer's own pill from `viewerState`, in Team detail's words: "Captain" (strong), "Player", "Invited", "Request sent". Reason: the same words everywhere; the member count already says how full the team is, the pill makes it scannable.
-- **[P21, proposed]** The old list's "+ Create Team" button isn't carried over (Create team lives on My Teams). The empty state "No teams yet." has a **Create team** button for players (it opens the form in the My Teams tab, as the old button did) and none for venue owners. Reason: Explore is for finding; one obvious place to create.
+- One tappable `Card` per team (opens Team detail), like the My Teams card: `Avatar` with the team's initials, the name (`cardTitle`), "Captain: {name}" and "{memberCount} / {maxMembers} members" (`meta`), the area with the small `area` icon (when set), and the description (up to 2 lines, when set). **[P20, approved]** Pills on the card: **"Full"** (soft) when the team is full (decided: marked "Full"), and the viewer's own pill from `viewerState`, in Team detail's words: "Captain" (strong), "Player", "Invited", "Request sent". Reason: the same words everywhere; the member count already says how full the team is, the pill makes it scannable.
+- **[P21, approved]** The old list's "+ Create Team" button isn't carried over (Create team lives on My Teams). The empty state "No teams yet." has a **Create team** button for players (it opens the form in the My Teams tab, as the old button did) and none for venue owners. Reason: Explore is for finding; one obvious place to create.
 
 ### Players section
 
-- A "Search players" `TextField`, an "Area" `SuggestionField`, and **[P22, proposed]** a "Position" `OptionGroup` with **All** first, then the five positions; one choice, All by default; tapping one searches at once. Reason: the position picker people already know, with every choice visible.
+- A "Search players" `TextField`, an "Area" `SuggestionField`, and **[P22, approved]** a "Position" `OptionGroup` with **All** first, then the five positions; one choice, All by default; tapping one searches at once. Reason: the position picker people already know, with every choice visible.
 - One tappable `Card` per player (opens Player detail): `Avatar`, the name, `personMeta` ("Goalkeeper · Mirpur 10"), a `forward` chevron. The old list's email line is gone.
 - Empty: "No players yet."; no match: "No players match your search." with Clear search.
 
@@ -211,32 +211,32 @@ The existing `VenueList`, unchanged to look at, now on `usePagedList` with pagin
 `PlayerDetailScreen`, params `{ userId, playerName }`, loads `GET /players/:id` on focus and on pull to refresh. Registered with the team screens in every stack that can show a player (see Navigation).
 
 - `BackLink`; then a `Card` like the player's own Profile: large `Avatar`, the name (`cardTitle`, from `playerName` while loading), the position as a soft `Pill`, the area with the small `area` icon (when set).
-- **Details** `Card` of icon `ListRow`s, **[P23, proposed]** only the rows that have a value (as on Venue detail, venues spec P21): Height ("178 cm"), Weight, and **Phone** when the reply has one: tapping it opens the dialler (`openDialler`, labelled "Call {name}"), with the hint "You can see this because you're teammates." No card at all when none of the three is there. Reason: "Not added" is for the owner of a profile; a visitor just needs what's there.
+- **Details** `Card` of icon `ListRow`s, **[P23, approved]** only the rows that have a value (as on Venue detail, venues spec P21): Height ("178 cm"), Weight, and **Phone** when the reply has one: tapping it opens the dialler (`openDialler`, labelled "Call {name}"), with the hint "You can see this because you're teammates." No card at all when none of the three is there. Reason: "Not added" is for the owner of a profile; a visitor just needs what's there.
 - **Teams** `Card`: one `ListRow` per team (the `teams` icon, the name, "{memberCount} / {maxMembers} members", "Captain" as the trailing label where `isCaptain`, a chevron), each opening Team detail. Empty: "Not in a team yet."
-- **[P24, proposed] "Invite to my team" is a card, shown when `inviteOptions` isn't empty:** one row per team the viewer captains, with the team name, its member count, and an **Invite** button (secondary, loading, keyed by team). A row that can't invite has no button and says why: "Already a member", "Already invited", "Asked to join" (Q5), "Team is full (15/15)". After a successful invite the row says "Invited" (or "Joined", if the reply says the invite approved a request that had just come in). A 400, 404 or 409 alerts "Something changed" with the backend's message and reloads. Reason: this is D4's list, shown straight away instead of behind a button and a picker: one tap less, one code path whether the captain has one team or five, and the reasons are visible at once.
+- **[P24, approved] "Invite to my team" is a card, shown when `inviteOptions` isn't empty:** one row per team the viewer captains, with the team name, its member count, and an **Invite** button (secondary, loading, keyed by team). A row that can't invite has no button and says why: "Already a member", "Already invited", "Asked to join" (Q5), "Team is full (15/15)". After a successful invite the row says "Invited" (or "Joined", if the reply says the invite approved a request that had just come in). A 400, 404 or 409 alerts "Something changed" with the backend's message and reloads. Reason: this is D4's list, shown straight away instead of behind a button and a picker: one tap less, one code path whether the captain has one team or five, and the reasons are visible at once.
 - **Your own profile** (opened from your own row in a team): the same screen without the Invite card, with a line "This is how other players see you. Only your teammates see your phone." (part of P23).
-- **[P25, proposed] Where Report and Block will go** (moderation feature): two danger text buttons at the bottom of the screen, under the cards, never on your own profile. Reason: the same place as Team detail's rare and destructive actions (feature 1's P9).
+- **[P25, approved] Where Report and Block will go** (moderation feature): two danger text buttons at the bottom of the screen, under the cards, never on your own profile. Reason: the same place as Team detail's rare and destructive actions (feature 1's P9).
 - A 404 (the account was deleted): "This player isn't available any more." with a **Back** button, as on Venue detail.
 - The admin has no Explore tab and no Player detail screen in this feature (D5); the API still answers the admin.
 
 ### The team form, team cards and Team detail (changed)
 
-- **Team form** (`TeamFormScreen`, create and edit): a third field, **Area** (`SuggestionField` with the shared list; optional), after the name, with the helper **[P26, proposed]** "Where your team usually plays, like Mirpur. Players search by it." `checkTeamForm` gains the area check (`areaProblem` / `tidyArea` from `profileChecks.js`, the backend's messages). The form sends `name`, `description` and `area` every time (P12). Edit team gets the area in its params.
+- **Team form** (`TeamFormScreen`, create and edit): a third field, **Area** (`SuggestionField` with the shared list; optional), after the name, with the helper **[P26, approved]** "Where your team usually plays, like Mirpur. Players search by it." `checkTeamForm` gains the area check (`areaProblem` / `tidyArea` from `profileChecks.js`, the backend's messages). The form sends `name`, `description` and `area` every time (P12). Edit team gets the area in its params.
 - **Team cards** (My Teams and Explore): the area with the small `area` icon under the member count, when set.
-- **Team detail:** the area as a muted line with the `area` icon under the team name, when set. **[P27, proposed]** A captain whose team has no area sees, in the same place, "No area yet." with an **Add area** link to Edit team. Reason: existing teams start without one (decided), and a team without an area is invisible to the area filter; this is how they get one.
-- **[P28, proposed] Every person row on Team detail opens Player detail:** Members, Join requests and Invited (the brief names the member rows; the captain wants to look at a requester most of all). Their buttons (remove, approve, decline, cancel) keep working as now. The rows show `personMeta`; the Invited rows too, instead of the word "Invited" that the card's title already says.
-- **The interim Invites screen** (Q1): its cards show a team and its captain's name, not a player row, so nothing changes there under the recommended answer.
+- **Team detail:** the area as a muted line with the `area` icon under the team name, when set. **[P27, approved]** A captain whose team has no area sees, in the same place, "No area yet." with an **Add area** link to Edit team. Reason: existing teams start without one (decided), and a team without an area is invisible to the area filter; this is how they get one.
+- **[P28, approved] Every person row on Team detail opens Player detail:** Members, Join requests and Invited (the brief names the member rows; the captain wants to look at a requester most of all). Their buttons (remove, approve, decline, cancel) keep working as now. The rows show `personMeta`; the Invited rows too, instead of the word "Invited" that the card's title already says.
+- **The interim Invites screen** (Q1): its cards show a team and its captain's name, not a player row, so nothing changes there.
 
 ### Invite players (changed)
 
-- **[P29, proposed]** The screen shows the same player list as Explore → Players (one shared `PlayerList` component: search, Area, Position, paging), fed by `GET /teams/:teamId/invite-candidates`, with an **Invite** button on each row instead of the chevron. Tapping the row itself opens Player detail. Reason: "a goalkeeper in Mirpur" is the captain's question, and it's asked here; one component for both lists. This replaces the on-the-phone name filter (feature 1's P12).
+- **[P29, approved]** The screen shows the same player list as Explore → Players (one shared `PlayerList` component: search, Area, Position, paging), fed by `GET /teams/:teamId/invite-candidates`, with an **Invite** button on each row instead of the chevron. Tapping the row itself opens Player detail. Reason: "a goalkeeper in Mirpur" is the captain's question, and it's asked here; one component for both lists. This replaces the on-the-phone name filter (feature 1's P12).
 - Unchanged: the member count line, "Team is full (x/y)" with every Invite disabled, the row turning into "Invited" (or "Joined") and staying, and "Something changed" with a reload after a 400, 404 or 409.
 - Empty: "No players to invite right now."; no match: "No players match your search." with Clear search.
 
 ### Navigation
 
 - **Explore stacks** (player and owner): `Explore`, `VenueDetail`, and the team screens. The routes `Teams`, `Players` and `Venues` go.
-- **[P30, proposed] `PlayerDetail` joins `teamScreens()`**, also in its read-only form, so it exists in every stack that can show a team: My Teams, Explore (both roles) and the player's Notifications. Team detail and Player detail open each other with `navigation.push`, so a chain (team → player → their other team) goes back one step at a time. Reason: a screen can only navigate inside its own stack (TECHNICAL.md 8.5).
+- **[P30, approved] `PlayerDetail` joins `teamScreens()`**, also in its read-only form, so it exists in every stack that can show a team: My Teams, Explore (both roles) and the player's Notifications. Team detail and Player detail open each other with `navigation.push`, so a chain (team → player → their other team) goes back one step at a time. Reason: a screen can only navigate inside its own stack (TECHNICAL.md 8.5).
 - Back links name the screen underneath where it has a short name ("Explore", "My Teams", "Invites"), otherwise "Back".
 - `__tests__/navigation.test.js` changes with the routes.
 
@@ -292,7 +292,7 @@ The existing `VenueList`, unchanged to look at, now on `usePagedList` with pagin
 - `tests/list-paging.test.js` (new): on all three lists and the invite search: the defaults, `total`, pages that don't overlap and together hold every row, a page past the end, every bad `page` and `limit` from section f.
 - `tests/team-list.test.js` (new): the row's fields and nothing more (no `members`, no email or phone anywhere); `memberCount` counts accepted rows only; search, area, both, `%` and `_`, blank ignored, the limits; a team without an area and the area filter; a team given 15 accepted rows directly in the database comes after every team with a free spot; ties by id; `viewerState` for a captain, member, invited player, requester, stranger, venue owner and the admin.
 - `tests/team-area.test.js` (new): create and edit with an area; tidying, 2–40, Bangla, blank and missing to null; the messages; the area in `GET /teams/:teamId`, `/teams/me` and `/players/invites`; a non-captain's edit is still 403.
-- `tests/player-list.test.js` (new): the viewer is left out; search, area, position and all three together; a wrong position; the order; only player accounts; never an email, for a stranger, a venue owner and the admin; Q3's answer.
+- `tests/player-list.test.js` (new): the viewer is left out; search, area, position and all three together; a wrong position; the order; only player accounts; never an email, for a stranger, a venue owner and the admin; an unverified player is left out of the list and of the invite search, while their page (`GET /players/:id`) still opens (Q3).
 - `tests/player-detail.test.js` (new): the public fields; height and weight only if set; the phone for an accepted teammate, the player and the admin, and for nobody else (a stranger, a venue owner, someone with only a pending invite or request in the same team); never an email for any viewer; `teams` holds accepted teams only, with counts and `isCaptain`; `inviteOptions` for each state and its absence for venue owners, the admin and the player themselves; 404 and 400.
 - `tests/invite-candidates.test.js` (new): the captain only; everyone with a row in the team is left out; the filters and paging; 403 and 404.
 - `tests/teams-data.test.js` (new, after the migration): `Team.area` exists, accepts null, and is null for the existing teams.
@@ -329,9 +329,9 @@ The existing `VenueList`, unchanged to look at, now on `usePagedList` with pagin
 15. Turn the backend off and pull to refresh: the list stays. Open a section that hasn't loaded: "Couldn't load…" with Try again.
 16. Largest font size: Explore, the cards, Player detail and the team form wrap without cutting text.
 
-## i. Proposed task split
+## i. Task split
 
-**[P31, proposed]** Five tasks, each leaving the app working:
+**[P31, approved]** Five tasks, each leaving the app working:
 
 1. **F3b.1 Backend.** The `team_area` migration (after the owner's approval); `listQuery.js`, `paging.js`, `discovery.js`; the team form's `area`; `GET /teams`, `GET /players`, `GET /players/:id`, `GET /teams/:teamId/invite-candidates`, `GET /owners` with paging; the tests in section h. Because three replies change shape, the same task makes the smallest edits that keep today's screens working until they're rebuilt (the old lists, `VenueList` and Invite players read `items`, first page only). Small commits: migration and team form · paging pieces and the venue list · teams list · players list and invite search · player profile. TECHNICAL.md (and ARCHITECTURE.md where the picture changes) in the same commits.
 2. **F3b.2 Team area and player rows in the app.** The team form's Area field, the area on My Teams cards and Team detail, "Add area", and `personMeta` on Team detail's rows.
@@ -341,28 +341,28 @@ The existing `VenueList`, unchanged to look at, now on `usePagedList` with pagin
 
 Then the ROADMAP items are ticked, PRODUCT.md's interim Explore line is removed, and account deletion follows.
 
-## j. Open questions
+## j. Answered questions
 
-Questions the docs and code don't settle, and contradictions found while writing this spec. Each has a recommendation; the sections above use it.
+Questions the docs and code didn't settle, and contradictions found while writing this spec. The owner answered them on 2026-11-23; the answers are built into the sections above.
 
-| | Question | Options | Recommendation |
-|---|---|---|---|
-| Q1 | **"Position · Area" on the Invites screen.** The brief and review finding 12 name the Invites screen, but its cards show a team and the captain's name; there's no player row, and `GET /players/invites` sends the captain as `{ id, name }` only. | (a) Nothing changes on the Invites screen; the line goes on Team detail's rows (Members, Join requests, Invited), Invite players and Explore. (b) Add the captain's position and area to the invite card, which needs them in the invites reply. | **(a).** The player decides by the team, which the card opens; the captain's own position adds little. |
-| Q2 | **The position filter and "Any".** A player who chose "Any" plays anywhere. Should a captain filtering by "Goalkeeper" also see the "Any" players? | (a) Exact: Goalkeeper lists goalkeepers; "Any" is its own filter. (b) Every position filter also lists the "Any" players, after the exact matches. | **(a).** Predictable, and most test accounts are "Any" (15 of 22), so (b) would fill every filtered list with them. Easy to widen later. |
-| Q3 | **Unverified players.** `GET /players` lists accounts that never verified their email. They can't log in, so they can't accept an invite, and anyone can sign up with someone else's email. | (a) Leave them out of Explore → Players and the invite search; Player detail still opens for a player who's already in a team. (b) List them as today. | **(a)**, the same idea as "a venue can't be approved while its owner hasn't verified". No account in the local database is affected (none is unverified). |
-| Q4 | **Paging for the admin's lists (a contradiction).** The owner decided the "Pagination on list endpoints" item is covered by this feature, and D5 leaves the admin's Users and Teams tabs alone until Step 4, but Step 4 is "restyle without changing behaviour". So `/admin/users`, `/admin/teams` and `/admin/indoors` would never get paging, and the admin's venue review screen still loads every venue to show one (review finding 4). | (a) Tick the pagination item after this feature and add a new ROADMAP line: paging and search for the admin's lists, built when the moderation feature reworks the Users tab (suspend). (b) Add paging to the three admin endpoints in F3b.1 now, screens later. (c) Leave them unpaged for v1.0 with no item. | **(a).** One admin on good wifi can live with full lists at launch size; moderation touches those screens anyway. |
-| Q5 | **A player who has asked to join, on Player detail's Invite card.** PRODUCT.md says inviting a player who already asked approves the request, but D4 shows that team disabled with the reason. Both can be true (the backend rule still covers two taps at the same moment), but the captain can't approve from the player's page. | (a) As D4: the row says "Asked to join", no button; the captain approves on Team detail. (b) The row gets an **Approve** button. | **(a)** for now: the captain usually came from the Join requests card, one Back away, and Invite players already leaves requesters out for the same reason. |
+| | Question | Answer |
+|---|---|---|
+| Q1 | **"Position · Area" on the Invites screen.** The brief and review finding 12 name the Invites screen, but its cards show a team and the captain's name; there's no player row, and `GET /players/invites` sends the captain as `{ id, name }` only. The other option was to add the captain's position and area to the invite card. | **Nothing changes on the Invites screen.** "Position · Area" goes on Team detail's rows (Members, Join requests, Invited), Invite players and Explore → Players. The player decides by the team, which the card opens. |
+| Q2 | **The position filter and "Any".** A player who chose "Any" plays anywhere. Should a captain filtering by "Goalkeeper" also see the "Any" players? | **No: the filter is exact.** "Goalkeeper" lists goalkeepers; "Any" is its own filter. Most test accounts are "Any" (15 of 22), so including them would fill every filtered list. Easy to widen later. |
+| Q3 | **Unverified players.** `GET /players` listed accounts that never verified their email. They can't log in, so they can't accept an invite, and anyone can sign up with someone else's email. | **They're left out** of Explore → Players and the invite search (in `discoverablePlayers`). Player detail still opens for any player account, so a row that already exists in a team keeps working. No account in the local database was unverified on 2026-11-23. |
+| Q4 | **Paging for the admin's lists (a contradiction).** The owner decided the "Pagination on list endpoints" item is covered by this feature, and D5 leaves the admin's Users and Teams tabs alone until Step 4, but Step 4 is "restyle without changing behaviour". So `/admin/users`, `/admin/teams` and `/admin/indoors` would never get paging, and the admin's venue review screen still loads every venue to show one (review finding 4). | **Not in this feature.** The pagination item is ticked when this feature is done, and a new ROADMAP line under Moderation covers paging and search for the admin's lists, built when that feature reworks the Users tab (suspend). One admin can live with full lists at launch size. |
+| Q5 | **A player who has asked to join, on Player detail's Invite card.** PRODUCT.md says inviting a player who already asked approves the request, but D4 shows that team disabled with the reason. Both can be true (the backend rule still covers two taps at the same moment), but the captain can't approve from the player's page. | **As D4:** the row says "Asked to join", with no button; the captain approves on Team detail, as Invite players already leaves requesters out. An Approve button there can come later. |
 
-## k. Proposals (waiting for approval)
+## k. Proposals (all approved 2026-11-23)
 
-Defaults from the brief:
+Defaults from the brief, confirmed:
 - **D1** Offset paging (`page`, `limit`, `total`), 20 per page, the same on all three lists; the app loads more on scroll (b, d.1).
 - **D2** Search and every filter run on the backend, ignoring case and matching part of the text, 400 ms after typing stops (b).
 - **D3** Player detail shows name, position, area, height and weight if set, the player's teams, and the phone only to accepted teammates (b, e).
 - **D4** A captain of several teams picks the team from a list; teams that can't invite are shown disabled with the reason (b, e).
 - **D5** The admin's Users and Teams tabs stay as they are until Step 4 (a).
 
-Proposed by Claude Code:
+Proposed by Claude Code, approved:
 - **P1** Paging limits: `page` 1–1000, `limit` 1–50; a page past the end is empty, not an error (b).
 - **P2** Order: teams with a free spot first, then name, then id; players by name, then id (b).
 - **P3** The position filter is one position at a time, matched exactly (b; Q2).
