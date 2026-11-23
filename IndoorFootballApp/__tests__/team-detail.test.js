@@ -10,6 +10,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { AuthContext } from '../src/contexts/AuthContext';
 import TeamDetailScreen from '../src/screens/Team/TeamDetailScreen';
+import { personMeta } from '../src/screens/Team/teamCommon';
 import api from '../src/api/api';
 
 jest.mock('../src/api/api', () => ({
@@ -23,12 +24,17 @@ const act = fn => ReactTestRenderer.act(fn);
 const PLAYER = { id: 1, name: 'Rahim Uddin', role: 'PLAYER' };
 const OWNER = { id: 50, name: 'Arena One', role: 'OWNER' };
 
-const person = (userId, name, position) => ({
+// area: left out when not given, as the backend leaves out an area that isn't set.
+const person = (userId, name, position, area) => ({
   id: userId * 10,
   userId,
   status: 'accepted',
   createdAt: '2026-11-20T10:00:00.000Z',
-  user: { id: userId, name, playerProfile: { name, position } },
+  user: {
+    id: userId,
+    name,
+    playerProfile: area ? { name, position, area } : { name, position },
+  },
 });
 
 // The team as GET /teams/:teamId sends it to the captain (Rahim, id 1).
@@ -36,23 +42,24 @@ const CAPTAIN_VIEW = {
   id: 7,
   name: 'Dhanmondi Strikers',
   description: 'Weekend 5-a-side crew.',
+  area: 'Dhanmondi',
   captainId: 1,
   memberCount: 2,
   maxMembers: 15,
   viewerState: 'captain',
   members: [
     person(1, 'Rahim Uddin', 'Forward'),
-    person(2, 'Tanvir Ahmed', 'Goalkeeper'),
+    person(2, 'Tanvir Ahmed', 'Goalkeeper', 'Mirpur 10'),
   ],
   joinRequests: [
     {
-      ...person(3, 'Nayeem Islam', 'Midfielder'),
+      ...person(3, 'Nayeem Islam', 'Midfielder', 'Uttara'),
       status: 'pending',
       message: 'I play Thursdays',
     },
   ],
   pendingInvites: [
-    { ...person(4, 'Sakib Hasan', 'Defender'), status: 'pending' },
+    { ...person(4, 'Sakib Hasan', 'Defender', 'Banani'), status: 'pending' },
   ],
 };
 
@@ -326,8 +333,85 @@ describe('What each viewer sees', () => {
   });
 });
 
+describe('The team area (explore spec, section e)', () => {
+  test('shown under the name, for every viewer', async () => {
+    for (const [team, user] of [
+      [CAPTAIN_VIEW, PLAYER],
+      [viewAs('member'), { ...PLAYER, id: 2 }],
+      [viewAs('none'), { ...PLAYER, id: 9 }],
+      [viewAs('none'), OWNER],
+    ]) {
+      const { renderer } = await render(team, { user });
+      const text = shownText(renderer);
+      expect(text).toContain('Dhanmondi');
+      expect(text).not.toContain('No area yet.');
+      expect(labels(renderer)).not.toContain('Add area');
+    }
+  });
+
+  test('the captain of a team without an area: "No area yet." and Add area, which opens Edit team', async () => {
+    const { renderer, navigation } = await render({
+      ...CAPTAIN_VIEW,
+      area: null,
+    });
+
+    expect(shownText(renderer)).toContain('No area yet.');
+    await press(renderer, 'Add area');
+
+    expect(navigation.navigate).toHaveBeenCalledWith('EditTeam', {
+      teamId: 7,
+      teamName: 'Dhanmondi Strikers',
+      description: 'Weekend 5-a-side crew.',
+      area: null,
+    });
+  });
+
+  test('anyone else, team without an area: nothing about the area', async () => {
+    for (const [team, user] of [
+      [viewAs('member', { area: null }), { ...PLAYER, id: 2 }],
+      [viewAs('none', { area: null }), { ...PLAYER, id: 9 }],
+      [viewAs('none', { area: null }), OWNER],
+    ]) {
+      const { renderer } = await render(team, { user });
+      expect(shownText(renderer)).not.toContain('No area yet.');
+      expect(labels(renderer)).not.toContain('Add area');
+    }
+  });
+});
+
+describe('Person rows: "Position · Area" (personMeta)', () => {
+  test('personMeta joins the position and the area, or gives the position alone', () => {
+    expect(personMeta(person(2, 'T', 'Goalkeeper', 'Mirpur 10'))).toBe(
+      'Goalkeeper · Mirpur 10',
+    );
+    expect(personMeta(person(1, 'R', 'Forward'))).toBe('Forward');
+    expect(personMeta({ user: { name: 'Gone' } })).toBe('');
+    expect(personMeta(undefined)).toBe('');
+  });
+
+  test('Members, Join requests and Invited rows show it', async () => {
+    const { renderer } = await render(CAPTAIN_VIEW);
+    const text = shownText(renderer);
+
+    expect(text).toContain('Forward'); // the captain, no area
+    expect(text).not.toContain('Forward · ');
+    expect(text).toContain('Goalkeeper · Mirpur 10'); // a member
+    expect(text).toContain('Midfielder · Uttara'); // a join request
+    expect(text).toContain('Defender · Banani'); // an invite
+    // The Invited card's title says "Invited"; its rows no longer repeat it.
+    expect(text.split(' | ').filter(t => t === 'Invited')).toHaveLength(1);
+  });
+
+  test('members see the rows the same way', async () => {
+    const { renderer } = await render(viewAs('member'), {
+      user: { ...PLAYER, id: 2 },
+    });
+    expect(shownText(renderer)).toContain('Goalkeeper · Mirpur 10');
+  });
+});
+
 describe('Actions', () => {
-  test('Edit team opens the form with the current name and description', async () => {
+  test('Edit team opens the form with the current name, description and area', async () => {
     const { renderer, navigation } = await render(CAPTAIN_VIEW);
 
     await press(renderer, 'Edit team');
@@ -336,6 +420,7 @@ describe('Actions', () => {
       teamId: 7,
       teamName: 'Dhanmondi Strikers',
       description: 'Weekend 5-a-side crew.',
+      area: 'Dhanmondi',
     });
   });
 

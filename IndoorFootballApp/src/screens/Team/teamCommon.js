@@ -16,7 +16,12 @@ export const limitChars = (text, max) =>
 
 // A membership row's person, as the backend sends them.
 export const personName = row => row?.user?.name || 'Unknown player';
-export const personPosition = row => row?.user?.playerProfile?.position;
+// The line under a person's name on every player row: "Goalkeeper · Mirpur 10", or
+// just the position when they have no area (docs/features/explore.md, section e).
+export const personMeta = row => {
+  const profile = row?.user?.playerProfile;
+  return [profile?.position, profile?.area].filter(Boolean).join(' · ');
+};
 
 // After a failed action. A 404 (the thing is gone) or 409 (the team changed, for example
 // it's full) means the screen shows old data: say so, then refresh with onStale.

@@ -13,6 +13,7 @@ import {
   Card,
   Divider,
   EmptyState,
+  Icon,
   ListRow,
   NoticeLine,
   Pill,
@@ -172,10 +173,10 @@ function Gap() {
   return <View style={{ height: spacing.listGap }} />;
 }
 
-// One team, as in the mockup: avatar, name, "x / 15 members", the viewer's pill, the
-// description, and for a captain with join requests, the notice line.
+// One team, as in the mockup: avatar, name, "x / 15 members", the area (when set), the
+// viewer's pill, the description, and for a captain with join requests, the notice line.
 function TeamCard({ team, isCaptain, onPress }) {
-  const { spacing } = useTheme();
+  const { colors, spacing, icon } = useTheme();
   const waiting = isCaptain ? team.joinRequestCount ?? 0 : 0;
   return (
     <Card
@@ -190,6 +191,18 @@ function TeamCard({ team, isCaptain, onPress }) {
           <Text variant="meta" color="textMuted">
             {`${team.memberCount} / ${team.maxMembers} members`}
           </Text>
+          {team.area ? (
+            <View style={[styles.row, { gap: spacing.xs }]}>
+              <Icon
+                name="area"
+                size={icon.sizeSmall}
+                color={colors.textMuted}
+              />
+              <Text variant="meta" color="textMuted" style={styles.shrink}>
+                {team.area}
+              </Text>
+            </View>
+          ) : null}
         </View>
         {isCaptain ? (
           <Pill label="Captain" variant="strong" />
@@ -265,5 +278,6 @@ function RequestsSentCard({ requests, cancelling, onCancel, onOpen, style }) {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   fill: { flex: 1 },
+  shrink: { flexShrink: 1 },
   centred: { alignSelf: 'center' },
 });

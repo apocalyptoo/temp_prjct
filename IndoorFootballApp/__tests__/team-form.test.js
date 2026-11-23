@@ -1,14 +1,17 @@
 /* eslint-env jest */
 // Tests for the team form (feature 1, docs/features/team-membership.md, section e,
-// "Create team and Edit team"): create vs edit, the limits counted in code points, what
-// gets sent, and where the screen goes afterwards.
+// "Create team and Edit team"; the Area field: docs/features/explore.md, section e):
+// create vs edit, the limits counted in code points, the Area field with its suggestions,
+// what gets sent, and where the screen goes afterwards.
 
 import React from 'react';
 import { Alert, Text as NativeText, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import TeamFormScreen, {
+  TEAM_AREA_HELPER,
   checkTeamForm,
+  teamFormBody,
 } from '../src/screens/Team/TeamFormScreen';
 import api from '../src/api/api';
 
@@ -55,9 +58,15 @@ const shownText = renderer =>
     .map(node => [].concat(node.props.children).join(''))
     .join(' | ');
 
+// The fields in screen order: Team name, Area, Description.
+const NAME = 0;
+const AREA = 1;
+const DESCRIPTION = 2;
 const inputs = renderer => renderer.root.findAllByType(TextInput);
 const type = (renderer, index, text) =>
   act(async () => inputs(renderer)[index].props.onChangeText(text));
+const focus = (renderer, index) =>
+  act(async () => inputs(renderer)[index].props.onFocus());
 const press = async (renderer, label) => {
   const node = renderer.root.find(
     n =>
@@ -110,6 +119,31 @@ describe('The limits (the same as the backend, counted in code points)', () => {
       'Description must be at most 200 characters',
     );
   });
+
+  test.each([
+    ['', null],
+    ['   ', null],
+    ['Mirpur', null],
+    ['ab', null],
+    [`  ${'a'.repeat(40)}  `, null],
+    [emoji.repeat(40), null],
+    ['A', 'Area must be between 2 and 40 characters'],
+    ['  A  ', 'Area must be between 2 and 40 characters'],
+    ['a'.repeat(41), 'Area must be between 2 and 40 characters'],
+    [emoji.repeat(41), 'Area must be between 2 and 40 characters'],
+  ])('area %j: %s (the player Area rules)', (area, message) => {
+    expect(checkTeamForm('Fine', '', area).areaError).toBe(message);
+  });
+
+  test('the body: all three fields, the area tidied, a blank area as null', () => {
+    expect(teamFormBody('FC', 'Crew', '  Dhanmondi \t 27 ')).toEqual({
+      name: 'FC',
+      description: 'Crew',
+      area: 'Dhanmondi 27',
+    });
+    expect(teamFormBody('FC', '', '   ').area).toBeNull();
+    expect(teamFormBody('FC', '', 'mirpur').area).toBe('mirpur');
+  });
 });
 
 describe('Create mode', () => {
@@ -121,12 +155,56 @@ describe('Create mode', () => {
     expect(text).toContain('Team name');
     expect(text).toContain('2–40 characters');
     expect(text).toContain('Up to 200 characters');
-    expect(inputs(renderer).map(i => i.props.value)).toEqual(['', '']);
+    expect(text).toContain('Area (optional)');
+    expect(text).toContain(TEAM_AREA_HELPER);
+    expect(TEAM_AREA_HELPER).toBe(
+      'Where your team usually plays, like Mirpur. Players search by it.',
+    );
+    expect(inputs(renderer).map(i => i.props.accessibilityLabel)).toEqual([
+      'Team name',
+      'Area (optional)',
+      'Description (optional)',
+    ]);
+    expect(inputs(renderer).map(i => i.props.value)).toEqual(['', '', '']);
+  });
+
+  test('"mir" in Area suggests Mirpur; tapping it fills the field', async () => {
+    const { renderer } = await render(undefined);
+    await focus(renderer, AREA);
+    await type(renderer, AREA, 'mir');
+
+    expect(shownText(renderer)).toContain('Mirpur');
+    const suggestion = renderer.root.find(
+      n =>
+        n.props.accessibilityLabel === 'Suggestion: Mirpur' &&
+        typeof n.props.onPress === 'function',
+    );
+    await act(async () => suggestion.props.onPress());
+
+    expect(inputs(renderer)[AREA].props.value).toBe('Mirpur');
+  });
+
+  test('an area that is too short shows under the field and nothing is sent; typing clears it', async () => {
+    const { renderer } = await render(undefined);
+    await type(renderer, NAME, 'Dhanmondi Strikers');
+    await type(renderer, AREA, ' M ');
+
+    await press(renderer, 'Create team');
+
+    expect(shownText(renderer)).toContain(
+      'Area must be between 2 and 40 characters',
+    );
+    expect(api.post).not.toHaveBeenCalled();
+
+    await type(renderer, AREA, 'Mi');
+    expect(shownText(renderer)).not.toContain(
+      'Area must be between 2 and 40 characters',
+    );
   });
 
   test('a problem shows under the field and nothing is sent', async () => {
     const { renderer } = await render(undefined);
-    await type(renderer, 0, 'A');
+    await type(renderer, NAME, 'A');
 
     await press(renderer, 'Create team');
 
@@ -141,7 +219,7 @@ describe('Create mode', () => {
     await press(renderer, 'Create team');
     expect(shownText(renderer)).toContain('Team name is required');
 
-    await type(renderer, 0, 'Dhanmondi Strikers');
+    await type(renderer, NAME, 'Dhanmondi Strikers');
 
     expect(shownText(renderer)).not.toContain('Team name is required');
   });
@@ -151,30 +229,46 @@ describe('Create mode', () => {
       data: { id: 42, name: 'Dhanmondi Strikers' },
     });
     const { renderer, navigation } = await render(undefined);
-    await type(renderer, 0, 'Dhanmondi Strikers');
-    await type(renderer, 1, 'Weekend crew');
+    await type(renderer, NAME, 'Dhanmondi Strikers');
+    await type(renderer, DESCRIPTION, 'Weekend crew');
 
     await press(renderer, 'Create team');
 
     expect(api.post).toHaveBeenCalledWith('/teams/create', {
       name: 'Dhanmondi Strikers',
       description: 'Weekend crew',
+      area: null,
     });
     expect(navigation.replace).toHaveBeenCalledWith('TeamDetail', {
       teamId: 42,
     });
   });
 
+  test('creates the team with its area, tidied', async () => {
+    api.post.mockResolvedValue({ data: { id: 42 } });
+    const { renderer } = await render(undefined);
+    await type(renderer, NAME, 'Mirpur Mavericks');
+    await type(renderer, AREA, '  Mirpur   10 ');
+
+    await press(renderer, 'Create team');
+
+    expect(api.post).toHaveBeenCalledWith('/teams/create', {
+      name: 'Mirpur Mavericks',
+      description: '',
+      area: 'Mirpur 10',
+    });
+  });
+
   test('the backend refusing shows its message and keeps the form', async () => {
     api.post.mockRejectedValue(httpError(400, 'Team name must be text'));
     const { renderer, navigation } = await render(undefined);
-    await type(renderer, 0, 'Fine Name');
+    await type(renderer, NAME, 'Fine Name');
 
     await press(renderer, 'Create team');
 
     expect(Alert.alert).toHaveBeenCalledWith('Error', 'Team name must be text');
     expect(navigation.replace).not.toHaveBeenCalled();
-    expect(inputs(renderer)[0].props.value).toBe('Fine Name');
+    expect(inputs(renderer)[NAME].props.value).toBe('Fine Name');
   });
 });
 
@@ -183,6 +277,7 @@ describe('Edit mode', () => {
     teamId: 7,
     teamName: 'Dhanmondi Strikers',
     description: 'Weekend crew',
+    area: 'Dhanmondi',
   };
 
   test('title, back link to the team, the fields filled in and Save changes', async () => {
@@ -191,6 +286,7 @@ describe('Edit mode', () => {
     expect(shownText(renderer)).toContain('Edit team');
     expect(inputs(renderer).map(i => i.props.value)).toEqual([
       'Dhanmondi Strikers',
+      'Dhanmondi',
       'Weekend crew',
     ]);
     expect(
@@ -200,25 +296,48 @@ describe('Edit mode', () => {
     ).toBeGreaterThan(0);
   });
 
-  test('a team with no description starts with an empty field', async () => {
-    const { renderer } = await render({ ...PARAMS, description: null });
+  test('a team with no description or area starts with empty fields', async () => {
+    const { renderer } = await render({
+      ...PARAMS,
+      description: null,
+      area: null,
+    });
+    expect(inputs(renderer)[DESCRIPTION].props.value).toBe('');
+    expect(inputs(renderer)[AREA].props.value).toBe('');
 
-    expect(inputs(renderer)[1].props.value).toBe('');
+    const noParam = await render({ teamId: 7, teamName: 'FC' });
+    expect(inputs(noParam.renderer)[AREA].props.value).toBe('');
   });
 
-  test('saves both fields with PATCH, then goes back', async () => {
+  test('saves all three fields with PATCH, then goes back', async () => {
     api.patch.mockResolvedValue({ data: {} });
     const { renderer, navigation } = await render(PARAMS);
-    await type(renderer, 0, 'Mirpur Mavericks');
-    await type(renderer, 1, '');
+    await type(renderer, NAME, 'Mirpur Mavericks');
+    await type(renderer, AREA, 'Mirpur');
+    await type(renderer, DESCRIPTION, '');
 
     await press(renderer, 'Save changes');
 
     expect(api.patch).toHaveBeenCalledWith('/teams/7', {
       name: 'Mirpur Mavericks',
       description: '',
+      area: 'Mirpur',
     });
     expect(navigation.goBack).toHaveBeenCalled();
+  });
+
+  test('clearing the area sends null, which removes it', async () => {
+    api.patch.mockResolvedValue({ data: {} });
+    const { renderer } = await render(PARAMS);
+    await type(renderer, AREA, '  ');
+
+    await press(renderer, 'Save changes');
+
+    expect(api.patch).toHaveBeenCalledWith('/teams/7', {
+      name: 'Dhanmondi Strikers',
+      description: 'Weekend crew',
+      area: null,
+    });
   });
 
   test('the team is gone (404): says so and goes back', async () => {

@@ -21,12 +21,13 @@ import {
   Screen,
   SectionHeader,
   Text,
+  TextLink,
 } from '../../components/ui';
 import { useBusyAction } from '../../hooks/useBusyAction';
 import {
   TeamLoadState,
   personName,
-  personPosition,
+  personMeta,
   showActionError,
   useTeam,
 } from './teamCommon';
@@ -197,6 +198,13 @@ function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
   const fullLabel = `Team is full (${team.memberCount}/${team.maxMembers})`;
   const captainRow = team.members.find(row => row.userId === team.captainId);
   const toParams = { teamId: team.id, teamName: team.name };
+  const editTeam = () =>
+    navigation.navigate('EditTeam', {
+      teamId: team.id,
+      teamName: team.name,
+      description: team.description,
+      area: team.area,
+    });
 
   return (
     <>
@@ -208,6 +216,10 @@ function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
         <Text variant="title" accessibilityRole="header">
           {team.name}
         </Text>
+        <TeamArea
+          area={team.area}
+          onAdd={state === 'captain' ? editTeam : null}
+        />
         {team.description ? (
           <Text variant="bodySmall" color="textMuted">
             {team.description}
@@ -306,7 +318,7 @@ function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
             <ListRow
               key={row.userId}
               name={personName(row)}
-              meta="Invited"
+              meta={personMeta(row)}
               trailing={
                 <IconButton
                   icon="reject"
@@ -327,7 +339,7 @@ function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
           <ListRow
             key={row.userId}
             name={personName(row)}
-            meta={personPosition(row)}
+            meta={personMeta(row)}
             trailing={
               row.userId === team.captainId ? (
                 <CaptainLabel />
@@ -361,13 +373,7 @@ function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
             variant="secondary"
             icon="edit"
             fullWidth
-            onPress={() =>
-              navigation.navigate('EditTeam', {
-                teamId: team.id,
-                teamName: team.name,
-                description: team.description,
-              })
-            }
+            onPress={editTeam}
           />
           <Button
             title="Leave team"
@@ -386,6 +392,24 @@ function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
         </View>
       ) : null}
     </>
+  );
+}
+
+// The team's area under its name, as a muted line with the area icon. Without an area,
+// the captain (onAdd set) sees "No area yet." and an Add area link to Edit team
+// (explore spec P27): a team without an area can't be found by the area filter.
+// Everyone else sees nothing.
+function TeamArea({ area, onAdd }) {
+  const { colors, spacing, icon } = useTheme();
+  if (!area && !onAdd) return null;
+  return (
+    <View style={[styles.wrapRow, { gap: spacing.xs }]}>
+      <Icon name="area" size={icon.sizeSmall} color={colors.textMuted} />
+      <Text variant="bodySmall" color="textMuted" style={styles.shrink}>
+        {area || 'No area yet.'}
+      </Text>
+      {area ? null : <TextLink title="Add area" onPress={onAdd} />}
+    </View>
   );
 }
 
@@ -437,7 +461,7 @@ function JoinRequestsCard({ team, busy, run, ask }) {
             {/* The row draws no line of its own, so the message sits above the line. */}
             <ListRow
               name={name}
-              meta={personPosition(row)}
+              meta={personMeta(row)}
               last
               trailing={
                 <View style={[styles.row, { gap: spacing.sm }]}>
@@ -483,4 +507,5 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   wrapRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
   grow: { flexGrow: 1, flexBasis: 0 },
+  shrink: { flexShrink: 1 },
 });

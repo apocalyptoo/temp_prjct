@@ -80,7 +80,7 @@ Here's what happens, step by step, when a player creates a team.
 **On the phone**
 
 1. The player taps **Create team** on **My Teams** (or **+ Create Team** on Explore → Teams), which opens the team form.
-2. They type a name and description and tap **Create team**. The form (`src/screens/Team/TeamFormScreen.js`) first checks the same limits the backend will check, and shows any problem under the field. Then it calls `api.post('/teams/create', { name, description })`.
+2. They type a name, optionally an area (where the team usually plays; common areas are suggested as they type) and a description, and tap **Create team**. The form (`src/screens/Team/TeamFormScreen.js`) first checks the same limits the backend will check, and shows any problem under the field. Then it calls `api.post('/teams/create', { name, description, area })`.
 3. Before the request leaves the phone, the shared API helper (`src/api/api.js`) adds the login token. An **interceptor** (a function that runs on every request) reads the token from the phone's storage and adds the header `Authorization: Bearer <token>`.
 4. The request travels over HTTPS to the ngrok address, which forwards it to the backend on port 4000.
 
@@ -89,7 +89,7 @@ Here's what happens, step by step, when a player creates a team.
 5. `backend/src/server.js` receives it, turns the JSON body into a JavaScript object, and the `/teams` prefix sends it to the teams router.
 6. `backend/src/routes/teamRoutes.js` matches `POST /create` and runs four functions in order: `verifyToken` (is this a real, current login?), `playersOnly` (is it a player account?), `validate` (is the input acceptable?), then `createTeam` (do the work).
 7. If the login is missing or bad, the request stops with 401 ("not logged in"). A venue owner or admin stops with 403 ("not allowed").
-8. If the name or description breaks a rule, the reply is 400 with one clear message, such as "Team name must be between 2 and 40 characters", and `createTeam` never runs.
+8. If the name, description or area breaks a rule, the reply is 400 with one clear message, such as "Team name must be between 2 and 40 characters", and `createTeam` never runs.
 9. `createTeam` (in `backend/src/controllers/teamController.js`) uses Prisma to save, in one step, the new team with the creator as its **captain**, and the captain's own membership row, so the captain is also a member.
 10. Prisma turns that into SQL and PostgreSQL stores both rows.
 
@@ -459,7 +459,7 @@ The message is private: only the captain, the player who sent it and the admin e
 
 ### The Team detail screen
 
-Team detail shows one team as the viewer sees it, and the backend tells the app where the viewer stands:
+Team detail shows one team as the viewer sees it: its name, its area (if it has one) and description, and the people in it, each with their position and area ("Goalkeeper · Mirpur 10"). The backend tells the app where the viewer stands:
 
 - **Captain:** invite players, hand over the captaincy, the join requests, the pending invites, the members (each removable), edit team, leave team and delete team.
 - **Member:** the members and **Leave team**.
@@ -468,7 +468,7 @@ Team detail shows one team as the viewer sees it, and the backend tells the app 
 - **Any other player:** **Request to join**.
 - **Venue owner:** the same team, read-only.
 
-Destructive or important actions ask first, in a dialog that says exactly what will happen ("Remove Tanvir Ahmed from Dhanmondi Strikers?"). A captain with other members has to hand over the captaincy before leaving; a captain who's alone deletes the team by leaving. If the team changed in the meantime (for example it filled up), the screen says "Something changed" and reloads. **Edit team** opens the same form as Create team, filled in.
+Destructive or important actions ask first, in a dialog that says exactly what will happen ("Remove Tanvir Ahmed from Dhanmondi Strikers?"). A captain with other members has to hand over the captaincy before leaving; a captain who's alone deletes the team by leaving. If the team changed in the meantime (for example it filled up), the screen says "Something changed" and reloads. **Edit team** opens the same form as Create team, filled in. A captain whose team has no area yet sees "No area yet." with an **Add area** link to that form, because a team without an area can't be found with the area filter.
 
 ---
 

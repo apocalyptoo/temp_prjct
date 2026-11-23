@@ -1,22 +1,35 @@
-// Create a team, or edit its name and description (docs/features/team-membership.md,
-// section e, "Create team and Edit team"). One screen, two routes:
+// Create a team, or edit its name, area and description (docs/features/team-membership.md,
+// section e, "Create team and Edit team"; the area: docs/features/explore.md, section e).
+// One screen, two routes:
 // - CreateTeam (no params): POST /teams/create, then Team detail replaces the form.
-// - EditTeam ({ teamId, teamName, description }): PATCH /teams/:teamId, then back.
+// - EditTeam ({ teamId, teamName, description, area }): PATCH /teams/:teamId, then back.
 // The same limits as the backend (createTeamSchema), counted in characters as people
 // see them, are checked before sending; the messages are the backend's own words.
+// All three fields are sent every time (explore spec P12): an empty area clears it.
 import React, { useState } from 'react';
 import api from '../../api/api';
 import { useTheme } from '../../theme/ThemeProvider';
-import { Button, Screen, ScreenHeader, TextField } from '../../components/ui';
+import {
+  Button,
+  Screen,
+  ScreenHeader,
+  SuggestionField,
+  TextField,
+} from '../../components/ui';
 import { useBusyAction } from '../../hooks/useBusyAction';
+import { suggestAreas } from '../../constants/areas';
+import { areaProblem, tidyArea } from '../Player/profileChecks';
 import { charCount, showActionError } from './teamCommon';
 
 export const TEAM_NAME_MIN = 2;
 export const TEAM_NAME_MAX = 40;
 export const TEAM_DESCRIPTION_MAX = 200;
+export const TEAM_AREA_HELPER =
+  'Where your team usually plays, like Mirpur. Players search by it.';
 
-// The first problem with each field, or null.
-export function checkTeamForm(name, description) {
+// The first problem with each field, or null. The area follows the player Area's rules
+// (tidied, 2–40 characters, blank means none).
+export function checkTeamForm(name, description, area = '') {
   const trimmedName = name.trim();
   let nameError = null;
   if (trimmedName === '') nameError = 'Team name is required';
@@ -30,7 +43,14 @@ export function checkTeamForm(name, description) {
     charCount(description.trim()) > TEAM_DESCRIPTION_MAX
       ? `Description must be at most ${TEAM_DESCRIPTION_MAX} characters`
       : null;
-  return { nameError, descriptionError };
+  const areaError = areaProblem(area);
+  return { nameError, descriptionError, areaError };
+}
+
+// The request body: all three fields, the area tidied, or null when blank.
+export function teamFormBody(name, description, area) {
+  const tidied = tidyArea(area);
+  return { name, description, area: tidied === '' ? null : tidied };
 }
 
 export default function TeamFormScreen({ route, navigation }) {
@@ -39,27 +59,30 @@ export default function TeamFormScreen({ route, navigation }) {
     teamId,
     teamName = '',
     description: oldDescription,
+    area: oldArea,
   } = route.params ?? {};
   const { spacing } = useTheme();
   const [name, setName] = useState(editing ? teamName : '');
   const [description, setDescription] = useState(
     editing ? oldDescription ?? '' : '',
   );
+  const [area, setArea] = useState(editing ? oldArea ?? '' : '');
   const [errors, setErrors] = useState({});
   const { run, busy: saving } = useBusyAction();
 
   const save = () =>
     run(async () => {
-      const found = checkTeamForm(name, description);
+      const found = checkTeamForm(name, description, area);
       setErrors(found);
-      if (found.nameError || found.descriptionError) return;
+      if (found.nameError || found.descriptionError || found.areaError) return;
+      const body = teamFormBody(name, description, area);
 
       try {
         if (editing) {
-          await api.patch(`/teams/${teamId}`, { name, description });
+          await api.patch(`/teams/${teamId}`, body);
           navigation.goBack(); // Team detail reloads with the new details.
         } else {
-          const res = await api.post('/teams/create', { name, description });
+          const res = await api.post('/teams/create', body);
           // The form is done: the new team's page takes its place, so Back goes to
           // My Teams.
           navigation.replace('TeamDetail', { teamId: res.data.id });
@@ -97,6 +120,19 @@ export default function TeamFormScreen({ route, navigation }) {
         helper={`${TEAM_NAME_MIN}–${TEAM_NAME_MAX} characters`}
         error={errors.nameError}
         editable={!saving}
+        autoCapitalize="words"
+      />
+      <SuggestionField
+        label="Area (optional)"
+        value={area}
+        onChangeText={text => {
+          setArea(text);
+          if (errors.areaError) setErrors({ ...errors, areaError: null });
+        }}
+        getSuggestions={suggestAreas}
+        helper={TEAM_AREA_HELPER}
+        error={errors.areaError}
+        disabled={saving}
         autoCapitalize="words"
       />
       <TextField

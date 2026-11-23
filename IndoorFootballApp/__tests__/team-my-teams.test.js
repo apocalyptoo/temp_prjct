@@ -136,6 +136,22 @@ describe('Team cards', () => {
     expect(text).not.toMatch(/delete/i);
   });
 
+  test('the area shows on a card when the team has one, and nothing when it has none', async () => {
+    serve({
+      teams: [
+        { ...CAPTAINED, area: 'Dhanmondi 27' },
+        { ...PLAYING, area: null },
+      ],
+      requests: [],
+    });
+    const { renderer } = await render();
+    const shown = shownText(renderer).split(' | ');
+
+    expect(shown).toContain('Dhanmondi 27');
+    expect(shown).not.toContain('null');
+    expect(shown.filter(text => text === 'Dhanmondi 27')).toHaveLength(1);
+  });
+
   test('the captain sees "2 join requests waiting for you"', async () => {
     serve();
     const { renderer } = await render();

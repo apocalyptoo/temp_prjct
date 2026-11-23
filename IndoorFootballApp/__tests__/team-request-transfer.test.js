@@ -175,6 +175,30 @@ describe('Transfer captaincy', () => {
     ],
   };
 
+  test('each row reads "Position · Area" when the member has an area', async () => {
+    const withArea = {
+      ...TEAM,
+      members: TEAM.members.map(row =>
+        row.userId === 2
+          ? {
+              ...row,
+              user: {
+                ...row.user,
+                playerProfile: { ...row.user.playerProfile, area: 'Mirpur 10' },
+              },
+            }
+          : row,
+      ),
+    };
+    api.get.mockResolvedValue({ data: withArea });
+    const { renderer } = await render(TransferCaptaincyScreen, PARAMS);
+
+    const text = shownText(renderer);
+    expect(text).toContain('Goalkeeper · Mirpur 10');
+    expect(text).toContain('Defender');
+    expect(text).not.toContain('Defender · ');
+  });
+
   test('lists every member except the captain', async () => {
     api.get.mockResolvedValue({ data: TEAM });
     const { renderer } = await render(TransferCaptaincyScreen, PARAMS);

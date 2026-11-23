@@ -17,7 +17,7 @@ import { useBusyAction } from '../../hooks/useBusyAction';
 import {
   TeamLoadState,
   personName,
-  personPosition,
+  personMeta,
   showActionError,
   useTeam,
 } from './teamCommon';
@@ -62,7 +62,7 @@ export default function TransferCaptaincyScreen({ route, navigation }) {
             <ListRow
               key={row.userId}
               name={personName(row)}
-              meta={personPosition(row)}
+              meta={personMeta(row)}
               onPress={() => setPicked(row)}
               last={index === candidates.length - 1}
             />
