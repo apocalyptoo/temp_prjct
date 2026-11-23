@@ -128,6 +128,9 @@ Rule: write a short spec in `docs/features/` before building each feature below.
 **Explore: Teams and Players, Player detail** (feature 3b, right after Venues; split out on 2026-11-23, DECISIONS.md "Venue details"; spec to be written)
 - [ ] Explore tab: Teams · Players · Venues sections, each with search; venues also filter by area (PRODUCT.md, "App structure and navigation"). Replaces the interim Explore screen with three rows. The Venues section reuses the venue list built in feature 3.
 - [ ] Player detail: public profile fields (PRODUCT.md, "Profile visibility"), with **Invite to my team** for captains; the phone for accepted teammates. Report and Block arrive with moderation.
+- [ ] Review finding 3: an optional team area, an area filter for teams, and area and position filters for players; details to be decided in the 3b spec ([review](reviews/2026-11-23-independent-review.md))
+- [ ] Review finding 4: paging built into the Explore lists and endpoints from the start, and a server-side search for Invite players; details to be decided in the 3b spec ([review](reviews/2026-11-23-independent-review.md))
+- [ ] Pagination on list endpoints (with the Explore lists; moved here from its own group on 2026-11-23, review finding 4)
 
 **Account deletion**
 - [ ] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion")
@@ -138,17 +141,32 @@ Rule: write a short spec in `docs/features/` before building each feature below.
 **Moderation**
 - [ ] Moderation: Report button and admin Reports screen (replacing the interim Reports tab); Block and unblock (Settings → Blocked players); suspend and unsuspend users (suspending increases `tokenVersion`, so the user is logged out on every device at once) (PRODUCT.md, "Administration and moderation"). The Terms of Use checkbox moved to Profiles and registration (DECISIONS.md 2026-11-22).
 
-**Pagination**
-- [ ] Pagination on list endpoints (with the Explore lists)
-
 ### Step 4: Restyle the rest
 
 - [ ] Restyle all screens using the theme module, one screen at a time, without changing behaviour (this also clears the remaining ESLint inline-style warnings, 46 as of 2026-11-20). By this point only old screens that no Step 3 feature touched should be left.
 - [ ] Switch the Android `AppTheme` parent from `Theme.AppCompat.DayNight.NoActionBar` to an always-dark one, once no screen relies on Android's default text, input or alert colours (the sign-up screens no longer do since F2.2; the remaining old screens still need checking). Alerts then turn dark on every phone. (found in 4.4)
 - [ ] Remove react-native-vector-icons once no screen uses it (after the restyles): the package, its font files in `android/app/src/main/assets/fonts/` and `ios/` (`UIAppFonts` in Info.plist), its entry in `react-native.config.js`, and the `link-assets-manifest.json` entries (split from 4.4)
 
+**Review quick fixes** (from the [independent review of 2026-11-23](reviews/2026-11-23-independent-review.md); the finding numbers are the report's)
+- [ ] Finding 5: a default request timeout in the app, with the existing connection message
+- [ ] Finding 6: brand the account emails (sender name, subjects with the app name, one plain template)
+- [ ] Finding 7: a usable password reset page (viewport, the strength rule, a confirm field)
+- [ ] Finding 10: on a pending, incomplete My Venue, a "Complete your listing" button under the checklist; a different icon for Address and Area
+- [ ] Finding 11: one Create team button on the empty My Teams screen
+- [ ] Finding 12: "Position · Area" on team member, join request and invite rows
+- [ ] Finding 13: two sign-ups for the same email at once get "Email already registered", not a 500
+- [ ] Finding 14: "Open in Maps" on a venue's address
+- [ ] Finding 15: drop the unused email claim from the login token
+- [ ] Finding 17: show Approve's blockers under the status pill on the admin review screen
+- [ ] Finding 18: fix the three stale doc lines (ARCHITECTURE.md, the draft Privacy page, the two code comments)
+- [ ] Finding 16, to be decided: a shorter login for the admin role
+
 ## Phase 5: Deployment readiness
 
+- [ ] Review finding 1: the final `applicationId`, app name and launcher icon, and a release keystore with Play App Signing ([review](reviews/2026-11-23-independent-review.md))
+- [ ] Review finding 2: Play Console: developer account, Data safety form, content rating, app access instructions, privacy policy URL, the closed test. The closed test starts only when no old screen is reachable by players or owners (finding 9) and moderation and account deletion are built ([review](reviews/2026-11-23-independent-review.md))
+- [ ] Review finding 8: a crash reporter in the app (a new package, needs my approval) and a minimum-version check ([review](reviews/2026-11-23-independent-review.md))
+- [ ] Review finding 15, second part: encrypted token storage in the app, after launch ([review](reviews/2026-11-23-independent-review.md))
 - [ ] Choose hosting for the backend and a managed Postgres database (decision pending).
 - [ ] Make the API URL configurable per build (dev/prod) instead of a hardcoded ngrok URL. Add request timeouts.
 - [ ] Choose a transactional email provider instead of personal Gmail SMTP. Register waits for Gmail to accept the verification email before replying (by design, so a failed send is reported). This takes a few seconds; a proper email provider should shorten it. Measure before and after.
