@@ -2,6 +2,7 @@
 // Ids in the URL (:teamId, :userId) are checked with parseId in the controllers, not here.
 import { z } from 'zod';
 import { charCount } from './common.js';
+import { area } from './profileFields.js';
 import { MAX_DB_INT } from '../utils/ids.js';
 
 export const TEAM_NAME = { min: 2, max: 40 };
@@ -13,7 +14,10 @@ const TEAM_NAME_LENGTH = `Team name must be between ${TEAM_NAME.min} and ${TEAM_
 // ── POST /teams/create ──
 // name: required text, trimmed, 2–40 characters. description: optional text, trimmed,
 // at most 200 characters; missing, null, empty or only spaces is stored as null.
-// Lengths count code points, so Bangla text isn't over-counted. Names needn't be unique.
+// area: optional, exactly the player Area rules (area() in profileFields.js: tidied,
+// 2–40 characters, blank or missing stored as null; docs/PRODUCT.md, "Team area").
+// The first problem wins, in this order. Lengths count code points, so Bangla text
+// isn't over-counted. Names needn't be unique.
 export const createTeamSchema = z.object(
   {
     name: z
@@ -34,6 +38,7 @@ export const createTeamSchema = z.object(
       .refine((description) => description === null || charCount(description) <= TEAM_DESCRIPTION_MAX, {
         error: `Description must be at most ${TEAM_DESCRIPTION_MAX} characters`,
       }),
+    area: area(),
   },
   { error: TEAM_NAME_REQUIRED }
 );
@@ -77,6 +82,7 @@ export const joinRequestSchema = z.object(
 export const transferSchema = inviteSchema;
 
 // ── PATCH /teams/:teamId ──
-// The same rules as creating a team. The app always sends both fields; a missing
-// description is stored as null, exactly as at create (docs/features/team-membership.md, P7).
+// The same rules as creating a team. The app always sends every field; a missing
+// description or area is stored as null, exactly as at create
+// (docs/features/team-membership.md, P7; docs/features/explore.md, P12).
 export const updateTeamSchema = createTeamSchema;

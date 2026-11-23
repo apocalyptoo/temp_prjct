@@ -85,6 +85,10 @@ model Team {
   id          Int          @id @default(autoincrement())
   name        String
   description String?
+  // Where the team usually plays ("Mirpur"), set by the captain on the team form.
+  // Optional, with exactly the player Area rules; Explore → Teams filters by it
+  // (docs/PRODUCT.md, "Team area"; docs/features/explore.md, section c).
+  area        String?
   captainId   Int
   createdAt   DateTime     @default(now())
   // Restrict: a user who still captains a team can't be deleted until the team is

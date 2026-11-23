@@ -35,8 +35,9 @@ const findRow = (tx, teamId, userId) => tx.teamMember.findUnique({ where: { team
 // ── Create new team ──
 export const createTeam = async (req, res, next) => {
   try {
-    // Trimmed, 2–40 characters; description trimmed, at most 200, or null (createTeamSchema).
-    const { name, description } = req.valid.body;
+    // Trimmed, 2–40 characters; description trimmed, at most 200, or null; area tidied,
+    // 2–40, or null (createTeamSchema).
+    const { name, description, area } = req.valid.body;
     const captainId = req.user.id;
 
     // The creator becomes the captain (stored only in captainId) and is also an
@@ -45,6 +46,7 @@ export const createTeam = async (req, res, next) => {
       data: {
         name,
         description,
+        area,
         captainId,
         members: {
           create: {
@@ -229,11 +231,11 @@ export const updateTeam = async (req, res, next) => {
   try {
     const teamId = parseId(req.params.teamId);
     if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
-    const { name, description } = req.valid.body;
+    const { name, description, area } = req.valid.body;
 
     const reply = await withLockedTeam(teamId, async (tx, team) => {
       if (team.captainId !== req.user.id) return [403, { error: 'Only the team captain can edit this team.' }];
-      await tx.team.update({ where: { id: teamId }, data: { name, description } });
+      await tx.team.update({ where: { id: teamId }, data: { name, description, area } });
       return [200, toTeamDetail(await findTeamWithRows(tx, teamId), viewerFrom(req))];
     });
     return sendReply(res, reply);
