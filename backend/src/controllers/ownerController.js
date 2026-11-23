@@ -3,6 +3,7 @@ import { viewerFrom, seesEverything, toVisibleUser, toPublicVenue } from '../uti
 import { LIVE_VENUE_NEEDS, missingFields, withMissingFields } from '../utils/venues.js';
 import { containsText } from '../utils/search.js';
 import { parseId } from '../utils/ids.js';
+import { pageArgs, pagedReply } from '../utils/paging.js';
 
 // The logged-in venue owner's own profile with the listing: everything except
 // secrets, including the review status (approvedAt, null = "Pending review") and the
@@ -110,22 +111,31 @@ const toVenueReply = (o, viewer) => {
 // GET /owners: the venue list (docs/features/venues.md, d endpoint 3). Only live venues
 // (approved: approvedAt set). Optional `search` (part of the venue name) and `area` (part
 // of the venue's area), both ignoring case, with % and _ matched literally
-// (containsText). Sorted by venue name A to Z, ties by user id (spec P12). No pagination
-// yet (spec Q2).
+// (containsText). Sorted by venue name A to Z, ties by user id (spec P12), which keeps
+// the order the same from one page to the next. Paged: { items, page, limit, total }
+// (docs/features/explore.md, d.1 and d endpoint 8).
+//
+// Moderation hook (docs/features/explore.md, section g): a suspended owner's venue is
+// left out here, and in getVenue below, by adding that condition to `where`.
 export const listIndoors = async (req, res, next) => {
   try {
-    const { search, area } = req.valid.query;
-    const venues = await prisma.ownerProfile.findMany({
-      where: {
-        approvedAt: { not: null },
-        ...(search ? { indoorName: containsText(search) } : {}),
-        ...(area ? { area: containsText(area) } : {}),
-      },
-      select: PUBLIC_VENUE_SELECT,
-      orderBy: [{ indoorName: 'asc' }, { userId: 'asc' }],
-    });
+    const { search, area, page, limit } = req.valid.query;
+    const where = {
+      approvedAt: { not: null },
+      ...(search ? { indoorName: containsText(search) } : {}),
+      ...(area ? { area: containsText(area) } : {}),
+    };
+    const [venues, total] = await Promise.all([
+      prisma.ownerProfile.findMany({
+        where,
+        select: PUBLIC_VENUE_SELECT,
+        orderBy: [{ indoorName: 'asc' }, { userId: 'asc' }],
+        ...pageArgs({ page, limit }),
+      }),
+      prisma.ownerProfile.count({ where }),
+    ]);
     const viewer = viewerFrom(req);
-    return res.json(venues.map((o) => toVenueReply(o, viewer)));
+    return res.json(pagedReply(venues.map((o) => toVenueReply(o, viewer)), total, { page, limit }));
   } catch (err) {
     return next(err);
   }

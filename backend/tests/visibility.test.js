@@ -106,7 +106,7 @@ describe('Other users never see email or phone', () => {
     const owner = await venueOwner(t);
     const viewer = await playerWithProfile(t);
 
-    const venues = await get('/owners', viewer.jwt);
+    const venues = (await get('/owners?search=Test+Arena&limit=50', viewer.jwt)).items;
     const venue = venues.find((v) => v.userId === owner.user.id);
 
     assert.ok(venue, 'the venue should be listed');

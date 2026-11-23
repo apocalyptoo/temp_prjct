@@ -74,7 +74,9 @@ export default function VenueList({ navigation, header }) {
     try {
       const res = await api.get('/owners', { params: toParams(filter) });
       if (request !== requestRef.current) return;
-      setVenues(res.data);
+      // The list comes in pages now ({ items, page, limit, total }). Until this list is
+      // rebuilt with paging (feature 3b, task F3b.4), it shows the first page only.
+      setVenues(res.data.items);
       setShownFilter(filter);
       setStatus('ready');
     } catch {

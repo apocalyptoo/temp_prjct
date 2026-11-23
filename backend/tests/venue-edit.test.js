@@ -120,7 +120,7 @@ describe('PATCH /owners/me saves the listing', () => {
     await makeLive(me.user.id);
     await patchMe(me.jwt, edit({ indoorName: 'Renamed Arena' }));
     assert.equal((await getJson('/auth/me', me.jwt)).name, 'Renamed Arena');
-    const venues = await getJson('/owners', me.jwt);
+    const venues = (await getJson('/owners?search=Renamed+Arena&limit=50', me.jwt)).items;
     assert.equal(venues.find((v) => v.userId === me.user.id).indoorName, 'Renamed Arena');
   });
 });

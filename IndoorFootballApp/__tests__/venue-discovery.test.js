@@ -123,6 +123,11 @@ const httpError = (status, error) =>
     response: { status, data: { error } },
   });
 
+// A GET /owners reply: one page of the paged list (docs/features/explore.md, d.1).
+const page = venues => ({
+  data: { items: venues, page: 1, limit: 20, total: venues.length },
+});
+
 // The params of every GET /owners so far.
 const listRequests = () =>
   api.get.mock.calls
@@ -151,7 +156,7 @@ describe('The venue list (Explore → Venues)', () => {
   afterEach(() => jest.useRealTimers());
 
   async function showList(venues = [FLOODLIGHT, KICKOFF]) {
-    api.get.mockResolvedValue({ data: venues });
+    api.get.mockResolvedValue(page(venues));
     const navigation = navigationMock();
     const renderer = await render(<VenuesScreen navigation={navigation} />);
     await act(async () => navigation.focus());
@@ -209,7 +214,7 @@ describe('The venue list (Explore → Venues)', () => {
     await type(renderer, 'Search venues', 'ar');
     await wait(SEARCH_DELAY_MS - 1);
     expect(listRequests()).toEqual([{}]);
-    api.get.mockResolvedValue({ data: [KICKOFF] });
+    api.get.mockResolvedValue(page([KICKOFF]));
     await wait(1);
     await flush();
     expect(listRequests()).toEqual([{}, { search: 'ar' }]);
@@ -266,7 +271,7 @@ describe('The venue list (Explore → Venues)', () => {
 
   test('nothing matches: "No venues match your search." and Clear search, which empties both fields and loads at once', async () => {
     const { renderer } = await showList();
-    api.get.mockResolvedValue({ data: [] });
+    api.get.mockResolvedValue(page([]));
     await type(renderer, 'Search venues', 'zzz');
     await type(renderer, 'Area', 'Uttara');
     await wait(SEARCH_DELAY_MS);
@@ -274,7 +279,7 @@ describe('The venue list (Explore → Venues)', () => {
     expect(shownText(renderer)).toContain(NO_MATCH);
     expect(shownText(renderer)).not.toContain(NO_VENUES);
 
-    api.get.mockResolvedValue({ data: [FLOODLIGHT, KICKOFF] });
+    api.get.mockResolvedValue(page([FLOODLIGHT, KICKOFF]));
     await press(renderer, 'Clear search');
     expect(input(renderer, 'Search venues').props.value).toBe('');
     expect(input(renderer, 'Area').props.value).toBe('');
@@ -292,12 +297,12 @@ describe('The venue list (Explore → Venues)', () => {
     );
     await type(renderer, 'Search venues', 'flood');
     await wait(SEARCH_DELAY_MS);
-    api.get.mockResolvedValueOnce({ data: [KICKOFF] });
+    api.get.mockResolvedValueOnce(page([KICKOFF]));
     await type(renderer, 'Search venues', 'kick');
     await wait(SEARCH_DELAY_MS);
     await flush();
     expect(cards(renderer)).toEqual(['Kickoff Hub, Mirpur 10']);
-    await act(async () => finishOld({ data: [FLOODLIGHT] }));
+    await act(async () => finishOld(page([FLOODLIGHT])));
     await flush();
     expect(cards(renderer)).toEqual(['Kickoff Hub, Mirpur 10']);
   });
@@ -339,7 +344,7 @@ describe('The venue list (Explore → Venues)', () => {
     await flush();
     expect(shownText(renderer)).toContain("Couldn't load venues.");
 
-    api.get.mockResolvedValue({ data: [FLOODLIGHT] });
+    api.get.mockResolvedValue(page([FLOODLIGHT]));
     await press(renderer, 'Try again');
     expect(cards(renderer)).toEqual(['Floodlight Arena, Dhanmondi 27']);
 

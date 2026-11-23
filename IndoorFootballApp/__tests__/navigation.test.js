@@ -88,7 +88,7 @@ const VENUE = {
 
 // Fake server replies, by path. Anything else gets an empty list.
 const REPLIES = {
-  '/owners': [VENUE],
+  '/owners': { items: [VENUE], page: 1, limit: 20, total: 1 },
   '/owners/5': VENUE,
   '/teams/me': [TEAM],
   '/teams': [TEAM],

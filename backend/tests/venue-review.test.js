@@ -52,7 +52,7 @@ const stored = (userId) =>
 
 async function listedIds(path, jwt) {
   const res = await fetch(BASE_URL + path, { headers: { Authorization: `Bearer ${jwt}` } });
-  return (await res.json()).map((v) => v.userId);
+  return (await res.json()).items.map((v) => v.userId);
 }
 
 describe('POST /admin/indoors/:id/approve', () => {
@@ -67,7 +67,7 @@ describe('POST /admin/indoors/:id/approve', () => {
     const row = await stored(owner.user.id);
     assert.ok(row.approvedAt instanceof Date);
     assert.equal(row.reviewNote, null);
-    assert.ok((await listedIds('/owners', owner.jwt)).includes(owner.user.id));
+    assert.ok((await listedIds('/owners?search=Review+Arena&limit=50', owner.jwt)).includes(owner.user.id));
   });
 
   test('an incomplete venue: 409 with the missing fields, in order, and nothing changes', async (t) => {
@@ -170,12 +170,12 @@ describe('POST /admin/indoors/:id/move-to-review', () => {
   test('a live venue goes back to pending with the note, and leaves discovery at once', async (t) => {
     const me = await admin(t);
     const owner = await venueOwner(t, { live: true });
-    assert.ok((await listedIds('/owners', owner.jwt)).includes(owner.user.id));
+    assert.ok((await listedIds('/owners?search=Review+Arena&limit=50', owner.jwt)).includes(owner.user.id));
     const reply = await moveToReview(me.jwt, owner.user.id, { note: '  The venue is closed for renovation ' });
     assert.equal(reply.status, 200, JSON.stringify(reply.body));
     assert.equal(reply.body.approvedAt, null);
     assert.equal(reply.body.reviewNote, 'The venue is closed for renovation');
-    assert.ok(!(await listedIds('/owners', owner.jwt)).includes(owner.user.id));
+    assert.ok(!(await listedIds('/owners?search=Review+Arena&limit=50', owner.jwt)).includes(owner.user.id));
     const detail = await fetch(`${BASE_URL}/owners/${owner.user.id}`, { headers: { Authorization: `Bearer ${owner.jwt}` } });
     assert.equal(detail.status, 404);
   });

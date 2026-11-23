@@ -1,7 +1,6 @@
 // Request schemas for the /owners routes. See src/middleware/validate.js for how they're used.
 import { z } from 'zod';
 import {
-  AREA,
   openingHours,
   optionalPhone,
   pricingInfo,
@@ -11,6 +10,7 @@ import {
   venueName,
   website,
 } from './profileFields.js';
+import { areaFilter, limitParam, pageParam, searchFilter } from './listQuery.js';
 
 // ── PATCH /owners/me ── (edit the venue listing; docs/features/profiles-and-registration.md,
 // d endpoint 5, and docs/features/venues.md, d endpoint 2). The app sends every field
@@ -28,33 +28,14 @@ export const updateVenueSchema = z.object({
   description: venueDescription(),
 });
 
-// ── GET /owners ── (the venue list; docs/features/venues.md, d endpoint 3). Both
-// filters are optional; a blank one is ignored (undefined). `search` matches part of the
-// venue name, `area` part of the venue's area, both ignoring case. The area is tidied
-// like a stored area (spaces at both ends removed, inner runs made one), so
-// "  dhanmondi   27 " finds "Dhanmondi 27".
-export const VENUE_SEARCH_MAX = 60;
-
-const optionalFilter = ({ notText, tooLong, max, tidy }) =>
-  z
-    .string({ error: notText })
-    .optional()
-    .transform((text) => (text === undefined ? undefined : tidy(text)))
-    .transform((text) => (text === '' ? undefined : text))
-    .refine((text) => text === undefined || [...text].length <= max, { error: tooLong });
-
+// ── GET /owners ── (the venue list; docs/features/venues.md, d endpoint 3, and
+// docs/features/explore.md, d endpoint 8). Both filters are optional; a blank one is
+// ignored (undefined). `search` matches part of the venue name, `area` part of the
+// venue's area, both ignoring case. `page` and `limit` choose the page. The first
+// problem wins, in this order.
 export const venueListQuerySchema = z.object({
-  search: optionalFilter({
-    notText: 'Search must be text',
-    tooLong: `Search must be at most ${VENUE_SEARCH_MAX} characters`,
-    max: VENUE_SEARCH_MAX,
-    tidy: (text) => text.trim(),
-  }),
-  area: optionalFilter({
-    notText: 'Area must be text',
-    tooLong: `Area must be at most ${AREA.max} characters`,
-    max: AREA.max,
-    tidy: (text) => text.trim().replace(/\s+/g, ' '),
-  }),
+  search: searchFilter(),
+  area: areaFilter(),
+  page: pageParam(),
+  limit: limitParam(),
 });
-
