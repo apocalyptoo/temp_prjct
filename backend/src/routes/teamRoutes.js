@@ -24,6 +24,7 @@ import {
   createTeamSchema,
   inviteSchema,
   joinRequestSchema,
+  teamListQuerySchema,
   transferSchema,
   updateTeamSchema,
 } from '../validation/teamSchemas.js';
@@ -47,6 +48,6 @@ router.patch('/:teamId', verifyToken, playersOnly, validate({ body: updateTeamSc
 router.delete('/:teamId', verifyToken, playersOnly, deleteTeam);
 router.get('/me', verifyToken, getMyTeams); // must be above /:teamId
 router.get('/:teamId', verifyToken, getTeam);
-router.get('/', verifyToken, getTeams);
+router.get('/', verifyToken, validate({ query: teamListQuerySchema }), getTeams);
 
 export default router;

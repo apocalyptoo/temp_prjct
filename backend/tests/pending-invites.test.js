@@ -42,7 +42,7 @@ describe('Member lists contain only accepted members', () => {
   test('the captain sees accepted members, plus the pending invite in a separate list', async (t) => {
     const { captain, member, invitee, team } = await setUpTeam(t);
 
-    for (const path of ['/teams/me', '/teams']) {
+    for (const path of ['/teams/me']) {
       const seen = findTeam(await getJson(path, captain.jwt), team.id);
 
       assert.deepEqual(memberIds(seen), [captain.user.id, member.user.id].sort((a, b) => a - b), path);
@@ -60,7 +60,7 @@ describe('Member lists contain only accepted members', () => {
   test('an accepted member does not see pending invites', async (t) => {
     const { member, team } = await setUpTeam(t);
 
-    for (const path of ['/teams/me', '/teams']) {
+    for (const path of ['/teams/me']) {
       const seen = findTeam(await getJson(path, member.jwt), team.id);
       assert.equal(seen.members.length, 2, path);
       assert.equal('pendingInvites' in seen, false, `${path}: no pendingInvites for a non-captain`);
@@ -71,7 +71,8 @@ describe('Member lists contain only accepted members', () => {
     const { invitee, outsider, team } = await setUpTeam(t);
 
     for (const viewer of [invitee, outsider]) {
-      const seen = findTeam(await getJson('/teams', viewer.jwt), team.id);
+      // The team page (the team list has no member rows; tests/team-list.test.js).
+      const seen = await getJson(`/teams/${team.id}`, viewer.jwt);
       assert.equal(seen.members.length, 2);
       assert.equal(seen.members.some((m) => m.userId === invitee.user.id), false);
       assert.equal('pendingInvites' in seen, false);

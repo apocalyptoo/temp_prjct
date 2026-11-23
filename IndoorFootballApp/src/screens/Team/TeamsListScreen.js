@@ -21,17 +21,16 @@ export default function TeamsListScreen({ navigation }) {
   // Only players can create teams (venue owners also see this screen, read-only).
   const canCreateTeam = user?.role === 'PLAYER';
 
-  // The captain (Team.captainId) is always one of the team's accepted members, and each
-  // member already comes with their visible name, so no extra request is needed.
-  const captainName = team =>
-    team.members?.find(m => m.userId === team.captainId)?.user?.name ||
-    'Unknown';
+  // Each team in the list comes with its captain's name and its member count.
+  const captainName = team => team.captain?.name || 'Unknown';
 
   const loadTeams = async () => {
     setLoading(true);
     try {
       const res = await api.get('/teams');
-      setTeams(res.data);
+      // The list comes in pages now ({ items, page, limit, total }). This old screen
+      // shows the first page only, until Explore is rebuilt (feature 3b, task F3b.4).
+      setTeams(res.data.items);
     } catch (err) {
       console.error('loadTeams', err.message);
     } finally {
@@ -115,7 +114,7 @@ export default function TeamsListScreen({ navigation }) {
                   </View>
                   <Text style={[styles.meta, { color: '#555' }]}>
                     Captain: {captainName(item)} | Members:{' '}
-                    {item.members?.length || 0}
+                    {item.memberCount ?? 0}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>

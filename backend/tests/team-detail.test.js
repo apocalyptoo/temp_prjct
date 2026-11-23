@@ -236,10 +236,10 @@ describe('Team lists', () => {
     assert.equal('joinRequestCount' in asMember, false);
   });
 
-  test('/teams and /teams/me: the captain\'s pendingInvites hold invites only, never join requests', async (t) => {
+  test('/teams/me: the captain\'s pendingInvites hold invites only, never join requests', async (t) => {
     const { team, captain, invitee } = await setUpTeam(t);
 
-    for (const path of ['/teams', '/teams/me']) {
+    for (const path of ['/teams/me']) {
       const seen = (await getJson(path, captain.jwt)).find((tm) => tm.id === team.id);
       assert.deepEqual(ids(seen.pendingInvites), [invitee.user.id], path);
       assert.doesNotMatch(JSON.stringify(seen), /I play Thursdays/, `${path}: no messages`);

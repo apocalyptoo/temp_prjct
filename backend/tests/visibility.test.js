@@ -75,10 +75,10 @@ describe('Other users never see email or phone', () => {
     assert.equal('phone' in entry.playerProfile, false);
   });
 
-  test('GET /teams and /teams/me: members other than yourself have no email or phone; their area shows', async (t) => {
+  test('GET /teams/me: members other than yourself have no email or phone; their area shows', async (t) => {
     const { teammate, team } = await teamWithMembers(t);
 
-    for (const path of ['/teams', '/teams/me']) {
+    for (const path of ['/teams/me']) {
       const teams = await get(path, teammate.jwt);
       const found = teams.find((tm) => tm.id === team.id);
       assert.ok(found, `${path} should include the team`);

@@ -2,6 +2,8 @@ import { prisma } from '../db.js';
 import { viewerFrom, toVisibleUser } from '../utils/visibility.js';
 import { removeTeamRows } from '../utils/deletion.js';
 import { parseId } from '../utils/ids.js';
+import { escapeLike } from '../utils/search.js';
+import { pageArgs, pagedReply } from '../utils/paging.js';
 import {
   MEMBERSHIP_FIELDS_NOT_IN_REPLIES,
   MAX_TEAM_MEMBERS,
@@ -447,18 +449,20 @@ function toRowReply(row, viewer, options) {
   return { ...toMembershipReply(row, options), user };
 }
 
-// Where the viewer stands with this team. Venue owners and the admin can't join teams,
-// so they're always 'none'.
-function viewerStateOf(team, viewer) {
+// Where the viewer stands with a team, from its captain and the viewer's own membership
+// row in it (`own`: { status, origin }, or nothing). Venue owners and the admin can't
+// join teams, so they're always 'none'.
+function viewerStateFor(captainId, own, viewer) {
   if (viewer.role !== 'PLAYER') return 'none';
-  if (team.captainId === viewer.id) return 'captain';
-  const own = team.members.find((row) => row.userId === viewer.id);
+  if (captainId === viewer.id) return 'captain';
   if (!own) return 'none';
   if (isMember(own)) return 'member';
   return isPendingInvite(own) ? 'invited' : 'requested';
 }
+const viewerStateOf = (team, viewer) =>
+  viewerStateFor(team.captainId, team.members.find((row) => row.userId === viewer.id), viewer);
 
-// A team in a list (GET /teams, GET /teams/me):
+// A team in the viewer's own list (GET /teams/me):
 // - members: accepted members only (a pending invite or request isn't membership);
 // - pendingInvites: the team's pending invites (not join requests), only for the
 //   team's captain (Team.captainId). Nobody else gets the field.
@@ -513,16 +517,74 @@ export function toTeamDetail(team, viewer) {
 export const findTeamWithRows = (db, teamId) =>
   db.team.findUnique({ where: { id: teamId }, include: ALL_ROWS_WITH_PEOPLE });
 
-// ── Get all teams ──
+// ── The team list (Explore → Teams) ──
+// GET /teams (docs/features/explore.md, d endpoint 1): one page of light rows. Each row
+// is the team, its captain's name, how many accepted members it has and where the
+// viewer stands with it: no member rows and no profiles (P9, P10).
+//
+// Teams with a free spot come first, then name A to Z, then id (P2), so the order never
+// changes from one page to the next. "Has a free spot" is a count of accepted members
+// compared with the limit, which Prisma's findMany can't sort by, so the page is one
+// SQL query (P11). It is a tagged $queryRaw with a fixed text: every value below is sent
+// to Postgres as a parameter, never pasted into the SQL, so nothing typed into the
+// search can change the query. A filter that isn't used is sent as null and switched
+// off inside the SQL ("IS NULL OR …"). escapeLike makes %, _ and  in the search match
+// only themselves (ILIKE's wildcards and escape character).
+//
+// Moderation hook (docs/features/explore.md, section g): whether a suspended captain's
+// team is hidden is decided there, as one more condition in both WHERE clauses.
+const likePattern = (text) => (text === undefined ? null : `%${escapeLike(text)}%`);
+
 export const getTeams = async (req, res, next) => {
   try {
-    const teams = await prisma.team.findMany({
-      include: ALL_ROWS_WITH_PEOPLE,
-      orderBy: { createdAt: 'desc' },
-    });
-
+    const { search, area, page, limit } = req.valid.query;
     const viewer = viewerFrom(req);
-    res.json(teams.map((team) => toTeamListItem(team, viewer)));
+    const name = likePattern(search);
+    const teamArea = likePattern(area);
+    const { skip, take } = pageArgs({ page, limit });
+
+    const [rows, [{ total }]] = await Promise.all([
+      prisma.$queryRaw`
+        SELECT t.id, t.name, t.description, t.area, t."createdAt", t."captainId",
+               captain.name AS "captainName",
+               accepted.count AS "memberCount",
+               own.status::text AS "viewerStatus",
+               own.origin::text AS "viewerOrigin"
+        FROM "Team" t
+        LEFT JOIN "PlayerProfile" captain ON captain."userId" = t."captainId"
+        CROSS JOIN LATERAL (
+          SELECT COUNT(*)::int AS count FROM "TeamMember" m
+          WHERE m."teamId" = t.id AND m.status = 'accepted'
+        ) accepted
+        LEFT JOIN "TeamMember" own ON own."teamId" = t.id AND own."userId" = ${viewer.id}
+        WHERE (${name}::text IS NULL OR t.name ILIKE ${name})
+          AND (${teamArea}::text IS NULL OR t.area ILIKE ${teamArea})
+        ORDER BY (accepted.count >= ${MAX_TEAM_MEMBERS}) ASC, lower(t.name) ASC, t.id ASC
+        LIMIT ${take} OFFSET ${skip}`,
+      prisma.$queryRaw`
+        SELECT COUNT(*)::int AS total FROM "Team" t
+        WHERE (${name}::text IS NULL OR t.name ILIKE ${name})
+          AND (${teamArea}::text IS NULL OR t.area ILIKE ${teamArea})`,
+    ]);
+
+    const items = rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      area: row.area,
+      createdAt: row.createdAt,
+      captainId: row.captainId,
+      // The captain is another user: shown through the visibility rules ({ id, name }).
+      captain: toVisibleUser({ id: row.captainId, name: row.captainName || 'Unknown' }, viewer),
+      memberCount: row.memberCount,
+      maxMembers: MAX_TEAM_MEMBERS,
+      viewerState: viewerStateFor(
+        row.captainId,
+        row.viewerStatus ? { status: row.viewerStatus, origin: row.viewerOrigin } : null,
+        viewer
+      ),
+    }));
+    res.json(pagedReply(items, total, { page, limit }));
   } catch (error) {
     return next(error);
   }

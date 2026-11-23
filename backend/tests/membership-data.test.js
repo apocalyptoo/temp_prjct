@@ -101,7 +101,7 @@ describe('Replies', () => {
     await postJson(`/teams/${team.id}/accept`, {}, member.jwt);
     await postJson(`/teams/${team.id}/invite`, { userId: invitee.user.id }, captain.jwt);
 
-    for (const path of ['/teams', '/teams/me']) {
+    for (const path of ['/teams/me']) {
       const found = (await get(path, captain.jwt)).find((tm) => tm.id === team.id);
       assert.equal(found.members.length, 2, `${path}: captain and member`);
       assert.equal(found.pendingInvites.length, 1, `${path}: one pending invite`);

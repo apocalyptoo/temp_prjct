@@ -8,7 +8,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import { BASE_URL, createLoggedInUser, createTestUser } from './helpers.js';
+import { BASE_URL, prisma, createLoggedInUser, createTestUser } from './helpers.js';
 
 async function getJson(path, jwt) {
   const res = await fetch(BASE_URL + path, { headers: { Authorization: `Bearer ${jwt}` } });
@@ -37,6 +37,18 @@ const LISTS = [
       }
       const viewer = await createLoggedInUser(t, { role: 'PLAYER' });
       return { jwt: viewer.jwt, path: (params) => `/owners?${new URLSearchParams({ search: word, ...params })}` };
+    },
+  },
+  {
+    name: 'GET /teams',
+    idOf: (row) => row.id,
+    async setup(t, word, count) {
+      // The viewer captains the teams, so they are deleted with the viewer.
+      const viewer = await createLoggedInUser(t, { role: 'PLAYER' });
+      for (let n = 1; n <= count; n += 1) {
+        await prisma.team.create({ data: { name: `${word} Team ${twoDigits(n)}`, captainId: viewer.user.id } });
+      }
+      return { jwt: viewer.jwt, path: (params) => `/teams?${new URLSearchParams({ search: word, ...params })}` };
     },
   },
 ];

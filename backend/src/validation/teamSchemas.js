@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { charCount } from './common.js';
 import { area } from './profileFields.js';
+import { areaFilter, limitParam, pageParam, searchFilter } from './listQuery.js';
 import { MAX_DB_INT } from '../utils/ids.js';
 
 export const TEAM_NAME = { min: 2, max: 40 };
@@ -86,3 +87,14 @@ export const transferSchema = inviteSchema;
 // description or area is stored as null, exactly as at create
 // (docs/features/team-membership.md, P7; docs/features/explore.md, P12).
 export const updateTeamSchema = createTeamSchema;
+
+// ── GET /teams ── (the team list of Explore; docs/features/explore.md, d endpoint 1).
+// `search` matches part of the team's name and `area` part of its area, both ignoring
+// case; a blank one is ignored. `page` and `limit` choose the page. The first problem
+// wins, in this order.
+export const teamListQuerySchema = z.object({
+  search: searchFilter(),
+  area: areaFilter(),
+  page: pageParam(),
+  limit: limitParam(),
+});

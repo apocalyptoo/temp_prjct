@@ -91,7 +91,26 @@ const REPLIES = {
   '/owners': { items: [VENUE], page: 1, limit: 20, total: 1 },
   '/owners/5': VENUE,
   '/teams/me': [TEAM],
-  '/teams': [TEAM],
+  // The paged team list (Explore → Teams): light rows, without member rows.
+  '/teams': {
+    items: [
+      {
+        id: TEAM.id,
+        name: TEAM.name,
+        description: TEAM.description,
+        area: null,
+        createdAt: TEAM.createdAt,
+        captainId: TEAM.captainId,
+        captain: { id: PLAYER.id, name: PLAYER.name },
+        memberCount: 1,
+        maxMembers: 15,
+        viewerState: 'captain',
+      },
+    ],
+    page: 1,
+    limit: 20,
+    total: 1,
+  },
   '/teams/1': TEAM_DETAIL,
   '/players/me': {
     id: PLAYER.id,

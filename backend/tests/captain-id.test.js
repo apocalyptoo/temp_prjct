@@ -56,8 +56,12 @@ describe('Team replies', () => {
     assert.equal(team.captainId, captain.user.id, 'the create reply has captainId');
     assert.equal('ownerId' in team, false, 'the create reply has no ownerId');
 
+    const listed = (await get(`/teams?search=${encodeURIComponent(team.name)}&limit=50`, member.jwt)).items.find((tm) => tm.id === team.id);
+    assert.ok(listed, '/teams should include the team');
+    assert.equal(listed.captainId, captain.user.id, '/teams: captainId');
+    assert.equal('ownerId' in listed, false, '/teams: no ownerId');
+
     for (const [path, viewer] of [
-      ['/teams', member],
       ['/teams/me', member],
       ['/teams/me', captain],
     ]) {

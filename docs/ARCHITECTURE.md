@@ -220,7 +220,7 @@ Text limits count characters the way people see them, so a Bangla name isn't cou
 
 ## 5. Database
 
-The data lives in PostgreSQL. The backend talks to it through **Prisma**, an **ORM** (Object-Relational Mapper): a library that lets you read and write database rows with JavaScript code instead of writing SQL by hand. The whole server shares **one** Prisma client (in `backend/src/db.js`), because each client keeps its own pool of open connections and databases limit how many you get.
+The data lives in PostgreSQL. The backend talks to it through **Prisma**, an **ORM** (Object-Relational Mapper): a library that lets you read and write database rows with JavaScript code instead of writing SQL by hand. (One list is the exception: the teams in Explore are read with one hand-written SQL query, because their order, teams with a free spot first, is something Prisma can't sort by. Whatever a person types into the search is always sent to the database separately from the SQL text, so it can only ever be text to look for.) The whole server shares **one** Prisma client (in `backend/src/db.js`), because each client keeps its own pool of open connections and databases limit how many you get.
 
 The tables are described in `backend/prisma/schema.prisma`. Changes to that file reach the real database through **migrations**: small saved SQL scripts, one per change, applied in order so every copy of the database ends up with the same tables. They live in `backend/prisma/migrations/`.
 
