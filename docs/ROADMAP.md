@@ -125,12 +125,13 @@ Rule: write a short spec in `docs/features/` before building each feature below.
 - [x] Venue discovery: the venue list with search by name and an area filter (approved venues only), opened from Explore → Venues until feature 3b, and a new Venue detail screen (tap to call, website through `isWebLink`). Replaces the old "Venue discovery polish" item: the polish is this rebuilt list and detail screen, in the new design (spec sections d and e) (done 2026-11-23: `GET /owners` with search and the area filter and `GET /owners/:userId` in F3.1; the reusable `VenueList`, the interim `VenuesScreen` and Venue detail in F3.3, which deleted `IndoorsListScreen`)
 - [x] Admin side: the Venues tab with pending venues first (approve, note, move back to review) and the Dashboard's "Venues waiting for review" count (done 2026-11-23: `pendingVenueCount` in F3.1; in F3.4 the rebuilt Dashboard, the Venues tab and a review screen per venue, which deleted `ManageIndoorsScreen` and the old Dashboard code)
 
-**Explore: Teams and Players, Player detail** (feature 3b, right after Venues; split out on 2026-11-23, DECISIONS.md "Venue details"; spec to be written)
-- [ ] Explore tab: Teams · Players · Venues sections, each with search; venues also filter by area (PRODUCT.md, "App structure and navigation"). Replaces the interim Explore screen with three rows. The Venues section reuses the venue list built in feature 3.
-- [ ] Player detail: public profile fields (PRODUCT.md, "Profile visibility"), with **Invite to my team** for captains; the phone for accepted teammates. Report and Block arrive with moderation.
-- [ ] Review finding 3: an optional team area, an area filter for teams, and area and position filters for players; details to be decided in the 3b spec ([review](reviews/2026-11-23-independent-review.md))
-- [ ] Review finding 4: paging built into the Explore lists and endpoints from the start, and a server-side search for Invite players; details to be decided in the 3b spec ([review](reviews/2026-11-23-independent-review.md))
-- [ ] Pagination on list endpoints (with the Explore lists; moved here from its own group on 2026-11-23, review finding 4)
+**Explore: Teams and Players, Player detail** (feature 3b, right after Venues; split out on 2026-11-23, DECISIONS.md "Venue details"; scope decided in DECISIONS.md 2026-11-23, "Explore details"; spec: [features/explore.md](features/explore.md), written 2026-11-23 and waiting for approval; proposed tasks F3b.1 backend, F3b.2 team area and player rows, F3b.3 Player detail, F3b.4 Explore, F3b.5 Invite players)
+- [ ] Explore tab: one screen with Teams · Players · Venues sections, each with search and its filters (PRODUCT.md, "App structure and navigation"; spec sections d and e). Replaces the interim Explore screen with three rows and deletes the old Teams and Players lists and the interim Venues screen, so no old screen is reachable by players or owners (review finding 9). The Venues section reuses the venue list built in feature 3.
+- [ ] Player detail: public profile fields (PRODUCT.md, "Profile visibility"), with **Invite to my team** for captains; the phone, with tap to call, for accepted teammates (spec d endpoint 6 and section e). Report and Block arrive with moderation.
+- [ ] Review finding 3: an optional team area set on the team form, an area filter for teams, and area and position filters for players (decided 2026-11-23; spec sections c, d and e; the `team_area` migration needs approval) ([review](reviews/2026-11-23-independent-review.md))
+- [ ] Review finding 4: paging built into the Explore lists and endpoints from the start, and a server-side search for Invite players (spec d.1, d endpoint 7 and section e) ([review](reviews/2026-11-23-independent-review.md))
+- [ ] Pagination on list endpoints: covered by this feature for the three Explore lists (decided 2026-11-23, DECISIONS.md "Explore details"). Whether the admin's lists get paging, and when, is the spec's open question Q4.
+- [ ] Review finding 12: "Position · Area" on team member, join request and invite rows (moved here from the review quick fixes, because the task brief builds it with this feature; spec section e; which rows exactly is the spec's open question Q1)
 
 **Account deletion**
 - [ ] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion")
@@ -153,7 +154,7 @@ Rule: write a short spec in `docs/features/` before building each feature below.
 - [ ] Finding 7: a usable password reset page (viewport, the strength rule, a confirm field)
 - [ ] Finding 10: on a pending, incomplete My Venue, a "Complete your listing" button under the checklist; a different icon for Address and Area
 - [ ] Finding 11: one Create team button on the empty My Teams screen
-- [ ] Finding 12: "Position · Area" on team member, join request and invite rows
+- Finding 12 ("Position · Area" on player rows) moved to feature 3b above.
 - [ ] Finding 13: two sign-ups for the same email at once get "Email already registered", not a 500
 - [ ] Finding 14: "Open in Maps" on a venue's address
 - [ ] Finding 15: drop the unused email claim from the login token

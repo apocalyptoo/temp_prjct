@@ -27,9 +27,9 @@ What exists today, made secure and polished, plus:
 - Profile editing (players and venue owners)
 - Change password while logged in
 - Account deletion inside the app, plus a web page for deletion requests (both required by Google Play)
-- Player discovery, with privacy rules for what's visible to whom
-- Team creation, discovery and management, with multiple team memberships
-- Captain can edit the team's name and description
+- Player discovery (search by name, filter by area and position), with privacy rules for what's visible to whom
+- Team creation, discovery (search by name, filter by area) and management, with multiple team memberships
+- Captain can edit the team's name, description and area
 - Captain invitations and player join requests, with captain approval
 - Leaving a team and transferring captaincy
 - In-app notifications: a Notifications screen with a badge, covering actions needed and updates (no push)
@@ -78,7 +78,7 @@ The current app puts only Profile and Settings in the bottom bar, and hides ever
 | Admin | **Dashboard · Reports · Venues · Users · Teams** |
 
 - **My Teams (player):** the player's teams, with a Create Team button. Opens Team detail (members; for captains, pending requests, invite, transfer captaincy, edit team; for every member, leave team, though a captain with other members is asked to transfer captaincy first). Team detail's Members card lists every accepted member (no "See all" link). Team detail doesn't show phone numbers; teammates see them on Player detail. Feature spec: [features/team-membership.md](features/team-membership.md).
-- **Explore (player and owner):** three sections at the top, **Teams · Players · Venues**, each with search (venues also filter by area). Opens Team detail, Player detail and Venue detail. For owners, Explore is read-only (no invite or join buttons).
+- **Explore (player and owner):** three sections at the top, **Teams · Players · Venues**, each with search by name. Teams and venues also filter by area; players filter by area and by position. Search and filters can all be combined. The lists load in pages as the user scrolls. Full teams stay listed, marked "Full", after the teams with free spots. Opens Team detail, Player detail and Venue detail. For owners, Explore is read-only (no invite or join buttons). (Filters, paging and full teams decided 2026-11-23.) Feature spec: [features/explore.md](features/explore.md).
 - **My Venue (owner):** the owner's listing, its status ("Pending review" or "Live"), and an Edit button. While the venue is pending, it also shows what's still missing and the admin's note, if there is one.
 - **Notifications:** see "Notifications" below. The tab shows the badge.
 - **Profile:** the user's own profile, with a gear icon for **Settings**. For a venue owner it shows the account (venue name, "Venue owner", email) and a link to My Venue, where the listing itself lives.
@@ -90,7 +90,7 @@ The current app puts only Profile and Settings in the bottom bar, and hides ever
 **Language:** English only in v1.0.
 
 **Interim screens (until their Step 3 feature):** the bottom tabs exist now (ROADMAP Step 2), but some tabs show stand-ins:
-- Player and owner **Explore**: three rows (Teams, Players, Venues) opening the old lists. Replaced by the Explore feature (sections with search; venues also filter by area).
+- Player and owner **Explore**: three rows (Teams, Players, Venues) opening the old Teams and Players lists and the new venue list. Replaced by the Explore feature (sections with search and filters; [features/explore.md](features/explore.md)).
 - Player **Notifications**: the Invites screen (rebuilt in the new design with team membership, feature 1). Owner **Notifications**: "No notifications yet." Both replaced by the Notifications feature.
 - Admin **Reports**: "Reports arrive with moderation." Replaced by the moderation feature.
 
@@ -135,8 +135,8 @@ Decided 2026-11-22 (DECISIONS.md, "Profiles and registration details"). Feature 
 - **Free text with suggestions.** Players type their area. Common areas are suggested as they type, and tapping one fills the field. Any other text is allowed.
 - Stored as typed, with spaces at both ends removed and spaces inside tidied, within a length limit (set in the feature spec).
 - The field tells players not to enter a full address (see "Profile visibility").
-- **Filtering by area** (Explore, venues) ignores upper and lower case and matches part of the text, so "dhanmondi" finds "Dhanmondi 27".
-- The same suggestion list is reused for venue areas (venues feature).
+- **Filtering by area** (Explore: teams, players and venues) ignores upper and lower case and matches part of the text, so "dhanmondi" finds "Dhanmondi 27".
+- The same suggestion list is reused for venue areas (venues feature) and team areas (Explore feature; see "Team membership" → "Team area").
 
 **Phone numbers**
 - A phone number must look like a **Bangladeshi mobile number**: `01`, then a digit from 3 to 9, then 8 more digits (11 digits in all, for example 01712345678).
@@ -188,7 +188,14 @@ _Implementation note:_ each login token carries the account's token version (`Us
 - An offensive message is handled by **reporting the player** (see "Administration and moderation").
 
 **Editing a team**
-- The captain can **edit the team's name and description**, with the same rules as creating a team.
+- The captain can **edit the team's name, description and area**, with the same rules as creating a team.
+
+**Team area** (decided 2026-11-23)
+- A team can have an optional **Area** (for example "Mirpur"), so players can find teams near them.
+- The **captain** sets it on the team form, when creating or editing the team.
+- It follows the player Area rules exactly: free text with the same suggestion list, the same tidying and the same length limit (see "Profiles" → "Area").
+- **Existing teams start without an area.** A team without one isn't found by the area filter until its captain adds it.
+- **Explore → Teams filters by area**, the same way as everywhere else (case ignored, part of the text).
 
 **Leaving and captaincy**
 - Any member can **leave** a team at any time.
@@ -202,9 +209,11 @@ _Implementation note:_ each login token carries the account's token version (`Us
 - When a team is full, the captain **can't send new invites**: the invite button is disabled with "Team is full (15/15)", and the backend refuses too.
 - When a team is full, players **can't send join requests** either: the Request to join button is disabled with "Team is full (15/15)", and the backend refuses too.
 - Pending invites and requests don't count toward the limit.
+- A full team **stays listed in Explore → Teams, marked "Full"**. Teams with free spots are listed first. (Decided 2026-11-23.)
 
 _Implementation notes:_
 - The join request message needs one new optional field on `TeamMember`. It's a schema change and needs approval (team membership backend task).
+- The team area needs one new optional field on `Team`. It's a schema change and needs approval (Explore backend task).
 - Each membership records how it started: a captain's invite, a player's join request, or the captain's own membership created with the team (`TeamMember.origin`).
 - **"Longest-standing member"** means the member with the **earliest accepted date** (`TeamMember.acceptedAt`, set when a membership becomes accepted; `createdAt` is when the invite or request was made). Existing accepted members got their old created date as the accepted date (the best value available). If two dates are equal, the lower membership id wins.
 - **The captain is stored in one place only:** `Team.captainId`. There's no "captain" member role, so the captain can't be recorded in two places that might disagree. The captain is still an accepted member of the team. A captaincy transfer is a single update of `captainId`.

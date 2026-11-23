@@ -459,3 +459,19 @@ The owner approved `docs/features/venues.md`: its five defaults (D1–D5), all o
 
 **Alternatives considered:** existing venues staying live while incomplete, or going back to pending (rejected); paginating the venue list now (deferred); a separate Pending venues screen (rejected); no notification for moving back (rejected); letting the admin approve unverified owners (rejected).
 **Consequence:** the backend task (F3.1) builds exactly the API in the spec. The `venues` migration still needs the owner's approval when it's created.
+
+### 2026-11-23: Explore details
+The owner's decisions for feature 3b (Explore: Teams and Players, and Player detail), made after the independent review of 2026-11-23 (its findings 3 and 4). The rules are in `docs/PRODUCT.md` under "App structure and navigation", "Team membership" and "Profiles".
+- **Teams get an optional Area.** The captain sets it on the team form (when creating or editing the team), with the same rules, tidying and suggestion list as the player Area. Existing teams start without one. Explore → Teams filters by area.
+- **Explore → Players has search by name plus filters by area and by position.** All three can be combined.
+- **Full teams (15/15) stay listed in Explore → Teams, marked "Full".** Teams with free spots are listed first.
+- **Paging is built into the Explore lists from the start.** The separate "Pagination on list endpoints" roadmap item is covered by this feature.
+
+**Why:**
+- "Near me" is the first thing a player asks, and "a goalkeeper in Mirpur" the first thing a captain asks. Without an area on teams and filters on players, Explore is a list of every team and player in the country (review finding 3). Venues already filter by area; teams and players now match.
+- The position list was made a fixed list partly so a position filter would be possible (2026-11-20, "Position is a fixed list").
+- A full team can have a free spot again tomorrow, and players still look teams up by name. Listing teams with free spots first keeps the teams a player can actually join at the top.
+- Feature 3b is where the list endpoints and screens get their final shape. Building them without paging and reopening every list, screen and test a few features later would be double work (review finding 4).
+
+**Alternatives considered:** search by name only, with no team area (the plan before the review; rejected), hiding full teams from the list (rejected), a separate pagination item after moderation (the earlier order; rejected: double work).
+**Consequence:** `Team.area` is a schema change and needs the owner's approval in the backend task. The feature spec is `docs/features/explore.md`; everything in it beyond these four decisions is a proposal until the owner approves it.
