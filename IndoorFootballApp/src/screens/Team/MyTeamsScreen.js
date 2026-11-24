@@ -245,7 +245,7 @@ function RequestsSentCard({ requests, cancelling, onCancel, onOpen, style }) {
               onPress={() => onOpen(request.teamId)}
               accessibilityLabel={`Open ${request.team.name}`}
               last
-              trailing={
+              actions={
                 <Button
                   title="Cancel"
                   variant="secondary"

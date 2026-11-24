@@ -1,5 +1,8 @@
 // Team detail (docs/features/team-membership.md, sections c and e): one team, as the
-// viewer sees it. Params: { teamId }. Opened from My Teams and from Explore → Teams.
+// viewer sees it. Params: { teamId }. Opened from My Teams, Explore → Teams and a
+// player's teams on Player detail. Every person row (members, join requests, invites)
+// opens Player detail (docs/features/explore.md, P28), pushed so a chain of team and
+// player pages goes back one step at a time (P30).
 // The backend says where the viewer stands (viewerState: captain, member, invited,
 // requested or none) and sends join requests and pending invites only to the captain.
 import React, { useContext, useState } from 'react';
@@ -25,6 +28,7 @@ import {
 } from '../../components/ui';
 import { useBusyAction } from '../../hooks/useBusyAction';
 import {
+  CaptainLabel,
   TeamLoadState,
   personName,
   personMeta,
@@ -193,6 +197,11 @@ export default function TeamDetailScreen({ route, navigation }) {
 
 function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
   const { spacing } = useTheme();
+  const openPlayer = row =>
+    navigation.push('PlayerDetail', {
+      userId: row.userId,
+      playerName: personName(row),
+    });
   const state = team.viewerState;
   const isFull = team.memberCount >= team.maxMembers;
   const fullLabel = `Team is full (${team.memberCount}/${team.maxMembers})`;
@@ -308,7 +317,13 @@ function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
       ) : null}
 
       {state === 'captain' && team.joinRequests?.length > 0 ? (
-        <JoinRequestsCard team={team} busy={busy} run={run} ask={ask} />
+        <JoinRequestsCard
+          team={team}
+          busy={busy}
+          run={run}
+          ask={ask}
+          onOpen={openPlayer}
+        />
       ) : null}
 
       {state === 'captain' && team.pendingInvites?.length > 0 ? (
@@ -319,7 +334,8 @@ function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
               key={row.userId}
               name={personName(row)}
               meta={personMeta(row)}
-              trailing={
+              onPress={() => openPlayer(row)}
+              actions={
                 <IconButton
                   icon="reject"
                   accessibilityLabel={`Cancel invite to ${personName(row)}`}
@@ -340,10 +356,10 @@ function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
             key={row.userId}
             name={personName(row)}
             meta={personMeta(row)}
-            trailing={
-              row.userId === team.captainId ? (
-                <CaptainLabel />
-              ) : state === 'captain' ? (
+            onPress={() => openPlayer(row)}
+            trailing={row.userId === team.captainId ? <CaptainLabel /> : null}
+            actions={
+              row.userId !== team.captainId && state === 'captain' ? (
                 <IconButton
                   icon="remove"
                   accessibilityLabel={`Remove ${personName(row)}`}
@@ -428,22 +444,9 @@ function SideBySide({ children }) {
   return <View style={[styles.wrapRow, { gap: spacing.md }]}>{children}</View>;
 }
 
-// The captain's row ends with a crown and "Captain" (DESIGN.md section 6).
-function CaptainLabel() {
-  const { colors, spacing, icon } = useTheme();
-  return (
-    <View style={[styles.row, { gap: spacing.xxs }]}>
-      <Icon name="captain" size={icon.sizeSmall} color={colors.accent} />
-      <Text variant="buttonSecondary" color="accent">
-        Captain
-      </Text>
-    </View>
-  );
-}
-
 // The captain's join requests, oldest first, each with its message under the row.
 // Approving needs no confirmation; declining asks first (ask).
-function JoinRequestsCard({ team, busy, run, ask }) {
+function JoinRequestsCard({ team, busy, run, ask, onOpen }) {
   const { spacing } = useTheme();
   const requests = team.joinRequests;
   return (
@@ -462,8 +465,9 @@ function JoinRequestsCard({ team, busy, run, ask }) {
             <ListRow
               name={name}
               meta={personMeta(row)}
+              onPress={() => onOpen(row)}
               last
-              trailing={
+              actions={
                 <View style={[styles.row, { gap: spacing.sm }]}>
                   <IconButton
                     variant="reject"

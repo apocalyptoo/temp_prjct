@@ -88,6 +88,40 @@ describe('ListRow', () => {
     await act(() => row.props.onPress());
     expect(onPress).toHaveBeenCalledTimes(1);
   });
+
+  test('actions sit beside the tappable part of the row, not inside it; trailing stays inside', async () => {
+    const onPress = jest.fn();
+    const renderer = await render(
+      <ListRow
+        name="Nayeem Islam"
+        meta="Midfielder"
+        onPress={onPress}
+        trailing={<NativeText>Captain</NativeText>}
+        actions={<TextLink title="Remove" onPress={() => {}} />}
+        last
+      />,
+    );
+    const row = tappableLabelled(renderer, 'Nayeem Islam, Midfielder');
+    const remove = tappableLabelled(renderer, 'Remove');
+    expect(remove).toBeTruthy();
+    expect(row.findAll(node => node === remove)).toHaveLength(0);
+    expect(
+      row.findAll(
+        node => node.type === NativeText && node.props.children === 'Captain',
+      ),
+    ).toHaveLength(1);
+  });
+
+  test('actions on a row that is not tappable still show', async () => {
+    const renderer = await render(
+      <ListRow
+        name="Nayeem Islam"
+        actions={<TextLink title="Invite" onPress={() => {}} />}
+      />,
+    );
+    expect(tappableLabelled(renderer, 'Invite')).toBeTruthy();
+    expect(renderer.root.findAllByType(Divider)).toHaveLength(1);
+  });
 });
 
 describe('ConfirmDialog', () => {

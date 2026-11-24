@@ -156,7 +156,7 @@ function JoinRequestsMock() {
           name={request.name}
           meta={request.meta}
           last={index === requests.length - 1}
-          trailing={
+          actions={
             <View style={[styles.row, styles.noWrap, { gap: spacing.sm }]}>
               <IconButton
                 variant="reject"

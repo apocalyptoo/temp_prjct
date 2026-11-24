@@ -65,12 +65,65 @@ const TEAM = {
   joinRequestCount: 0,
 };
 
+// A second player, in the first team and captain of a second one, for the chain of
+// Team detail and Player detail pages.
+const TANVIR_ROW = {
+  id: 2,
+  teamId: 1,
+  userId: 11,
+  status: 'accepted',
+  createdAt: '2026-11-20T10:00:00.000Z',
+  user: {
+    id: 11,
+    name: 'Tanvir Ahmed',
+    playerProfile: { name: 'Tanvir Ahmed', position: 'Goalkeeper' },
+  },
+};
+
 // GET /teams/:teamId for the new Team detail screen.
 const TEAM_DETAIL = {
   ...TEAM,
+  members: [...TEAM.members, TANVIR_ROW],
+  memberCount: 2,
+  maxMembers: 15,
+  viewerState: 'none',
+};
+const SECOND_TEAM_DETAIL = {
+  id: 2,
+  name: 'Mirpur Mavericks',
+  description: null,
+  area: null,
+  captainId: 11,
+  createdAt: '2026-11-21T10:00:00.000Z',
+  members: [{ ...TANVIR_ROW, id: 3, teamId: 2 }],
   memberCount: 1,
   maxMembers: 15,
   viewerState: 'none',
+};
+// GET /players/11 for Player detail.
+const TANVIR_PROFILE = {
+  id: 11,
+  role: 'PLAYER',
+  name: 'Tanvir Ahmed',
+  playerProfile: { name: 'Tanvir Ahmed', position: 'Goalkeeper' },
+  teams: [
+    {
+      id: 2,
+      name: 'Mirpur Mavericks',
+      area: null,
+      memberCount: 1,
+      maxMembers: 15,
+      isCaptain: true,
+    },
+    {
+      id: 1,
+      name: 'Dhanmondi Strikers',
+      area: null,
+      memberCount: 2,
+      maxMembers: 15,
+      isCaptain: false,
+    },
+  ],
 };
 
 // A live venue, for Explore → Venues and Venue detail.
@@ -125,6 +178,8 @@ const REPLIES = {
     total: 1,
   },
   '/teams/1': TEAM_DETAIL,
+  '/teams/2': SECOND_TEAM_DETAIL,
+  '/players/11': TANVIR_PROFILE,
   '/players/me': {
     id: PLAYER.id,
     email: PLAYER.email,
@@ -351,6 +406,78 @@ describe('Player navigator', () => {
   });
 });
 
+// The screens a tab's stack can show (its state exists once the tab has been opened).
+const stackRoutes = (navigationRef, tab) =>
+  navigationRef.getRootState().routes.find(r => r.name === tab).state
+    ?.routeNames ?? [];
+
+describe('Player detail (explore spec P30)', () => {
+  test('registered in every stack that can show a team', async () => {
+    const { renderer, navigationRef } = await renderNavigator(
+      PlayerNavigator,
+      PLAYER,
+    );
+    await pressTab(renderer, 'Explore');
+    await pressTab(renderer, 'Notifications');
+
+    for (const tab of ['MyTeamsTab', 'ExploreTab', 'NotificationsTab']) {
+      expect(stackRoutes(navigationRef, tab)).toEqual(
+        expect.arrayContaining(['TeamDetail', 'PlayerDetail']),
+      );
+    }
+  });
+
+  test('team → player → their other team → player, and Android back one step at a time', async () => {
+    const { renderer, navigationRef } = await renderNavigator(
+      PlayerNavigator,
+      PLAYER,
+    );
+    const stackOf = () =>
+      navigationRef
+        .getRootState()
+        .routes.find(r => r.name === 'MyTeamsTab')
+        .state.routes.map(r => r.name);
+
+    await pressText(renderer, 'Dhanmondi Strikers');
+    expect(current(navigationRef)).toBe('TeamDetail');
+
+    await pressText(renderer, 'Tanvir Ahmed', { last: true });
+    expect(current(navigationRef)).toBe('PlayerDetail');
+    expect(navigationRef.getCurrentRoute().params).toEqual({
+      userId: 11,
+      playerName: 'Tanvir Ahmed',
+    });
+    expect(api.get).toHaveBeenCalledWith('/players/11');
+    expect(tabLabels(renderer)).toHaveLength(4);
+
+    await pressText(renderer, 'Mirpur Mavericks', { last: true });
+    expect(current(navigationRef)).toBe('TeamDetail');
+    expect(navigationRef.getCurrentRoute().params).toEqual({ teamId: 2 });
+
+    // The same player again: pushed, not jumped back to the earlier page.
+    await pressText(renderer, 'Tanvir Ahmed', { last: true });
+    expect(stackOf()).toEqual([
+      'MyTeams',
+      'TeamDetail',
+      'PlayerDetail',
+      'TeamDetail',
+      'PlayerDetail',
+    ]);
+
+    for (const [screen, params] of [
+      ['TeamDetail', { teamId: 2 }],
+      ['PlayerDetail', { userId: 11, playerName: 'Tanvir Ahmed' }],
+      ['TeamDetail', { teamId: 1 }],
+    ]) {
+      await goBack(navigationRef);
+      expect(current(navigationRef)).toBe(screen);
+      expect(navigationRef.getCurrentRoute().params).toEqual(params);
+    }
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('MyTeams');
+  });
+});
+
 describe('Owner navigator', () => {
   test('tabs, Explore lists, Profile, Settings and the interim screens', async () => {
     const { renderer, navigationRef } = await renderNavigator(
@@ -402,8 +529,19 @@ describe('Owner navigator', () => {
       .getRootState()
       .routes.find(r => r.name === 'ExploreTab').state;
     expect(exploreStack.routeNames).toContain('TeamDetail');
+    expect(exploreStack.routeNames).toContain('PlayerDetail');
     expect(exploreStack.routeNames).not.toContain('RequestToJoin');
     expect(exploreStack.routeNames).not.toContain('TransferCaptaincy');
+    // A member row opens Player detail for owners too, without an Invite card.
+    await pressText(renderer, 'Tanvir Ahmed');
+    expect(current(navigationRef)).toBe('PlayerDetail');
+    expect(
+      renderer.root
+        .findAllByType(NativeText)
+        .some(node => node.props.children === 'Invite to my team'),
+    ).toBe(false);
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('TeamDetail');
 
     await pressTab(renderer, 'Notifications');
     expect(current(navigationRef)).toBe('OwnerNotifications');

@@ -191,7 +191,7 @@ The backend decides which fields each person may see, following "Profile visibil
 |---|---|
 | Everything about an account | The user themselves and the admin |
 | A player's name, position, and height, weight and area (each only if set) | Any logged-in user. The area is a general area like "Dhanmondi 27", never a full address |
-| A player's phone | Only accepted teammates. The backend sends it with a player's profile (`GET /players/:id`); the Player detail screen that shows it is being built (feature 3b) |
+| A player's phone | Only accepted teammates. The backend sends it with a player's profile (`GET /players/:id`), and Player detail shows it with a line saying why, tap to call |
 | Email | Only the user themselves and the admin |
 | A venue listing (name, area, address, phone, website, opening hours, pricing info, description) | Any logged-in user, once the admin has approved it: it's a business listing. The owner's login email, the review status and the admin's note stay hidden |
 | Password hashes and email-link tokens | Nobody, ever |
@@ -353,7 +353,7 @@ Because the screen set swaps as soon as `user` changes, logging in or out instan
 Each logged-in role gets a **bottom tab bar**, and **each tab has its own stack**. So when you open a team from My Teams, Team detail is put on top of the My Teams stack and the tab bar stays visible. Each tab remembers where you were, and tapping the tab you're already on takes you back to its first screen.
 
 What each tab holds today:
-- **Player:** My Teams (your teams and join requests → Team detail → invite players, hand over the captaincy, edit team; create team), Explore, Notifications (for now the Invites screen, which opens Team detail), Profile (your details with Edit profile, and a gear that opens Settings: Edit profile, Change password, the Terms of Use and Privacy Policy pages, and Log out).
+- **Player:** My Teams (your teams and join requests → Team detail → invite players, hand over the captaincy, edit team, or tap a person to open their Player detail; create team), Explore, Notifications (for now the Invites screen, which opens Team detail), Profile (your details with Edit profile, and a gear that opens Settings: Edit profile, Change password, the Terms of Use and Privacy Policy pages, and Log out).
 - **Venue owner:** My Venue (the listing, with Edit venue), Explore (teams read-only, players and venues), Notifications (for now just "No notifications yet."), Profile (the account: venue name, "Venue owner" and email, a link to My Venue, and the gear to Settings, where **Edit venue** replaces Edit profile).
 - **Admin:** Dashboard (how many venues are waiting for review, which opens the Venues tab, and the totals), Reports (for now just "Reports arrive with moderation."), Venues (the venue review, see "Venue review"), Users and Teams (the old management screens).
 - **Explore** (players and owners) is for now a simple screen with three rows, Teams, Players and Venues. Teams and Players open the old lists; tapping a team opens Team detail. Venues opens the new venue list (see "Finding a venue").
@@ -468,7 +468,11 @@ Team detail shows one team as the viewer sees it: its name, its area (if it has 
 - **Any other player:** **Request to join**.
 - **Venue owner:** the same team, read-only.
 
-Destructive or important actions ask first, in a dialog that says exactly what will happen ("Remove Tanvir Ahmed from Dhanmondi Strikers?"). A captain with other members has to hand over the captaincy before leaving; a captain who's alone deletes the team by leaving. If the team changed in the meantime (for example it filled up), the screen says "Something changed" and reloads. **Edit team** opens the same form as Create team, filled in. A captain whose team has no area yet sees "No area yet." with an **Add area** link to that form, because a team without an area can't be found with the area filter.
+Destructive or important actions ask first, in a dialog that says exactly what will happen ("Remove Tanvir Ahmed from Dhanmondi Strikers?"). A captain with other members has to hand over the captaincy before leaving; a captain who's alone deletes the team by leaving. If the team changed in the meantime (for example it filled up), the screen says "Something changed" and reloads. Tapping anyone in the team (a member, a join request or an invite) opens their **Player detail**. **Edit team** opens the same form as Create team, filled in. A captain whose team has no area yet sees "No area yet." with an **Add area** link to that form, because a team without an area can't be found with the area filter.
+
+### The Player detail screen
+
+Player detail is one player's public page (`GET /players/:id`): their name, position and area, their height and weight if they added them, and the teams they're in, each opening Team detail. The backend adds the phone only when the viewer is an accepted teammate; then the app shows it with "You can see this because you're teammates." and tapping it opens the dialler. A captain also gets an **Invite to my team** card: one row per team they captain, with an **Invite** button, or the reason there isn't one (already a member, already invited, asked to join, or the team is full). The backend works those reasons out, so the app never guesses. Opening your own page shows it as others see it, with a line saying so. Team detail and Player detail open each other on top of the current screen, so Back always returns one step, however long the chain.
 
 ---
 

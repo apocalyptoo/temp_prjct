@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import api from '../../api/api';
 import { useTheme } from '../../theme/ThemeProvider';
-import { EmptyState } from '../../components/ui';
+import { EmptyState, Icon, Text } from '../../components/ui';
 
 // The join request message limit (docs/PRODUCT.md, "Join request message"). Counted in
 // characters as people see them (code points), like the backend, so an emoji counts once.
@@ -103,6 +103,21 @@ export function TeamLoadState({
   );
 }
 
+// A captain's row ends with a crown and "Captain" (DESIGN.md section 6). Used on Team
+// detail's members and Player detail's teams.
+export function CaptainLabel() {
+  const { colors, spacing, icon } = useTheme();
+  return (
+    <View style={[styles.row, { gap: spacing.xxs }]}>
+      <Icon name="captain" size={icon.sizeSmall} color={colors.accent} />
+      <Text variant="buttonSecondary" color="accent">
+        Captain
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   centre: { alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center' },
 });

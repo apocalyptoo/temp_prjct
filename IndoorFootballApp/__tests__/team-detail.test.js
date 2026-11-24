@@ -82,6 +82,7 @@ function fakeNavigation(below = 'MyTeams') {
   return {
     goBack: jest.fn(),
     navigate: jest.fn(),
+    push: jest.fn(),
     getState: () => ({
       index: 1,
       routes: [{ name: below }, { name: 'TeamDetail' }],
@@ -322,14 +323,18 @@ describe('What each viewer sees', () => {
     expect(labels(renderer)).not.toContain('Request to join');
   });
 
-  test('a venue owner: read-only, no buttons but the back link', async () => {
+  test('a venue owner: read-only, no buttons but the back link and the member rows', async () => {
     const { renderer } = await render(viewAs('none'), {
       user: OWNER,
       below: 'Teams',
     });
 
     expect(shownText(renderer)).toContain('Tanvir Ahmed');
-    expect(labels(renderer)).toEqual(['Back to All Teams']);
+    expect(labels(renderer)).toEqual([
+      'Back to All Teams',
+      'Rahim Uddin, Forward',
+      'Tanvir Ahmed, Goalkeeper · Mirpur 10',
+    ]);
   });
 });
 
@@ -407,6 +412,49 @@ describe('Person rows: "Position · Area" (personMeta)', () => {
       user: { ...PLAYER, id: 2 },
     });
     expect(shownText(renderer)).toContain('Goalkeeper · Mirpur 10');
+  });
+});
+
+describe('Person rows open Player detail (explore spec P28, P30)', () => {
+  test('a member, a join request and an invite each push Player detail', async () => {
+    const { renderer, navigation } = await render(CAPTAIN_VIEW);
+
+    await press(renderer, 'Tanvir Ahmed, Goalkeeper · Mirpur 10');
+    await press(renderer, 'Nayeem Islam, Midfielder · Uttara');
+    await press(renderer, 'Sakib Hasan, Defender · Banani');
+    await press(renderer, 'Rahim Uddin, Forward');
+
+    expect(navigation.push.mock.calls).toEqual([
+      ['PlayerDetail', { userId: 2, playerName: 'Tanvir Ahmed' }],
+      ['PlayerDetail', { userId: 3, playerName: 'Nayeem Islam' }],
+      ['PlayerDetail', { userId: 4, playerName: 'Sakib Hasan' }],
+      ['PlayerDetail', { userId: 1, playerName: 'Rahim Uddin' }],
+    ]);
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  test("the row buttons still do their own thing and don't open the player", async () => {
+    api.post.mockResolvedValue({ data: {} });
+    const { renderer, navigation } = await render(CAPTAIN_VIEW);
+
+    await press(renderer, 'Approve Nayeem Islam');
+    expect(api.post).toHaveBeenCalledWith('/teams/7/requests/3/approve');
+
+    await press(renderer, 'Remove Tanvir Ahmed');
+    expect(shownText(renderer)).toContain(
+      'Remove Tanvir Ahmed from Dhanmondi Strikers?',
+    );
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
+  test('the row buttons sit beside the tappable part of the row, not inside it', async () => {
+    const { renderer } = await render(CAPTAIN_VIEW);
+    const row = button(renderer, 'Tanvir Ahmed, Goalkeeper · Mirpur 10');
+    const inside = row.findAll(
+      n => n.props.accessibilityLabel === 'Remove Tanvir Ahmed',
+    );
+    expect(inside).toHaveLength(0);
+    expect(button(renderer, 'Remove Tanvir Ahmed')).toBeTruthy();
   });
 });
 
@@ -692,6 +740,11 @@ describe('Confirmation dialogs (exact wording, then the request)', () => {
       user: { ...PLAYER, id: 2 },
     });
 
-    expect(labels(renderer)).toEqual(['Back to My Teams', 'Leave team']);
+    expect(labels(renderer)).toEqual([
+      'Back to My Teams',
+      'Rahim Uddin, Forward',
+      'Tanvir Ahmed, Goalkeeper · Mirpur 10',
+      'Leave team',
+    ]);
   });
 });
