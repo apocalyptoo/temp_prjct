@@ -166,6 +166,11 @@ describe('Loading', () => {
 
     const fromExplore = await render(CAPTAIN_VIEW, { below: 'Teams' });
     expect(button(fromExplore.renderer, 'Back to All Teams')).toBeTruthy();
+
+    // Opened from a player's teams: no short name, so just "Back".
+    const fromPlayer = await render(CAPTAIN_VIEW, { below: 'PlayerDetail' });
+    expect(button(fromPlayer.renderer, 'Back')).toBeTruthy();
+    expect(labels(fromPlayer.renderer)).not.toContain('Back to Back');
   });
 
   test('the team is gone: "This team no longer exists.", then back', async () => {

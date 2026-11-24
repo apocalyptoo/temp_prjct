@@ -86,7 +86,7 @@ export default function OwnerRegisterScreen({ navigation }) {
       style={{ gap: spacing.xl, paddingBottom: spacing.xxxl }}
     >
       <ScreenHeader
-        back={{ label: 'Back', onPress: navigation.goBack }}
+        back={{ onPress: navigation.goBack }}
         title="Venue sign-up"
       />
       <Text variant="body" color="textMuted">

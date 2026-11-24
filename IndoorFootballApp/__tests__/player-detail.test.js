@@ -191,7 +191,8 @@ describe('Loading', () => {
 
   test('the back link names the screen underneath, or says Back', async () => {
     const fromTeam = await render(STRANGER_VIEW);
-    expect(button(fromTeam.renderer, 'Back to Back')).toBeTruthy();
+    expect(button(fromTeam.renderer, 'Back')).toBeTruthy();
+    expect(labels(fromTeam.renderer)).not.toContain('Back to Back');
 
     const fromExplore = await render(STRANGER_VIEW, { below: 'Explore' });
     expect(button(fromExplore.renderer, 'Back to Explore')).toBeTruthy();
@@ -204,8 +205,13 @@ describe('Loading', () => {
 
     expect(shownText(renderer)).toContain(GONE_MESSAGE);
     expect(GONE_MESSAGE).toBe("This player isn't available any more.");
-    await press(renderer, 'Back');
-    expect(navigation.goBack).toHaveBeenCalled();
+    // Two ways back, both reading "Back": the link at the top and the button.
+    const ways = tappables(renderer).filter(
+      n => n.props.accessibilityLabel === 'Back',
+    );
+    expect(ways).toHaveLength(2);
+    for (const way of ways) await act(async () => way.props.onPress());
+    expect(navigation.goBack).toHaveBeenCalledTimes(2);
   });
 
   test('another failure: "Couldn\'t load this player." with Try again', async () => {
@@ -407,18 +413,65 @@ describe('Invite to my team (P24)', () => {
     expect(api.get).toHaveBeenCalledTimes(1); // no reload
   });
 
-  test('an invite that approved a request that had just come in says "Joined"', async () => {
-    api.post.mockResolvedValue({
-      data: { message: 'Request approved', joined: true },
-    });
+  // The player had just asked to join, so the invite approved the request.
+  const JOINED = { data: { message: 'Request approved', joined: true } };
+
+  test('an invite that comes back as "Joined" reloads: the Teams card, the Invite card and the phone are up to date', async () => {
+    api.post.mockResolvedValue(JOINED);
     const { renderer } = await render({
       ...STRANGER_VIEW,
+      teams: [],
       inviteOptions: [ALL_STATES[0]],
+    });
+    expect(shownText(renderer)).toContain(NO_TEAMS);
+    // What the backend answers once they are in the team (and so a teammate).
+    api.get.mockResolvedValue({
+      data: {
+        ...TEAMMATE_VIEW,
+        teams: [
+          {
+            id: 30,
+            name: 'Banani Blasters',
+            area: null,
+            memberCount: 9,
+            maxMembers: 15,
+            isCaptain: false,
+          },
+        ],
+        inviteOptions: [option(30, 'Banani Blasters', 'member', 9)],
+      },
     });
 
     await press(renderer, 'Invite to Banani Blasters');
 
-    expect(button(renderer, 'Joined to Banani Blasters')).toBeTruthy();
+    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(api.get).toHaveBeenLastCalledWith('/players/19');
+    const text = shownText(renderer);
+    expect(text).not.toContain(NO_TEAMS);
+    expect(button(renderer, 'Open Banani Blasters')).toBeTruthy();
+    expect(text).toContain('9 / 15 members');
+    expect(text).toContain('Already a member');
+    expect(text).toContain('01712345678');
+    expect(
+      labels(renderer).filter(label => /^(Invite|Joined) to /.test(label)),
+    ).toEqual([]);
+  });
+
+  test('"Joined", but the reload fails: the row still says "Joined" and no error shows', async () => {
+    api.post.mockResolvedValue(JOINED);
+    const { renderer } = await render({
+      ...STRANGER_VIEW,
+      inviteOptions: [ALL_STATES[0]],
+    });
+    api.get.mockRejectedValue(httpError(500, 'Boom'));
+
+    await press(renderer, 'Invite to Banani Blasters');
+
+    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(button(renderer, 'Joined to Banani Blasters').props.disabled).toBe(
+      true,
+    );
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
   test('a second tap while the invite runs sends nothing more; other Invite buttons wait', async () => {

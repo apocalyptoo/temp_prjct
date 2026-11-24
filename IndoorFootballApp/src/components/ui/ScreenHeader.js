@@ -3,6 +3,7 @@
 //   <ScreenHeader greeting="Salam, Rahim" title="My teams"
 //                 action={<Button title="Create team" icon="add" onPress={…} />} />
 //   <ScreenHeader back={{ label: 'My Teams', onPress: navigation.goBack }} title="…" />
+// back.label may be left out when the previous screen has no short name (see BackLink).
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from '../../theme/ThemeProvider';

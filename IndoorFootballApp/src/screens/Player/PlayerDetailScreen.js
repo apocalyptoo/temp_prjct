@@ -63,7 +63,7 @@ const BACK_LABELS = {
 function backLabel(navigation) {
   const state = navigation.getState?.();
   const below = state?.routes?.[state.index - 1]?.name;
-  return BACK_LABELS[below] ?? 'Back';
+  return BACK_LABELS[below]; // no short name: BackLink says just "Back"
 }
 
 const membersText = team => `${team.memberCount} / ${team.maxMembers} members`;
@@ -135,10 +135,14 @@ export default function PlayerDetailScreen({ navigation, route }) {
         const res = await api.post(`/teams/${option.teamId}/invite`, {
           userId,
         });
+        const joined = Boolean(res.data?.joined);
         setDone(current => ({
           ...current,
-          [option.teamId]: res.data?.joined ? 'Joined' : 'Invited',
+          [option.teamId]: joined ? 'Joined' : 'Invited',
         }));
+        // Joining changes the player's teams (and makes them a teammate), so show the
+        // profile as it is now. If that load fails, the row keeps saying "Joined".
+        if (joined) await load();
       } catch (err) {
         const code = err?.response?.status;
         if (code === 400 || code === 404 || code === 409) {

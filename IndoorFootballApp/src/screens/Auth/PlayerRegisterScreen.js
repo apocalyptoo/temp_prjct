@@ -96,7 +96,7 @@ export default function PlayerRegisterScreen({ navigation }) {
       style={{ gap: spacing.xl, paddingBottom: spacing.xxxl }}
     >
       <ScreenHeader
-        back={{ label: 'Back', onPress: navigation.goBack }}
+        back={{ onPress: navigation.goBack }}
         title="Player sign-up"
       />
       <View onLayout={onLayoutOf('name')}>

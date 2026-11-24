@@ -191,7 +191,7 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 
 **Screen header.** Optional small greeting or back link (`textMuted`), then the title (`display`). The primary action can sit to the right of the title.
 
-**Back link.** A chevron icon plus the previous screen's name, in `textMuted`, at least 44 tall.
+**Back link.** A chevron icon plus the previous screen's name, in `textMuted`, at least 44 tall. Screen readers hear "Back to My Teams". When the previous screen has no short name, the link shows and reads just "Back".
 
 **Empty states.** Every list has one: a short line saying what's missing, plus the main action (e.g. "You're not in a team yet." + "Create team").
 

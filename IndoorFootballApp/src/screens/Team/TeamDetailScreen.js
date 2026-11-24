@@ -45,7 +45,7 @@ const BACK_LABELS = {
 function backLabel(navigation) {
   const state = navigation.getState?.();
   const below = state?.routes?.[state.index - 1]?.name;
-  return BACK_LABELS[below] ?? 'Back';
+  return BACK_LABELS[below]; // no short name: BackLink says just "Back"
 }
 
 // The confirmation dialogs (docs/features/team-membership.md, section e, "Confirmation

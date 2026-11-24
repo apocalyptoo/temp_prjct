@@ -368,6 +368,24 @@ describe('Venue owner sign-up', () => {
   });
 });
 
+describe('The back link on both sign-up forms', () => {
+  test.each([
+    ['player', PlayerRegisterScreen],
+    ['venue owner', OwnerRegisterScreen],
+  ])('%s: reads just "Back" and goes back', async (_role, Screen) => {
+    const navigation = navigationMock();
+    const renderer = await render(<Screen navigation={navigation} />);
+
+    expect(
+      renderer.root.findAll(
+        node => node.props.accessibilityLabel === 'Back to Back',
+      ),
+    ).toHaveLength(0);
+    await press(renderer, 'Back');
+    expect(navigation.goBack).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('Check your email', () => {
   const screen = (params, navigation = navigationMock()) => (
     <CheckEmailScreen route={{ params }} navigation={navigation} />

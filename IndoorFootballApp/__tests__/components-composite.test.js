@@ -272,6 +272,40 @@ describe('Headers, links and notices', () => {
     expect(shownText(withBack)).toContain('Action');
   });
 
+  test('BackLink with a previous screen: shows its name and reads "Back to <name>"', async () => {
+    const onPress = jest.fn();
+    const renderer = await render(
+      <BackLink label="My Teams" onPress={onPress} />,
+    );
+    expect(shownText(renderer)).toBe('My Teams');
+    expect(tappables(renderer)).toHaveLength(1);
+    const link = tappableLabelled(renderer, 'Back to My Teams');
+    await act(() => link.props.onPress());
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([[undefined], [null], [''], ['  '], ['Back'], [' Back ']])(
+    'BackLink with no previous screen name (%j): shows and reads just "Back"',
+    async label => {
+      const onPress = jest.fn();
+      const renderer = await render(
+        <BackLink label={label} onPress={onPress} />,
+      );
+      expect(shownText(renderer)).toBe('Back');
+      expect(tappables(renderer)).toHaveLength(1);
+      const link = tappableLabelled(renderer, 'Back');
+      await act(() => link.props.onPress());
+      expect(onPress).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('ScreenHeader with a back link but no name reads just "Back"', async () => {
+    const renderer = await render(
+      <ScreenHeader back={{ onPress: () => {} }} title="Player sign-up" />,
+    );
+    expect(tappableLabelled(renderer, 'Back')).toBeTruthy();
+  });
+
   test('BackLink and TextLink are at least the touch target tall', async () => {
     const back = await render(<BackLink label="My Teams" onPress={() => {}} />);
     const link = await render(
