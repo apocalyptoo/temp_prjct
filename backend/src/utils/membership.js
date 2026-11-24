@@ -24,6 +24,17 @@ export function toMembershipReply(row, { withMessage = false } = {}) {
   return withMessage ? { ...rest, message } : rest;
 }
 
+// The longest-standing member first: the earliest acceptedAt, ties to the lower row id
+// (docs/PRODUCT.md, "Team membership"). The one place for this order: the member lists
+// use it, and so does the handover when a captain's account is deleted
+// (docs/features/account-deletion.md, P2), so they can't disagree about who is next.
+const time = (date) => (date ? date.getTime() : Infinity);
+export const longestStandingFirst = (a, b) => time(a.acceptedAt) - time(b.acceptedAt) || a.id - b.id;
+
+// A team's rows as its member list shows them: the captain, then the longest-standing.
+export const inMemberOrder = (rows, captainId) =>
+  [...rows].sort((a, b) => (b.userId === captainId) - (a.userId === captainId) || longestStandingFirst(a, b));
+
 // Locks the team's row until the surrounding transaction ends, and returns
 // { id, captainId }, or null when the team doesn't exist. Every write to a team's
 // membership rows or captain calls this first, inside its transaction, so two such
@@ -33,6 +44,16 @@ export function toMembershipReply(row, { withMessage = false } = {}) {
 export async function lockTeam(tx, teamId) {
   const rows = await tx.$queryRaw`SELECT id, "captainId" FROM "Team" WHERE id = ${teamId} FOR UPDATE`;
   return rows[0] ?? null;
+}
+
+// lockTeam for several teams at once, always the lowest id first, whatever order the ids
+// come in. Account deletion needs it (docs/features/account-deletion.md, P6): two
+// deletions that share teams lock them in the same order, so they can't each hold a team
+// the other is waiting for. A team that no longer exists is just left out. The rows are
+// read after the wait, so captainId is the current one.
+export async function lockTeams(tx, teamIds) {
+  if (teamIds.length === 0) return [];
+  return tx.$queryRaw`SELECT id, "captainId" FROM "Team" WHERE id = ANY(${teamIds}::int[]) ORDER BY id FOR UPDATE`;
 }
 
 // The team's accepted members (the captain included).

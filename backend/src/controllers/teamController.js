@@ -11,6 +11,7 @@ import {
   isMember,
   isPendingInvite,
   isPendingRequest,
+  inMemberOrder,
   toMembershipReply,
   TEAM_FULL_MESSAGE,
   lockTeam,
@@ -448,18 +449,7 @@ const ALL_ROWS_WITH_PEOPLE = {
   },
 };
 
-// Captain first, then the longest-standing member (earliest acceptedAt, ties to the
-// lower row id; docs/PRODUCT.md, "Team membership").
-const time = (date) => (date ? date.getTime() : Infinity);
-function inMemberOrder(rows, captainId) {
-  return [...rows].sort(
-    (a, b) =>
-      (b.userId === captainId) - (a.userId === captainId) ||
-      time(a.acceptedAt) - time(b.acceptedAt) ||
-      a.id - b.id
-  );
-}
-const oldestFirst = (a, b) => time(a.createdAt) - time(b.createdAt) || a.id - b.id;
+const oldestFirst = (a, b) => a.createdAt - b.createdAt || a.id - b.id;
 const newestFirst = (a, b) => oldestFirst(b, a);
 
 // One membership row for the viewer: the person goes through the visibility rules (no
