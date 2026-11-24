@@ -10,8 +10,11 @@ import {
   sendResetFailure,
   getMe,
   changePassword,
+  previewMyDeletion,
+  deleteMyAccount,
+  ADMIN_STAYS,
 } from '../controllers/authController.js';
-import { verifyToken } from '../middleware/auth.js';
+import { verifyToken, notAdmin } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import {
   registerSchema,
@@ -20,6 +23,7 @@ import {
   resetSchema,
   emailLinkQuerySchema,
   changePasswordSchema,
+  deleteAccountSchema,
   INVALID_LOGIN,
 } from '../validation/authSchemas.js';
 import { escapeHtml } from '../utils/html.js';
@@ -33,6 +37,7 @@ import {
   verifyLinkLimiter,
   resendVerificationLimiters,
   changePasswordLimiters,
+  deleteAccountLimiters,
 } from '../middleware/rateLimits.js';
 const router = express.Router();
 
@@ -56,6 +61,18 @@ router.get('/me', verifyToken, getMe); // who is logged in (the app calls it at 
 // Change password while logged in. verifyToken first: the per-account limiter needs
 // req.user. A success replies with a fresh token (the other devices are logged out).
 router.post('/change-password', verifyToken, ...changePasswordLimiters, validate({ body: changePasswordSchema }), changePassword);
+
+// Delete my account (docs/features/account-deletion.md, d.4): players and venue owners.
+// The admin is refused first, whatever the body says.
+router.get('/deletion-preview', verifyToken, notAdmin(ADMIN_STAYS), previewMyDeletion);
+router.post(
+  '/delete-account',
+  verifyToken,
+  notAdmin(ADMIN_STAYS),
+  ...deleteAccountLimiters,
+  validate({ body: deleteAccountSchema }),
+  deleteMyAccount
+);
 
 //password reset
 router.post('/forgot', ...forgotPasswordLimiters, validate({ body: emailOnlySchema }), requestPasswordReset);

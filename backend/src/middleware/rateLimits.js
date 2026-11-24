@@ -130,3 +130,21 @@ export const changePasswordLimiters = [
   limiter({ windowMs: 15 * MINUTE, limit: 10, keyGenerator: accountKey, onlyFailures: true, message: tooManyPasswordChanges }),
   limiter({ windowMs: 15 * MINUTE, limit: 50, onlyFailures: true, message: tooManyPasswordChanges }),
 ];
+
+// Delete account (docs/features/account-deletion.md, D2, P11): the same numbers as change
+// password, with counters of its own. Only failed requests count, and a 409 isn't one:
+// the password was right, but a team's outcome changed since the preview.
+const tooManyDeletions = 'Too many attempts to delete your account. Please wait 15 minutes and try again.';
+const deletionWasSuccessful = (req, res) => res.statusCode < 400 || res.statusCode === 409;
+
+export const deleteAccountLimiters = [
+  limiter({
+    windowMs: 15 * MINUTE,
+    limit: 10,
+    keyGenerator: accountKey,
+    onlyFailures: true,
+    wasSuccessful: deletionWasSuccessful,
+    message: tooManyDeletions,
+  }),
+  limiter({ windowMs: 15 * MINUTE, limit: 50, onlyFailures: true, wasSuccessful: deletionWasSuccessful, message: tooManyDeletions }),
+];

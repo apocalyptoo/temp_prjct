@@ -120,3 +120,37 @@ describe("The admin's deletion previews", () => {
     assert.equal((await getJson(`/admin/users/${victim.id}/deletion-preview`, 'nonsense')).status, 401);
   });
 });
+
+describe('GET /auth/deletion-preview', () => {
+  test("a captain sees the same as the admin would, with the same code", async (t) => {
+    const admin = await createLoggedInUser(t, { role: 'ADMIN' });
+    const me = await createLoggedInUser(t, { playerProfile: playerProfile('Captain') });
+    const { expected } = await setUpCaptain(t, me.user);
+
+    const mine = await getJson('/auth/deletion-preview', me.jwt);
+
+    assertPreview(mine, expected);
+    const theirs = await getJson(`/admin/users/${me.user.id}/deletion-preview`, admin.jwt);
+    assert.equal(theirs.body.previewCode, mine.body.previewCode);
+  });
+
+  test('a venue owner with a listing waiting for review', async (t) => {
+    const me = await createLoggedInUser(t, { role: 'OWNER', ownerProfile: { create: { indoorName: 'New Arena' } } });
+
+    assertPreview(await getJson('/auth/deletion-preview', me.jwt), {
+      captainedTeams: [],
+      otherTeams: [],
+      pendingCount: 0,
+      venue: { name: 'New Arena', live: false },
+    });
+  });
+
+  test('the admin gets 403, and nobody gets in without a login', async (t) => {
+    const admin = await createLoggedInUser(t, { role: 'ADMIN' });
+
+    const refused = await getJson('/auth/deletion-preview', admin.jwt);
+    assert.equal(refused.status, 403);
+    assert.equal(refused.body.error, "The admin account can't be deleted in the app.");
+    assert.equal((await getJson('/auth/deletion-preview', 'nonsense')).status, 401);
+  });
+});

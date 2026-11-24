@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { normalizeEmail } from '../utils/email.js';
 import { isStrongPassword, PASSWORD_RULE_MESSAGE } from '../utils/password.js';
 import { isWellFormedToken } from '../utils/tokens.js';
-import { byteCount, inStages, isFilled } from './common.js';
+import { byteCount, inStages, isFilled, previewCode } from './common.js';
 import { playerName, position, requiredPhone, venueName } from './profileFields.js';
 
 // ── Limits ──
@@ -21,6 +21,8 @@ const RESET_REQUIRED = 'Token and new password required';
 const EMAIL_REQUIRED = 'Email is required';
 const CHANGE_PASSWORD_REQUIRED = 'Current password and new password are required';
 export const SAME_PASSWORD = 'Your new password must be different from your current one';
+const PASSWORD_REQUIRED = 'Password is required';
+const PREVIEW_REQUIRED = 'Check what will happen before deleting your account';
 export const PASSWORD_TOO_LONG = `Password must be at most ${MAX_PASSWORD_BYTES} characters (emoji and non-English letters count as more than one)`;
 
 // ── Pieces ──
@@ -143,6 +145,17 @@ export const changePasswordSchema = inStages(
     ({ currentPassword, newPassword: chosen }) => chosen !== currentPassword,
     { error: SAME_PASSWORD },
   ),
+);
+
+// ── POST /auth/delete-account ──
+// The password (an existing one, so no strength rule), then the code of the preview the
+// user saw. Whether either is right is checked by the controller and the deletion.
+export const deleteAccountSchema = inStages(
+  z.looseObject(
+    { password: z.string({ error: PASSWORD_REQUIRED }).min(1, { error: PASSWORD_REQUIRED }) },
+    { error: PASSWORD_REQUIRED },
+  ),
+  z.object({ password: z.string(), previewCode: previewCode(PREVIEW_REQUIRED) }),
 );
 
 // ── GET /auth/verify and GET /auth/reset-password-page ──

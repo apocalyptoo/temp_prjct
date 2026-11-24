@@ -12,7 +12,9 @@ import {
 } from '../utils/tokens.js';
 import { mailer, checkMailConnection } from '../utils/mailer.js';
 import { isFormRequest, messagePage } from '../utils/pages.js';
-import { toVisibleUser } from '../utils/visibility.js';
+import { toVisibleUser, viewerFrom } from '../utils/visibility.js';
+import { planAccountDeletion, toDeletionPreview } from '../utils/deletion.js';
+import { deleteAccountAndNotify } from '../utils/accountDeletion.js';
 
 // Account emails go through src/utils/mailer.js (Gmail SMTP; @example.com skipped,
 // .invalid refused). This file loads when the server starts, so this checks the Gmail
@@ -376,6 +378,47 @@ export const changePassword = async (req, res, next) => {
     sendPasswordChangedEmail({ email: user.email, displayName }).catch((err) =>
       console.error(`Password-changed email failed for user ${user.id}:`, err)
     );
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// DELETE MY ACCOUNT (docs/features/account-deletion.md, d.4 endpoints 1 and 2)
+// The routes refuse the admin before these run.
+export const ADMIN_STAYS = "The admin account can't be deleted in the app.";
+const DELETION_CHANGED = 'Something changed in your teams. Check what will happen and try again.';
+
+// GET /auth/deletion-preview: what will happen to the teams and the venue listing.
+export const previewMyDeletion = async (req, res, next) => {
+  try {
+    const plan = await planAccountDeletion(prisma, req.user.id);
+    // verifyToken found the account a moment ago; this only covers it being deleted since.
+    if (!plan) return res.status(401).json({ error: 'Invalid token' });
+    return res.json(toDeletionPreview(plan, viewerFrom(req)));
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// POST /auth/delete-account, with the password and the preview's code.
+export const deleteMyAccount = async (req, res, next) => {
+  const { password, previewCode } = req.valid.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { id: true, password: true } });
+    if (!user) return res.status(401).json({ error: 'Invalid token' });
+
+    // Wrong is 400, never 401: the app logs out on a 401 (see changePassword).
+    const wrongPassword = () => res.status(400).json({ error: 'Password is incorrect' });
+    if (!(await bcrypt.compare(password, user.password))) return wrongPassword();
+
+    // The deletion checks, under its locks, that this is still the stored password and
+    // that the outcome is still the one the user saw. The notice email isn't waited for.
+    const { status } = await deleteAccountAndNotify(prisma, user.id, { passwordHash: user.password, previewCode });
+    if (status === 'password-changed') return wrongPassword();
+    if (status === 'stale') return res.status(409).json({ error: DELETION_CHANGED });
+    if (status === 'admin') return res.status(403).json({ error: ADMIN_STAYS });
+    if (status === 'gone') return res.status(401).json({ error: 'Invalid token' }); // another device was first
+    return res.json({ message: 'Your account was deleted.' });
   } catch (err) {
     return next(err);
   }

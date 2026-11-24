@@ -70,3 +70,9 @@ export const onlyRole = (role, message) => (req, res, next) => {
   if (req.user.role !== role) return res.status(403).json({ error: message });
   next();
 };
+
+// Any role but the admin; the admin gets 403 with `message`. Used like onlyRole.
+export const notAdmin = (message) => (req, res, next) => {
+  if (req.user.role === 'ADMIN') return res.status(403).json({ error: message });
+  next();
+};

@@ -155,7 +155,7 @@ In `src/utils/`:
 
 - Login signs (with `signLoginToken`, shared with change password) an HS256 JWT with claims `{ id, userId, role, email, tv }`, valid for 30 days; `tv` is the account's `tokenVersion`. The login reply is `{ token, user: { id, name, email, role } }`; the name comes from `playerProfile.name` or `ownerProfile.indoorName`.
 - `verifyToken` (`src/middleware/auth.js`, async) requires the header to be exactly `Bearer <token>` (Bearer case-insensitive, one space, no spaces in the token), verifies with `algorithms: ['HS256']`, requires the token's `id` to be a positive integer within `MAX_DB_INT`, then looks up the user by `id` and replies 401 "Invalid token" if the user is gone, the token has no integer `tv`, or `tv` isn't the current `tokenVersion` (a missing header is 401 "No token"). `req.user` (`{ id, userId, role, email }`) is built from the database row, never from the token's claims, so role and email changes apply at once. A database error is thrown and reaches the error handler (500), not a 401.
-- **Which routes need it:** every `/players`, `/owners`, `/teams` and `/admin` route, and `GET /auth/me` and `POST /auth/change-password`. The rest of `/auth`, `/legal/*` and `GET /` need no login.
+- **Which routes need it:** every `/players`, `/owners`, `/teams` and `/admin` route, and `GET /auth/me`, `POST /auth/change-password`, `GET /auth/deletion-preview` and `POST /auth/delete-account`. The rest of `/auth`, `/legal/*` and `GET /` need no login.
 - **`tokenVersion`:** `resetPassword` and `changePassword` increment it in the same update as the new password, which logs the account out on every device; suspension must do the same when it's built (moderation feature; DECISIONS.md 2026-11-20, "Which events log out every device"). Normal log out only deletes the token on the phone.
 - **Login replies** are the same for an unknown email and a wrong password ("Invalid email or password", 400). An unknown email is still compared against a fixed dummy bcrypt hash, so both cases take about the same time. "Please verify your email" (403) is only returned after the password is correct.
 
@@ -163,6 +163,7 @@ In `src/utils/`:
 
 - `isAdmin` guards every `/admin` route (403 unless `req.user.role` is `ADMIN`).
 - `playersOnly` (403 for OWNER and ADMIN: only player accounts can create or join teams) guards every team action: create, edit, delete, invite, cancel invite, accept, reject, the join request routes, remove member, leave and transfer; `GET /teams/:teamId/invite-candidates`; and `GET /players/requests`.
+- `notAdmin(message)` guards the two delete-account routes (403 for the ADMIN, before the limiters and the body).
 - `onlyRole(role, message)` guards a route for one kind of account, **before** the body is checked, so the wrong role always gets 403 whatever it sends: `PATCH /players/me` ("Players only"), `PATCH /owners/me` ("Owners only").
 - Checks inside controllers: `GET /players/me` (403 "Players only") and `GET /owners/me` (403 "Owners only"); every captain-only team action compares `team.captainId` with `req.user.id` (section 6.4).
 
@@ -180,6 +181,7 @@ In `src/utils/`:
   | Reset (form POST) | 10 / 15 min per IP |
   | Reset page and verify link (GET, opened in a browser) | 30 / 15 min per IP each; HTML "Too many attempts" pages |
   | Change password | Only failures count (any reply of 400 or more): 10 / 15 min per account (`account:<user id>`, after `verifyToken`), and 50 / 15 min per IP |
+  | Delete account | The same numbers with counters of its own; a 409 (a team's outcome changed) isn't a failure |
 
   Keys always go through express-rate-limit's `ipKeyGenerator` (IPv6 grouped by /56); emails are lowercased and trimmed. Counters are in memory and reset on restart.
 - **Email cooldown:** reset and resend-verification send nothing new to an account that got one in the last 5 minutes (`sentRecently`); the reply is unchanged and the earlier link still works.
@@ -229,6 +231,10 @@ Height, weight, address and the venue's phone, address, description and website 
 **`GET /auth/me`** (`verifyToken`): the caller's own `{ id, name, email, role, verified }` through `toVisibleUser`; 401 if the token's user no longer exists. Used by the app at start-up.
 
 **`POST /auth/change-password`** (feature 2, spec d endpoint 6; `verifyToken`, `changePasswordLimiters`, `changePasswordSchema`, `changePassword`; any role). Schema, in stages: both `currentPassword` and `newPassword` non-empty text ("Current password and new password are required"), the strength rule and 72 bytes for the new one, then new ≠ current (`SAME_PASSWORD`, "Your new password must be different from your current one"). A wrong current password is **400 "Current password is incorrect", never 401** (the app logs out on any 401 that carried a token). Success is one `update` whose `where` also requires the stored hash still to be the one just checked (P2025 → the same 400), setting the new hash, `tokenVersion + 1` and clearing `resetToken`/`resetTokenExpires`. The reply is `{ message: 'Password changed', token }` with a fresh token from `signLoginToken`, sent **before** `sendPasswordChangedEmail` runs (a failed send is only logged).
+
+**`GET /auth/deletion-preview`** (`verifyToken`, `notAdmin`; account deletion spec d.4): what deleting the caller's account would do, `{ previewCode, captainedTeams, otherTeams, pendingCount, venue }` (`toDeletionPreview`; new captains through `toVisibleUser`, so `{ id, name }`). 403 "The admin account can't be deleted in the app." No rate limit.
+
+**`POST /auth/delete-account`** (`verifyToken`, `notAdmin`, `deleteAccountLimiters`, `deleteAccountSchema`, `deleteMyAccount`). Schema, in stages: `password` non-empty text ("Password is required", no strength rule), then `previewCode`, 64 lowercase hex characters ("Check what will happen before deleting your account"). A wrong password is **400 "Password is incorrect", never 401**, also when the stored hash changed before the deletion got its locks. 409 "Something changed in your teams. Check what will happen and try again." when the code no longer matches (nothing is deleted). 401 "Invalid token" when the account is already gone. Else 200 "Your account was deleted.", sent without waiting for the notice email (section 5.5). Every token of the account is dead at once, because `verifyToken` finds no user. `tests/delete-account.test.js`.
 
 ### 6.2 Players
 

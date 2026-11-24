@@ -174,8 +174,9 @@ describe('Refused deletions change nothing', () => {
   });
 
   test('each problem with the body has its message, the password first', async (t) => {
-    const me = await loggedInPlayer(t);
-    const previewCode = await previewCodeOf(me.jwt);
+    // Two accounts, because a bad body counts as a failure and 10 are allowed.
+    const accounts = [await loggedInPlayer(t), await loggedInPlayer(t)];
+    const previewCode = await previewCodeOf(accounts[0].jwt);
     const PASSWORD = 'Password is required';
     const PREVIEW = 'Check what will happen before deleting your account';
 
@@ -194,10 +195,10 @@ describe('Refused deletions change nothing', () => {
       [{ password: OLD_PASSWORD, previewCode: `${previewCode}\n` }, PREVIEW],
       [{ password: OLD_PASSWORD, previewCode: { not: '' } }, PREVIEW],
     ]) {
-      const reply = await send(me.jwt, body);
-      assert.deepEqual(reply, { status: 400, body: { error } }, JSON.stringify(body));
+      const { jwt } = accounts[error === PASSWORD ? 0 : 1];
+      assert.deepEqual(await send(jwt, body), { status: 400, body: { error } }, JSON.stringify(body));
     }
-    assert.ok(await exists(me.user.id));
+    for (const { user } of accounts) assert.ok(await exists(user.id));
   });
 
   test('the next in line left since the preview: 409, then the new code works', async (t) => {
