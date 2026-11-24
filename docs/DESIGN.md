@@ -163,7 +163,7 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 
 **Screen.** The standard screen container: `bg` background, `screenPadding` on the sides, keeps clear of the status bar and notches (the `edges` it protects; by default the top only, because a header or the tab bar covers the others). Optional `scroll` (content scrolls) and `keyboardAware` (form fields stay above the keyboard). Long forms scroll up to the first field with a problem when the main button finds one, so an error is never off screen. The app is wrapped in one `SafeAreaProvider` for this.
 
-**Primary button.** `accent` background, `onAccent` text (Inter 14/700), radius 10, height at least 44–46. Optional leading icon. Use one per screen for the main action ("Create team", "Invite players").
+**Primary button.** `accent` background, `onAccent` text (Inter 14/700), radius 10, height at least 44–46. Optional leading icon. Use one per screen for the main action ("Create team", "Invite players"). The one exception (owner's decision, 2026-11-25): **Invite** in a list row is primary too, on every row, like the lime approve button on join requests; once used it turns into a disabled secondary "Invited".
 
 **Secondary button.** `surface` background, 1px `border`, `text` label (Inter 14/600). For the second action ("Transfer captaincy").
 
@@ -175,7 +175,7 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 
 **Card.** `surface` background, 1px `border`, radius 14, padding 16. A whole card can be tappable (team cards open Team detail).
 
-**List row** (inside cards). Avatar (38–44) + name (`body`) + meta (`meta`, `textMuted`) + optional trailing item (pill, "Captain" label, chevron) + optional action buttons (icon buttons, a small Invite or Cancel button). When the whole row is tappable (a person row that opens Player detail), the action buttons sit beside the tappable part, never inside it: pressing a button never opens the row, and each button stays its own 44×44 target for screen readers. Rows are separated by a 1px `border` line. Rows that aren't people ("Phone", "Change password") show an icon in `textMuted` instead of the avatar, and a row can have a third line for a hint in `meta` / `textMuted` ("Only your teammates can see this").
+**List row** (inside cards). Avatar (38–44) + name (`body`) + meta (`meta`, `textMuted`) + optional trailing item (pill, "Captain" label, chevron) + optional action buttons (icon buttons, an Invite or Cancel button), in the middle of the row's height and never touching its lines. When the whole row is tappable (a person row that opens Player detail), the action buttons sit beside the tappable part, never inside it: pressing a button never opens the row, and each button stays its own 44×44 target for screen readers. Rows are separated by a 1px `border` line. Rows that aren't people ("Phone", "Change password") show an icon in `textMuted` instead of the avatar, and a row can have a third line for a hint in `meta` / `textMuted` ("Only your teammates can see this").
 
 **Pill.** Strong: `accent` background, `onAccent` text ("Captain"). Soft: `accentSoft` background, `accent` text ("Player", "11 / 15 members", "2 new").
 
@@ -187,7 +187,7 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 - **"?"** when no word starts with a letter (an empty name, or only emoji, numbers or symbols).
 - Examples: "Nayeem Islam" → NI · "🇧🇩 Tanvir Ahmed" → TA · "👍🏽 Fahim" → F · "10 Rahim Uddin" → RU · "👨‍👩‍👧" → ?
 
-**Bottom tab bar.** `tabBar` background with a 1px `border` top line. Each tab is an icon (24) plus a label (`tabLabel`). Active: `accent`. Inactive: `tabIdle`. The tabs per role are in PRODUCT.md.
+**Bottom tab bar.** `tabBar` background with a 1px `border` top line. Each tab is an icon (24) plus a label (`tabLabel`). Active: `accent`. Inactive: `tabIdle`. The tabs per role are in PRODUCT.md. On Android it hides while a keyboard is on screen (not for a physical keyboard).
 
 **Screen header.** Optional small greeting or back link (`textMuted`), then the title (`display`). The primary action can sit to the right of the title.
 
@@ -204,6 +204,7 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 - Error: the border turns `danger`, and under the field a `warning` icon (`icon.sizeSmall`) plus the message in `meta` / `danger`. The icon and the words carry the meaning, never the colour alone.
 - Optional helper text under the field, in `meta` / `textMuted`. An error replaces it while shown.
 - Optional leading icon (added with the venues feature, for the venue search): one of our icons, `icon.size`, in `textMuted`, at the left inside the field, `spacing.sm` before the text. Decorative: the label says what the field is.
+- Optional clear button (added with feature 3b, for searches and filters): while the field has text, a 44×44 `reject` (X) icon button at the right inside the field, labelled "Clear {label}". It empties the field, which keeps its focus.
 - Password fields have a show/hide button inside the field on the right: 44×44, icon `show` or `hide`, labelled "Show password" / "Hide password".
 - Disabled: `opacity.disabled` and not editable.
 - The field grows with the phone's font size (a minimum height only). Screen readers hear the label and the error with the field.

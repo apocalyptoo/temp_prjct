@@ -96,7 +96,9 @@ export default function ListRow({
       {actions ? (
         <View style={[styles.row, { gap: spacing.md }]}>
           {body}
-          {actions}
+          {/* In a box of their own: a Button aligns itself to the start of what it's in,
+              which straight in the row would be the row's top edge. */}
+          <View style={{ paddingVertical: spacing.xs }}>{actions}</View>
         </View>
       ) : (
         body

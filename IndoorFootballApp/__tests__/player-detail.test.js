@@ -18,6 +18,7 @@ import PlayerDetailScreen, {
   inviteReason,
 } from '../src/screens/Player/PlayerDetailScreen';
 import { PHONE_HINT } from '../src/screens/Player/PlayerProfileScreen';
+import { Button } from '../src/components/ui';
 import api from '../src/api/api';
 
 jest.mock('../src/api/api', () => ({
@@ -404,11 +405,14 @@ describe('Invite to my team (P24)', () => {
       inviteOptions: [ALL_STATES[0]],
     });
 
+    const look = () => renderer.root.findByType(Button).props.variant;
+    expect(look()).toBe('primary'); // lime until it's used
     await press(renderer, 'Invite to Banani Blasters');
 
     expect(api.post).toHaveBeenCalledWith('/teams/30/invite', { userId: 19 });
     const invited = button(renderer, 'Invited to Banani Blasters');
     expect(invited).toBeTruthy();
+    expect(look()).toBe('secondary');
     expect(invited.props.disabled).toBe(true);
     expect(api.get).toHaveBeenCalledTimes(1); // no reload
   });

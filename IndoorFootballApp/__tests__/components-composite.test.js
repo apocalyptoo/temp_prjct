@@ -11,6 +11,7 @@ import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { theme } from '../src/theme';
 import {
   BackLink,
+  Button,
   ConfirmDialog,
   Divider,
   EmptyState,
@@ -122,6 +123,29 @@ describe('ListRow', () => {
     );
     expect(tappableLabelled(renderer, 'Invite')).toBeTruthy();
     expect(renderer.root.findAllByType(Divider)).toHaveLength(1);
+  });
+
+  // A Button aligns itself to the start of what it's in; straight inside the row that
+  // would be the row's top edge, against the line of the row above.
+  test('a Button in actions sits in the middle of the row, clear of the lines', async () => {
+    const renderer = await render(
+      <ListRow
+        name="Area test"
+        meta="1 / 15 members"
+        actions={<Button title="Invite" />}
+      />,
+    );
+    let parent = renderer.root.findByType(Button).parent;
+    while (typeof parent.type !== 'string') parent = parent.parent;
+    const box = StyleSheet.flatten(parent.props.style);
+    expect(box.flexDirection ?? 'column').toBe('column');
+    expect(box.paddingVertical).toBeGreaterThan(0);
+    let row = parent.parent;
+    while (typeof row.type !== 'string') row = row.parent;
+    expect(StyleSheet.flatten(row.props.style)).toMatchObject({
+      flexDirection: 'row',
+      alignItems: 'center',
+    });
   });
 });
 

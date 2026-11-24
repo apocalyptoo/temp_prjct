@@ -46,7 +46,7 @@ export function toParams({ search, area, position }) {
 }
 
 // The search and Area fields, then any other filter (children). They sit at the top of
-// the list and scroll away with it.
+// the list and scroll away with it. A field's X empties it and searches at once.
 export function ListFilters({ list, searchLabel, children }) {
   const { spacing } = useTheme();
   const { filters, change, searchNow } = list;
@@ -57,6 +57,7 @@ export function ListFilters({ list, searchLabel, children }) {
         icon="search"
         value={filters.search}
         onChangeText={search => change({ search })}
+        onClear={() => searchNow({ search: '' })}
         maxLength={SEARCH_MAX}
         autoCorrect={false}
         returnKeyType="search"
@@ -66,6 +67,7 @@ export function ListFilters({ list, searchLabel, children }) {
         label="Area"
         value={filters.area}
         onChangeText={area => change({ area })}
+        onClear={() => searchNow({ area: '' })}
         getSuggestions={suggestAreas}
         onSuggestionPress={area => searchNow({ area })}
         maxLength={AREA_FILTER_MAX}

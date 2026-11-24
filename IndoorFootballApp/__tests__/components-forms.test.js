@@ -1,7 +1,7 @@
 /* eslint-env jest */
 // Tests for the form components added with feature 2 (src/components/ui, DESIGN.md
 // section 6): Checkbox, OptionGroup and SuggestionField, and TextField's leading icon
-// (added with the venues feature). Their files are also covered by the token guard in
+// (added with the venues feature) and its X (added with feature 3b). Their files are also covered by the token guard in
 // components-composite.test.js.
 
 import React from 'react';
@@ -12,6 +12,7 @@ import { theme } from '../src/theme';
 import {
   Checkbox,
   Icon,
+  IconButton,
   OptionGroup,
   SuggestionField,
   TextField,
@@ -318,5 +319,44 @@ describe('TextField icon', () => {
   test('without an icon there is none', async () => {
     const renderer = await render(<TextField label="Name" value="" />);
     expect(renderer.root.findAllByType(Icon)).toHaveLength(0);
+  });
+});
+
+describe('TextField onClear', () => {
+  const clearButtons = renderer =>
+    renderer.root.findAllByType(IconButton).map(b => b.props);
+  const field = props => (
+    <TextField label="Search teams" value="kings" {...props} />
+  );
+
+  test('an X that calls onClear, as big as a finger and named after the field', async () => {
+    const onClear = jest.fn();
+    const renderer = await render(field({ onClear }));
+    const [clear] = clearButtons(renderer);
+    expect(clear).toMatchObject({
+      icon: 'reject',
+      accessibilityLabel: 'Clear Search teams',
+    });
+    await ReactTestRenderer.act(() => clear.onPress());
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  test('only while there is text to clear, the field is enabled, and onClear is given', async () => {
+    for (const props of [
+      { onClear: jest.fn(), value: '' },
+      { onClear: jest.fn(), disabled: true },
+      {},
+    ]) {
+      expect(clearButtons(await render(field(props)))).toHaveLength(0);
+    }
+  });
+
+  test('works through a SuggestionField too', async () => {
+    const onClear = jest.fn();
+    const renderer = await render(
+      <SuggestionField label="Area" value="Mirpur" onClear={onClear} />,
+    );
+    await ReactTestRenderer.act(() => clearButtons(renderer)[0].onPress());
+    expect(onClear).toHaveBeenCalledTimes(1);
   });
 });

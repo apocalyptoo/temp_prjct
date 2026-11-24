@@ -475,6 +475,24 @@ describe('Players', () => {
     ]);
   });
 
+  test("a field's X empties only that field, and searches at once", async () => {
+    const { players } = await renderPlayers();
+    expect(pressables(players, 'Clear Search players')).toHaveLength(0);
+    await type(players, 'Search players', 'nay');
+    await type(players, 'Area', 'Mirpur');
+    await press(players, 'Clear Search players');
+    expect(input(players, 'Search players').props.value).toBe('');
+    expect(input(players, 'Area').props.value).toBe('Mirpur');
+    await press(players, 'Clear Area');
+    expect(input(players, 'Area').props.value).toBe('');
+    await wait(SEARCH_DELAY_MS); // what was typed is never sent afterwards
+    expect(sent('/players')).toEqual([
+      { page: 1 },
+      { area: 'Mirpur', page: 1 },
+      { page: 1 },
+    ]);
+  });
+
   test('no match: Clear search empties the search and every filter', async () => {
     const { players } = await renderPlayers();
     lists['/players'] = page([]);

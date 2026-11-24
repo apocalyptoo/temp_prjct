@@ -3,7 +3,8 @@
 //   <TextField label="Email" value={email} onChangeText={setEmail}
 //              keyboardType="email-address" error={emailError} />
 //   <TextField label="Password" value={password} onChangeText={setPassword} secure />
-//   <TextField label="Search venues" icon="search" value={search} onChangeText={…} />
+//   <TextField label="Search venues" icon="search" value={search} onChangeText={…}
+//              onClear={() => setSearch('')} />
 import React, { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -15,6 +16,8 @@ import Text from './Text';
 // secure: a password field (hidden, with a show/hide button). disabled: not editable.
 // icon: optional, one of our Icon names, shown muted at the left inside the field
 // (the search field's magnifier). Decorative: the label says what the field is.
+// onClear: optional, for searches and filters (not password fields): while the field has
+// text, an X at the right calls it. The field keeps its focus.
 // Every other prop (value, onChangeText, placeholder, keyboardType, autoComplete,
 // returnKeyType, onSubmitEditing…) goes to React Native's TextInput.
 export default function TextField({
@@ -24,6 +27,7 @@ export default function TextField({
   secure = false,
   disabled = false,
   icon: leadingIcon,
+  onClear,
   onFocus,
   onBlur,
   style,
@@ -33,6 +37,9 @@ export default function TextField({
     useTheme();
   const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(true);
+
+  const canClear =
+    Boolean(onClear) && Boolean(inputProps.value) && !secure && !disabled;
 
   const borderColor = error
     ? colors.danger
@@ -66,8 +73,8 @@ export default function TextField({
             paddingLeft: spacing.lg,
           },
           leadingIcon ? { gap: spacing.sm } : null,
-          // A password field's show/hide button sits flush with the right edge.
-          secure ? styles.flushRight : { paddingRight: spacing.lg },
+          // A button inside the field sits flush with the right edge.
+          secure || canClear ? styles.flushRight : { paddingRight: spacing.lg },
         ]}
       >
         {leadingIcon ? (
@@ -108,6 +115,13 @@ export default function TextField({
             accessibilityLabel={hidden ? 'Show password' : 'Hide password'}
             onPress={() => setHidden(value => !value)}
             disabled={disabled}
+          />
+        ) : null}
+        {canClear ? (
+          <IconButton
+            icon="reject"
+            accessibilityLabel={`Clear ${label}`}
+            onPress={onClear}
           />
         ) : null}
       </View>

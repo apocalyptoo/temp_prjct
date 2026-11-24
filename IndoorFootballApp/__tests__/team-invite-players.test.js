@@ -11,7 +11,7 @@ import InvitePlayersScreen, {
   NO_CANDIDATES,
 } from '../src/screens/Team/InvitePlayersScreen';
 import { SEARCH_DELAY_MS } from '../src/hooks/usePagedList';
-import { OptionGroup } from '../src/components/ui';
+import { Button, OptionGroup } from '../src/components/ui';
 import api from '../src/api/api';
 
 jest.mock('../src/api/api', () => ({
@@ -289,7 +289,11 @@ describe('The list', () => {
 describe('Inviting', () => {
   test('the button turns into a disabled "Invited"; the row and the screen stay', async () => {
     const { renderer, navigation } = await render();
+    const looks = () =>
+      renderer.root.findAllByType(Button).map(b => b.props.variant);
+    expect(looks()).toEqual(['primary', 'primary']); // lime until it's used
     await press(renderer, 'Invite Fahim Rahman');
+    expect(looks()).toEqual(['secondary', 'primary']);
 
     expect(api.post.mock.calls).toEqual([['/teams/7/invite', { userId: 5 }]]);
     expect(button(renderer, 'Invited: Fahim Rahman').props.disabled).toBe(true);

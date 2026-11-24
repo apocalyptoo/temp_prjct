@@ -61,7 +61,7 @@ export default function InvitePlayersScreen({ route, navigation }) {
     return (
       <Button
         title={label ?? 'Invite'}
-        variant="secondary"
+        variant={label ? 'secondary' : 'primary'}
         accessibilityLabel={
           label ? `${label}: ${player.name}` : `Invite ${player.name}`
         }

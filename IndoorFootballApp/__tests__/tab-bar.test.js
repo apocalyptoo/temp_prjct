@@ -3,7 +3,12 @@
 // given the same props React Navigation gives a custom tabBar.
 
 import React from 'react';
-import { StyleSheet, Text as NativeText } from 'react-native';
+import {
+  Keyboard,
+  Platform,
+  StyleSheet,
+  Text as NativeText,
+} from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { theme } from '../src/theme';
@@ -172,4 +177,47 @@ describe('TabBar', () => {
 
     expect(tabBarProps.navigation.dispatch).not.toHaveBeenCalled();
   });
+});
+
+// On Android the bar makes room while the keyboard is on screen.
+describe('TabBar and the Android keyboard', () => {
+  const realOS = Platform.OS;
+  let listeners;
+  const send = (event, height) =>
+    ReactTestRenderer.act(() => {
+      listeners[event]?.forEach(fn => fn({ endCoordinates: { height } }));
+    });
+  const labels = renderer => tabs(renderer).length;
+
+  beforeEach(() => {
+    Platform.OS = 'android';
+    listeners = {};
+    jest.spyOn(Keyboard, 'addListener').mockImplementation((event, fn) => {
+      listeners[event] = [...(listeners[event] ?? []), fn];
+      return { remove: jest.fn() };
+    });
+  });
+  afterEach(() => {
+    Platform.OS = realOS;
+    jest.restoreAllMocks();
+  });
+
+  test('a keyboard on screen hides the bar; it comes back when the keyboard closes', async () => {
+    const renderer = await render(props());
+    await send('keyboardDidShow', 280);
+    expect(labels(renderer)).toBe(0);
+    await send('keyboardDidHide', 0);
+    expect(labels(renderer)).toBe(4);
+  });
+
+  // With a computer's (or a Bluetooth) keyboard, Android says the keyboard is open while
+  // a field is focused, though nothing, or only a thin toolbar, is on screen.
+  test.each([0, -24, 48, 64])(
+    'a physical keyboard (reported height %d) leaves the bar where it is',
+    async height => {
+      const renderer = await render(props());
+      await send('keyboardDidShow', height);
+      expect(labels(renderer)).toBe(4);
+    },
+  );
 });

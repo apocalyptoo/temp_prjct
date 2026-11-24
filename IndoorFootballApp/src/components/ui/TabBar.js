@@ -7,7 +7,7 @@
 //
 // Pressing a tab emits React Navigation's standard tabPress event (with the same data as
 // its own tab bar), so pressing the tab you're already on takes its stack back to the
-// first screen. On Android the bar hides while the keyboard is open.
+// first screen. On Android the bar hides while a keyboard is on screen.
 import React, { useEffect, useState } from 'react';
 import { Keyboard, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
@@ -17,12 +17,20 @@ import Badge, { badgeLabel } from './Badge';
 import Icon from './Icon';
 import Text from './Text';
 
-// True while the keyboard is open, on Android only (iOS keyboards cover the bar).
+// Lower than any on-screen keyboard, higher than the thin toolbar a physical one shows.
+const MIN_KEYBOARD_HEIGHT = 100;
+
+// True while a keyboard is on screen, on Android only (iOS keyboards cover the bar).
+// With a physical keyboard (a computer's, in the emulator, or a Bluetooth one) Android
+// also says "the keyboard is open" for as long as a field is focused, but nothing covers
+// the screen; the bar must stay then, so the height decides.
 function useAndroidKeyboardOpen() {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
-    const shown = Keyboard.addListener('keyboardDidShow', () => setOpen(true));
+    const shown = Keyboard.addListener('keyboardDidShow', event =>
+      setOpen(event.endCoordinates.height >= MIN_KEYBOARD_HEIGHT),
+    );
     const hidden = Keyboard.addListener('keyboardDidHide', () =>
       setOpen(false),
     );

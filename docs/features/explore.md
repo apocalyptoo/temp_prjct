@@ -7,6 +7,7 @@ Phase 4, Step 3. Task F3b.0, written 2026-11-23. **Status: approved 2026-11-23**
 - **Player detail (F3b.3):** on your own profile the phone shows without tap to call, with the Profile's hint "Only your teammates can see this". An invite that comes back as "Joined" reloads the player at once, so the row then says "Already a member" (owner's decision, 2026-11-24; it replaces section e's lasting "Joined"). `ListRow` gained `actions`, so a row's buttons sit beside its tap area.
 - **Explore (F3b.4):** a search or filter change that fails replaces the rows with "Couldn't load …" and Try again (owner's decision, 2026-11-24). A change that comes to the same search (only spaces typed, say) sends nothing and keeps the pages. Try again always shows its spinner for a moment.
 - **Invite players (F3b.5; owner's decisions, 2026-11-24):** the title and the member count stay at the top, like Explore's. An invited player leaves the server's list, so the next page is asked for from further back and nobody is skipped. "Joined" reloads the member count. Invited rows stay until the list is loaded afresh (pull to refresh, or another search or filter).
+- **After the owner's emulator check (2026-11-25):** Invite is a primary (lime) button on Player detail and Invite players, not secondary (P24). The search and Area fields have an X that empties the field and searches at once.
 
 **How to read the markers:**
 - **Decided**: one of the owner's four decisions of 2026-11-23 (DECISIONS.md, "Explore details"), or a rule already in PRODUCT.md or DECISIONS.md.

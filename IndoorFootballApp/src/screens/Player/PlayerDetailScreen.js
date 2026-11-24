@@ -8,7 +8,8 @@
 //   it's visible). No card when none of the three is there.
 // - Teams: the teams they're an accepted member of, each opening Team detail.
 // - "Invite to my team" (P24): for a captain, one row per team they captain, from the
-//   reply's inviteOptions, with an Invite button or the reason it can't be sent.
+//   reply's inviteOptions, with a lime Invite button or the reason it can't be
+//   sent.
 // - Your own profile: a line saying this is how others see you, no Invite card, and
 //   your phone shown but not tappable.
 // - A 404 (the account is gone): "This player isn't available any more." with Back.
@@ -383,7 +384,7 @@ function InviteCard({ options, done, isBusy, busy, onInvite }) {
               canInvite ? (
                 <Button
                   title={label ?? 'Invite'}
-                  variant="secondary"
+                  variant={label ? 'secondary' : 'primary'}
                   accessibilityLabel={
                     label
                       ? `${label} to ${option.name}`
