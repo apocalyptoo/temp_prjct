@@ -79,7 +79,7 @@ Here's what happens, step by step, when a player creates a team.
 
 **On the phone**
 
-1. The player taps **Create team** on **My Teams** (or **+ Create Team** on Explore → Teams), which opens the team form.
+1. The player taps **Create team** on **My Teams**, which opens the team form.
 2. They type a name, optionally an area (where the team usually plays; common areas are suggested as they type) and a description, and tap **Create team**. The form (`src/screens/Team/TeamFormScreen.js`) first checks the same limits the backend will check, and shows any problem under the field. Then it calls `api.post('/teams/create', { name, description, area })`.
 3. Before the request leaves the phone, the shared API helper (`src/api/api.js`) adds the login token. An **interceptor** (a function that runs on every request) reads the token from the phone's storage and adds the header `Authorization: Bearer <token>`.
 4. The request travels over HTTPS to the ngrok address, which forwards it to the backend on port 4000.
@@ -281,13 +281,15 @@ IndoorFootballApp/
 ├── index.js             registers the app with React Native
 ├── __tests__/           Jest tests, one file per area (components, screens, navigation, checks)
 ├── assets/fonts/        Barlow Condensed and Inter font files, with their licenses
-├── assets/icons/        PNG images (the ball logo on the Login screen, and some old ones)
+├── assets/icons/        PNG images (the ball logo on the Login screen)
 ├── src/
 │   ├── api/api.js       shared helper for talking to the backend
 │   ├── components/ui/   shared building blocks screens are made from (see "Shared components")
 │   ├── constants/       fixed lists: the positions and the area suggestions
 │   ├── contexts/        AuthContext.js: who is logged in
 │   ├── hooks/           useBusyAction.js: stops a button sending its request twice
+│   │                    usePagedList.js: a list that loads in pages, with its search
+│   │                    useTryAgain.js: Try again always shows its spinner for a moment
 │   ├── navigation/      which screens exist for each role
 │   ├── screens/         one file per screen, grouped by area (Auth, Player, Owner, Team, Venue,
 │   │                    Admin, Shared for Explore, Settings and Change password, Dev for the
@@ -311,13 +313,13 @@ The app's look lives in one folder, `src/theme/`, as named values called **token
 
 The status bar always shows white icons on the dark background, and Android's own window behind the app is dark too, so no white flash shows while the app starts. The token files and their values: [TECHNICAL.md 8.1–8.2](TECHNICAL.md#82-theme).
 
-**Not every screen uses the new look yet.** Two admin screens (Users and Teams) and two old lists in Explore (Teams and Players) still have their old light styles and icons; they're restyled later (ROADMAP Step 4). Everything else is built in the new design.
+**Not every screen uses the new look yet.** Two admin screens (Users and Teams) still have their old light styles and icons; they're restyled later (ROADMAP Step 4). Everything players and venue owners see is built in the new design.
 
 ### Shared components
 
 Screens are built from ready-made pieces in `src/components/ui/`, so each piece looks the same everywhere and is styled in one place. A screen imports them from one place: `import { Screen, Text, Button } from '../../components/ui';`.
 
-- **Layout and text:** `Screen` (the dark background, side padding, room for the status bar, optional scrolling), `Text`, `ScreenHeader`, `SectionHeader`, `Divider`, `TabBar` (the bottom tab bar).
+- **Layout and text:** `Screen` (the dark background, side padding, room for the status bar, optional scrolling), `Text`, `ScreenHeader`, `SectionHeader`, `Divider`, `TabBar` (the bottom tab bar), `SectionTabs` (switches between the sections of one screen, like Explore's).
 - **Actions:** `Button` (main, secondary or danger; with a `loading` state that shows a spinner and ignores taps while a request runs), `IconButton`, `TextLink`, `BackLink`.
 - **Content:** `Card`, `ListRow`, `Avatar` (initials in a circle), `Pill`, `Badge`, `NoticeLine` ("● 2 join requests waiting for you"), `EmptyState`, `Icon`.
 - **Forms and questions:** `TextField`, `Checkbox` (the Terms box at sign-up), `OptionGroup` (pick one of a few choices, like the position), `SuggestionField` (suggests common values as you type, like areas; any other text is still allowed), `ConfirmDialog` ("Delete this team?" with Cancel and Confirm).
@@ -356,7 +358,7 @@ What each tab holds today:
 - **Player:** My Teams (your teams and join requests → Team detail → invite players, hand over the captaincy, edit team, or tap a person to open their Player detail; create team), Explore, Notifications (for now the Invites screen, which opens Team detail), Profile (your details with Edit profile, and a gear that opens Settings: Edit profile, Change password, the Terms of Use and Privacy Policy pages, and Log out).
 - **Venue owner:** My Venue (the listing, with Edit venue), Explore (teams read-only, players and venues), Notifications (for now just "No notifications yet."), Profile (the account: venue name, "Venue owner" and email, a link to My Venue, and the gear to Settings, where **Edit venue** replaces Edit profile).
 - **Admin:** Dashboard (how many venues are waiting for review, which opens the Venues tab, and the totals), Reports (for now just "Reports arrive with moderation."), Venues (the venue review, see "Venue review"), Users and Teams (the old management screens).
-- **Explore** (players and owners) is for now a simple screen with three rows, Teams, Players and Venues. Teams and Players open the old lists; tapping a team opens Team detail. Venues opens the new venue list (see "Finding a venue").
+- **Explore** (players and owners) is one screen with three sections, Teams, Players and Venues (see "Explore").
 
 These "for now" screens are placeholders that later features replace (PRODUCT.md, "App structure and navigation"). A screen can only open screens in its own stack, so the team screens are added to every stack that can open a team. Route names and stacks: [TECHNICAL.md 8.5](TECHNICAL.md#85-navigation).
 
@@ -431,7 +433,7 @@ A new venue starts as **Pending review**: players can't find it yet. The admin s
 
 ### Finding a venue
 
-**Explore → Venues** lists the live venues from A to Z, one card each with the name, the area and the opening hours. There's a search by name and an area filter (with the same suggestions as everywhere else). The app doesn't filter the list itself: it asks the backend (`GET /owners`), which does the matching, ignoring capitals and matching part of the text. So it doesn't send a request on every keystroke, it waits until typing has paused for 0.4 seconds; tapping an area suggestion searches straight away. The backend sends the list a page at a time (20 venues); for now the app shows the first page, until Explore is rebuilt with pages that load as you scroll (feature 3b). Nothing found shows "No venues match your search." with **Clear search**. The list is built as one reusable piece (`VenueList`), so the full Explore screen (feature 3b) can show it as its Venues section without rebuilding it.
+**Explore → Venues** lists the live venues from A to Z, one card each with the name, the area and the opening hours. There's a search by name and an area filter (with the same suggestions as everywhere else). The app doesn't filter the list itself: it asks the backend (`GET /owners`), which does the matching, ignoring capitals and matching part of the text. It works like Explore's other two sections (see "Explore").
 
 Tapping a venue opens **Venue detail**: the listing without empty rows. Tapping the phone opens the phone's dialler, and the website opens in the browser only if it's a real `http://` or `https://` link. If the venue has gone (deleted, or the admin moved it back to review), the screen says "This venue isn't available any more." Venue owners see the same screens as players; a pending venue never shows up, not even its owner's.
 
@@ -469,6 +471,18 @@ Team detail shows one team as the viewer sees it: its name, its area (if it has 
 - **Venue owner:** the same team, read-only.
 
 Destructive or important actions ask first, in a dialog that says exactly what will happen ("Remove Tanvir Ahmed from Dhanmondi Strikers?"). A captain with other members has to hand over the captaincy before leaving; a captain who's alone deletes the team by leaving. If the team changed in the meantime (for example it filled up), the screen says "Something changed" and reloads. Tapping anyone in the team (a member, a join request or an invite) opens their **Player detail**. **Edit team** opens the same form as Create team, filled in. A captain whose team has no area yet sees "No area yet." with an **Add area** link to that form, because a team without an area can't be found with the area filter.
+
+### Explore
+
+Explore is one screen for players and venue owners, with three sections: **Teams**, **Players** and **Venues**. The title and the section tabs stay at the top. Each section has its own search and filters, and keeps them, its rows and its place in the list while you look at another section.
+
+- **Teams:** search by name, filter by area. Teams with a free spot come first; full teams come last, marked "Full". Your own teams, invites and requests are marked too ("Captain", "Player", "Invited", "Request sent").
+- **Players:** search by name, filter by area and by position. All three combine.
+- **Venues:** see "Finding a venue".
+
+The app never downloads a whole list. It asks the backend for a page of 20, and for the next page when you near the end. All the matching happens on the backend. A request isn't sent on every keystroke: the app waits until typing has paused for 0.4 seconds (tapping a suggestion or a position searches straight away). If an older answer arrives late, it's thrown away. Opening a team and coming back doesn't load the list again, so you stay where you were; pulling down refreshes it. If a search can't reach the backend, the list says so with **Try again**, rather than showing rows that don't match the search. All this lives in one place, the `usePagedList` hook, which the three sections share.
+
+Venue owners see the same three sections, read-only.
 
 ### The Player detail screen
 

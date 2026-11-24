@@ -298,6 +298,18 @@ async function pressText(renderer, text, { last = false } = {}) {
   await settle();
 }
 
+async function pressLabel(renderer, label) {
+  const node = renderer.root
+    .findAll(
+      n =>
+        n.props.accessibilityLabel === label &&
+        typeof n.props.onPress === 'function',
+    )
+    .pop();
+  await ReactTestRenderer.act(() => node.props.onPress());
+  await settle();
+}
+
 const current = navigationRef => navigationRef.getCurrentRoute().name;
 const currentTab = navigationRef => {
   const root = navigationRef.getRootState();
@@ -334,10 +346,10 @@ describe('Player navigator', () => {
     await goBack(navigationRef);
     expect(current(navigationRef)).toBe('MyTeams');
 
-    // Explore → Teams → a team opens Team detail inside the Explore tab. (My Teams,
+    // Explore opens on Teams; a team opens Team detail inside the Explore tab. (My Teams,
     // still mounted in its own tab, shows the same team name, so press the last one.)
     await pressTab(renderer, 'Explore');
-    await pressText(renderer, 'Teams');
+    expect(current(navigationRef)).toBe('Explore');
     await pressText(renderer, 'Dhanmondi Strikers', { last: true });
     expect(current(navigationRef)).toBe('TeamDetail');
     expect(currentTab(navigationRef)).toBe('ExploreTab');
@@ -348,17 +360,27 @@ describe('Player navigator', () => {
     expect(current(navigationRef)).toBe('Explore');
     await pressTab(renderer, 'My Teams');
 
-    // Explore opens its lists inside the Explore tab.
+    // The Players section: a player opens Player detail inside the Explore tab, and
+    // coming back doesn't load the list again.
     await pressTab(renderer, 'Explore');
-    expect(current(navigationRef)).toBe('Explore');
     await pressText(renderer, 'Players');
-    expect(current(navigationRef)).toBe('Players');
+    expect(current(navigationRef)).toBe('Explore');
+    await pressText(renderer, 'Listed Player');
+    expect(current(navigationRef)).toBe('PlayerDetail');
+    expect(currentTab(navigationRef)).toBe('ExploreTab');
+    expect(navigationRef.getCurrentRoute().params).toEqual({
+      userId: 12,
+      playerName: 'Listed Player',
+    });
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('Explore');
+    for (const path of ['/teams', '/players']) {
+      expect(api.get.mock.calls.filter(([p]) => p === path)).toHaveLength(1);
+    }
 
-    // Explore → Venues → a venue opens Venue detail inside the Explore tab; its back
-    // link returns to the list.
-    await pressTab(renderer, 'Explore');
+    // The Venues section: a venue opens Venue detail inside the Explore tab; its back
+    // link returns to Explore.
     await pressText(renderer, 'Venues');
-    expect(current(navigationRef)).toBe('Venues');
     await pressText(renderer, 'Floodlight Arena');
     expect(current(navigationRef)).toBe('VenueDetail');
     expect(currentTab(navigationRef)).toBe('ExploreTab');
@@ -367,8 +389,8 @@ describe('Player navigator', () => {
       venueName: 'Floodlight Arena',
     });
     expect(tabLabels(renderer)).toHaveLength(4);
-    await pressText(renderer, 'Venues', { last: true });
-    expect(current(navigationRef)).toBe('Venues');
+    await pressLabel(renderer, 'Back to Explore');
+    expect(current(navigationRef)).toBe('Explore');
 
     // Pressing the tab you're on goes back to its first screen.
     await pressTab(renderer, 'Explore');
@@ -379,16 +401,6 @@ describe('Player navigator', () => {
     expect(current(navigationRef)).toBe('MyTeams');
     // …and from there there's nothing to go back to, so Android leaves the app.
     expect(navigationRef.canGoBack()).toBe(false);
-
-    // "+ Create Team" on the team list (Explore tab) jumps to Create Team in the
-    // My Teams tab, with My Teams under it, so going back lands on My Teams.
-    await pressTab(renderer, 'Explore');
-    await pressText(renderer, 'Teams');
-    expect(current(navigationRef)).toBe('Teams');
-    await pressText(renderer, '+ Create Team');
-    expect(current(navigationRef)).toBe('CreateTeam');
-    await goBack(navigationRef);
-    expect(current(navigationRef)).toBe('MyTeams');
 
     // Notifications shows the invites screen; Profile has the Settings gear.
     await pressTab(renderer, 'Notifications');
@@ -403,6 +415,87 @@ describe('Player navigator', () => {
     await ReactTestRenderer.act(() => gear.props.onPress());
     await settle();
     expect(current(navigationRef)).toBe('Settings');
+  });
+});
+
+describe('Explore from My Teams (explore spec, section e)', () => {
+  // A player with no teams and no requests: My Teams' empty state.
+  beforeEach(() => {
+    api.get.mockImplementation(path =>
+      Promise.resolve({
+        data: path === '/teams/me' ? [] : REPLIES[path] ?? [],
+      }),
+    );
+  });
+  const exploreRoutes = navigationRef =>
+    navigationRef
+      .getRootState()
+      .routes.find(r => r.name === 'ExploreTab')
+      .state.routes.map(r => r.name);
+  const selectedSection = renderer =>
+    renderer.root
+      .findAll(
+        n =>
+          n.props.accessibilityRole === 'tab' &&
+          typeof n.props.style === 'function' &&
+          n.props.accessibilityState?.selected,
+      )
+      .map(n => n.props.accessibilityLabel);
+
+  test('"Find a team" opens Explore on Teams; back returns to My Teams', async () => {
+    const { renderer, navigationRef } = await renderNavigator(
+      PlayerNavigator,
+      PLAYER,
+    );
+    await pressText(renderer, 'Find a team');
+    expect(currentTab(navigationRef)).toBe('ExploreTab');
+    expect(current(navigationRef)).toBe('Explore');
+    expect(selectedSection(renderer)).toContain('Teams');
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('MyTeams');
+  });
+
+  test('also when Explore was left on another section, with a detail screen open', async () => {
+    const { renderer, navigationRef } = await renderNavigator(
+      PlayerNavigator,
+      PLAYER,
+    );
+    for (let i = 0; i < 2; i += 1) {
+      await pressTab(renderer, 'Explore');
+      await pressText(renderer, 'Players');
+      await pressText(renderer, 'Listed Player');
+      expect(exploreRoutes(navigationRef)).toEqual(['Explore', 'PlayerDetail']);
+
+      await pressTab(renderer, 'My Teams');
+      await pressText(renderer, 'Find a team');
+      expect(exploreRoutes(navigationRef)).toEqual(['Explore']);
+      expect(current(navigationRef)).toBe('Explore');
+      expect(selectedSection(renderer)).toContain('Teams');
+      expect(selectedSection(renderer)).not.toContain('Players');
+    }
+  });
+
+  test('no teams anywhere: Create team in Explore opens the form over My Teams', async () => {
+    api.get.mockImplementation(path =>
+      Promise.resolve({
+        data:
+          path === '/teams'
+            ? { items: [], page: 1, limit: 20, total: 0 }
+            : path === '/teams/me'
+            ? []
+            : REPLIES[path] ?? [],
+      }),
+    );
+    const { renderer, navigationRef } = await renderNavigator(
+      PlayerNavigator,
+      PLAYER,
+    );
+    await pressTab(renderer, 'Explore');
+    await pressText(renderer, 'Create team', { last: true });
+    expect(current(navigationRef)).toBe('CreateTeam');
+    expect(currentTab(navigationRef)).toBe('MyTeamsTab');
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('MyTeams');
   });
 });
 
@@ -424,6 +517,10 @@ describe('Player detail (explore spec P30)', () => {
       expect(stackRoutes(navigationRef, tab)).toEqual(
         expect.arrayContaining(['TeamDetail', 'PlayerDetail']),
       );
+      // The old lists' routes are gone.
+      for (const old of ['Teams', 'Players', 'Venues']) {
+        expect(stackRoutes(navigationRef, tab)).not.toContain(old);
+      }
     }
   });
 
@@ -501,18 +598,17 @@ describe('Owner navigator', () => {
     expect(current(navigationRef)).toBe('MyVenue');
 
     await pressTab(renderer, 'Explore');
+    expect(current(navigationRef)).toBe('Explore');
     await pressText(renderer, 'Venues');
-    expect(current(navigationRef)).toBe('Venues');
     expect(tabLabels(renderer)).toHaveLength(4);
     // Venue owners open Venue detail too (read-only for everyone).
     await pressText(renderer, 'Floodlight Arena');
     expect(current(navigationRef)).toBe('VenueDetail');
     expect(currentTab(navigationRef)).toBe('ExploreTab');
     await goBack(navigationRef);
-    expect(current(navigationRef)).toBe('Venues');
+    expect(current(navigationRef)).toBe('Explore');
 
-    // Explore → Teams → a team opens the read-only Team detail: no buttons to join.
-    await pressTab(renderer, 'Explore');
+    // The Teams section: a team opens the read-only Team detail: no buttons to join.
     await pressText(renderer, 'Teams');
     await pressText(renderer, 'Dhanmondi Strikers');
     expect(current(navigationRef)).toBe('TeamDetail');
@@ -530,6 +626,12 @@ describe('Owner navigator', () => {
       .routes.find(r => r.name === 'ExploreTab').state;
     expect(exploreStack.routeNames).toContain('TeamDetail');
     expect(exploreStack.routeNames).toContain('PlayerDetail');
+    expect(exploreStack.routeNames).toEqual([
+      'Explore',
+      'VenueDetail',
+      'TeamDetail',
+      'PlayerDetail',
+    ]);
     expect(exploreStack.routeNames).not.toContain('RequestToJoin');
     expect(exploreStack.routeNames).not.toContain('TransferCaptaincy');
     // A member row opens Player detail for owners too, without an Invite card.

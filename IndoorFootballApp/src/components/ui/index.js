@@ -18,6 +18,7 @@ export { default as Pill } from './Pill';
 export { default as Screen } from './Screen';
 export { default as ScreenHeader } from './ScreenHeader';
 export { default as SectionHeader } from './SectionHeader';
+export { default as SectionTabs } from './SectionTabs';
 export { default as SuggestionField } from './SuggestionField';
 export { default as TabBar } from './TabBar';
 export { default as Text } from './Text';

@@ -19,6 +19,7 @@ import {
   NoticeLine,
   ScreenHeader,
   SectionHeader,
+  SectionTabs,
   TextField,
   TextLink,
 } from '../src/components/ui';
@@ -246,6 +247,84 @@ describe('TextField', () => {
     const input = renderer.root.findByType(TextInput);
     expect(input.props.editable).toBe(false);
     expect(input.props.accessibilityState).toEqual({ disabled: true });
+  });
+});
+
+describe('SectionTabs', () => {
+  const TABS = [
+    { value: 'teams', label: 'Teams' },
+    { value: 'players', label: 'Players' },
+    { value: 'venues', label: 'Venues' },
+  ];
+  const show = (props = {}) =>
+    render(
+      <SectionTabs
+        label="Explore sections"
+        tabs={TABS}
+        value="players"
+        {...props}
+      />,
+    );
+  const segments = renderer =>
+    renderer.root.findAll(
+      node =>
+        node.props.accessibilityRole === 'tab' &&
+        typeof node.props.style === 'function',
+    );
+  const look = node => StyleSheet.flatten(node.props.style({ pressed: false }));
+
+  test('a tab list with its name, and one tab per section with its selected state', async () => {
+    const renderer = await show();
+    expect(
+      renderer.root.findAll(
+        node =>
+          node.props.accessibilityRole === 'tablist' &&
+          node.props.accessibilityLabel === 'Explore sections',
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      segments(renderer).map(node => [
+        node.props.accessibilityLabel,
+        node.props.accessibilityState.selected,
+      ]),
+    ).toEqual([
+      ['Teams', false],
+      ['Players', true],
+      ['Venues', false],
+    ]);
+  });
+
+  test('equal-width segments, at least the touch target tall', async () => {
+    for (const node of segments(await show())) {
+      expect(look(node).minHeight).toBe(theme.touchTarget);
+      expect(look(node).flex).toBe(1);
+      expect(look(node).height).toBeUndefined();
+    }
+  });
+
+  test('the chosen one is accentSoft with accent text, the others textMuted', async () => {
+    const renderer = await show();
+    expect(segments(renderer).map(node => look(node).backgroundColor)).toEqual([
+      undefined,
+      theme.colors.accentSoft,
+      undefined,
+    ]);
+    expect(
+      renderer.root
+        .findAllByType(NativeText)
+        .map(node => StyleSheet.flatten(node.props.style).color),
+    ).toEqual([
+      theme.colors.textMuted,
+      theme.colors.accent,
+      theme.colors.textMuted,
+    ]);
+  });
+
+  test('tapping a section calls onChange with its value', async () => {
+    const onChange = jest.fn();
+    const renderer = await show({ onChange });
+    await act(() => segments(renderer)[2].props.onPress());
+    expect(onChange.mock.calls).toEqual([['venues']]);
   });
 });
 

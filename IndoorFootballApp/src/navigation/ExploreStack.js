@@ -1,15 +1,11 @@
-// The Explore tab's stack, shared by players and venue owners: the interim Explore
-// screen and the three lists it opens, plus the team screens (teamScreens.js), so a
-// team in the list opens Team detail, and Venue detail, opened from the venue list.
-// The Teams and Players lists keep their old headers until restyled; the venue screens
-// draw their own. Venue owners get Team detail only (readOnly).
+// The Explore tab's stack, shared by players and venue owners: Explore itself (Teams ·
+// Players · Venues), Venue detail, and the team screens (teamScreens.js), so a team opens
+// Team detail and a player opens Player detail. All of them draw their own header. Venue
+// owners get the read-only team screens.
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import ExploreScreen from '../screens/Shared/ExploreScreen';
-import TeamsListScreen from '../screens/Team/TeamsListScreen';
-import PlayersListScreen from '../screens/Player/PlayersListScreen';
-import VenuesScreen from '../screens/Venue/VenuesScreen';
 import VenueDetailScreen from '../screens/Venue/VenueDetailScreen';
 
 import { teamScreens } from './teamScreens';
@@ -22,21 +18,6 @@ function ExploreStack({ readOnly }) {
       <Stack.Screen
         name="Explore"
         component={ExploreScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Teams"
-        component={TeamsListScreen}
-        options={{ title: 'All Teams' }}
-      />
-      <Stack.Screen
-        name="Players"
-        component={PlayersListScreen}
-        options={{ title: 'Players' }}
-      />
-      <Stack.Screen
-        name="Venues"
-        component={VenuesScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen

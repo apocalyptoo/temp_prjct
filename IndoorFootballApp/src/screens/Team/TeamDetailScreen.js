@@ -1,5 +1,5 @@
 // Team detail (docs/features/team-membership.md, sections c and e): one team, as the
-// viewer sees it. Params: { teamId }. Opened from My Teams, Explore → Teams and a
+// viewer sees it. Params: { teamId }. Opened from My Teams, Explore's Teams and a
 // player's teams on Player detail. Every person row (members, join requests, invites)
 // opens Player detail (docs/features/explore.md, P28), pushed so a chain of team and
 // player pages goes back one step at a time (P30).
@@ -30,6 +30,7 @@ import { useBusyAction } from '../../hooks/useBusyAction';
 import {
   CaptainLabel,
   TeamLoadState,
+  ViewerPill,
   personName,
   personMeta,
   showActionError,
@@ -39,7 +40,7 @@ import {
 // The back link names the screen underneath (the mockup's "‹ My Teams").
 const BACK_LABELS = {
   MyTeams: 'My Teams',
-  Teams: 'All Teams',
+  Explore: 'Explore',
   Invites: 'Invites',
 };
 function backLabel(navigation) {
@@ -427,15 +428,6 @@ function TeamArea({ area, onAdd }) {
       {area ? null : <TextLink title="Add area" onPress={onAdd} />}
     </View>
   );
-}
-
-// Where the viewer stands, as a pill; nothing for visitors, venue owners and the admin.
-function ViewerPill({ state }) {
-  if (state === 'captain') return <Pill label="Captain" variant="strong" />;
-  if (state === 'member') return <Pill label="Player" />;
-  if (state === 'invited') return <Pill label="Invited" />;
-  if (state === 'requested') return <Pill label="Request sent" />;
-  return null;
 }
 
 // Two buttons sharing a row (DESIGN.md: a layout, not a component).

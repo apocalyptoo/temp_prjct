@@ -164,8 +164,8 @@ describe('Loading', () => {
     expect(api.get).toHaveBeenCalledWith('/teams/7');
     expect(button(renderer, 'Back to My Teams')).toBeTruthy();
 
-    const fromExplore = await render(CAPTAIN_VIEW, { below: 'Teams' });
-    expect(button(fromExplore.renderer, 'Back to All Teams')).toBeTruthy();
+    const fromExplore = await render(CAPTAIN_VIEW, { below: 'Explore' });
+    expect(button(fromExplore.renderer, 'Back to Explore')).toBeTruthy();
 
     // Opened from a player's teams: no short name, so just "Back".
     const fromPlayer = await render(CAPTAIN_VIEW, { below: 'PlayerDetail' });
@@ -331,12 +331,12 @@ describe('What each viewer sees', () => {
   test('a venue owner: read-only, no buttons but the back link and the member rows', async () => {
     const { renderer } = await render(viewAs('none'), {
       user: OWNER,
-      below: 'Teams',
+      below: 'Explore',
     });
 
     expect(shownText(renderer)).toContain('Tanvir Ahmed');
     expect(labels(renderer)).toEqual([
-      'Back to All Teams',
+      'Back to Explore',
       'Rahim Uddin, Forward',
       'Tanvir Ahmed, Goalkeeper · Mirpur 10',
     ]);

@@ -263,8 +263,9 @@ describe('Empty state', () => {
     await press(renderer, 'Find a team');
 
     expect(navigation.navigate).toHaveBeenCalledWith('ExploreTab', {
-      screen: 'Teams',
-      initial: false,
+      screen: 'Explore',
+      params: { section: 'teams' },
+      pop: true,
     });
   });
 

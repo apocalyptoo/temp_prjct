@@ -132,9 +132,12 @@ export default function MyTeamsScreen({ navigation }) {
               <TextLink
                 title="Find a team"
                 onPress={() =>
+                  // pop: back to Explore itself, even if a detail screen is open
+                  // on top of it in that tab.
                   navigation.navigate('ExploreTab', {
-                    screen: 'Teams',
-                    initial: false,
+                    screen: 'Explore',
+                    params: { section: 'teams' },
+                    pop: true,
                   })
                 }
                 style={styles.centred}

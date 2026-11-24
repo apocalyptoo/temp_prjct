@@ -171,7 +171,7 @@ export default function VenueDetailScreen({ navigation, route }) {
           />
         }
       >
-        <BackLink label="Venues" onPress={navigation.goBack} />
+        <BackLink label="Explore" onPress={navigation.goBack} />
         {name ? (
           <View style={{ gap: spacing.sm }}>
             <Text variant="title">{name}</Text>

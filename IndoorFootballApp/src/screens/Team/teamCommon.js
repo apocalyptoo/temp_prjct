@@ -5,7 +5,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import api from '../../api/api';
 import { useTheme } from '../../theme/ThemeProvider';
-import { EmptyState, Icon, Text } from '../../components/ui';
+import { useTryAgain } from '../../hooks/useTryAgain';
+import { EmptyState, Icon, Pill, Text } from '../../components/ui';
 
 // The join request message limit (docs/PRODUCT.md, "Join request message"). Counted in
 // characters as people see them (code points), like the backend, so an emoji counts once.
@@ -76,19 +77,21 @@ export function useTeam(teamId, navigation) {
 }
 
 // What a team screen shows before its data has loaded: a spinner, or after a failed
-// first load, a line (errorMessage) and Try again.
+// first load, a line (errorMessage) and Try again, which always shows the spinner for a
+// moment (useTryAgain).
 export function TeamLoadState({
   status,
   onRetry,
   errorMessage = "Couldn't load this team.",
 }) {
   const { colors, spacing } = useTheme();
-  if (status === 'error') {
+  const { trying, tryAgain } = useTryAgain(onRetry);
+  if (status === 'error' && !trying) {
     return (
       <EmptyState
         message={errorMessage}
         actionTitle="Try again"
-        onAction={onRetry}
+        onAction={tryAgain}
       />
     );
   }
@@ -100,6 +103,25 @@ export function TeamLoadState({
         accessibilityLabel="Loading"
       />
     </View>
+  );
+}
+
+// Where the viewer stands with a team, in words, by the backend's viewerState; null for
+// visitors, venue owners and the admin.
+const VIEWER_LABELS = {
+  captain: 'Captain',
+  member: 'Player',
+  invited: 'Invited',
+  requested: 'Request sent',
+};
+export const viewerLabel = state => VIEWER_LABELS[state] ?? null;
+
+// The same as a pill, or nothing. Used on Team detail and on Explore's team cards.
+export function ViewerPill({ state }) {
+  const label = viewerLabel(state);
+  if (!label) return null;
+  return (
+    <Pill label={label} variant={state === 'captain' ? 'strong' : 'soft'} />
   );
 }
 

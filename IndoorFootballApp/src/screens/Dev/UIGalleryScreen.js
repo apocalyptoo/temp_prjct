@@ -24,6 +24,7 @@ import {
   Screen,
   ScreenHeader,
   SectionHeader,
+  SectionTabs,
   SuggestionField,
   TabBar,
   Text,
@@ -53,6 +54,12 @@ const TRICKY_NAMES = [
   '',
 ];
 
+// Explore's sections.
+const SECTION_TABS = [
+  { value: 'teams', label: 'Teams' },
+  { value: 'players', label: 'Players' },
+  { value: 'venues', label: 'Venues' },
+];
 // A player's tabs, with a stand-in for React Navigation so the bar can be tried here.
 const GALLERY_TABS = [
   { name: 'MyTeamsTab', title: 'My Teams', icon: 'teams' },
@@ -196,6 +203,7 @@ export default function UIGalleryScreen({ navigation }) {
   const [dialogBusy, setDialogBusy] = useState(false);
   const [buttonBusy, setButtonBusy] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [section, setSection] = useState('teams');
   const [position, setPosition] = useState(null);
   const [area, setArea] = useState('');
 
@@ -390,6 +398,15 @@ export default function UIGalleryScreen({ navigation }) {
           </Checkbox>
           <Checkbox checked label="Ticked" onChange={() => {}} />
           <Checkbox checked={false} label="Disabled" disabled />
+        </Section>
+
+        <Section title="Section tabs">
+          <SectionTabs
+            label="Explore sections"
+            tabs={SECTION_TABS}
+            value={section}
+            onChange={setSection}
+          />
         </Section>
 
         <Section title="Option group">

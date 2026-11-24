@@ -90,7 +90,6 @@ The current app puts only Profile and Settings in the bottom bar, and hides ever
 **Language:** English only in v1.0.
 
 **Interim screens (until their Step 3 feature):** the bottom tabs exist now (ROADMAP Step 2), but some tabs show stand-ins:
-- Player and owner **Explore**: three rows (Teams, Players, Venues) opening the old Teams and Players lists and the new venue list. Replaced by the Explore feature (sections with search and filters; [features/explore.md](features/explore.md)).
 - Player **Notifications**: the Invites screen (rebuilt in the new design with team membership, feature 1). Owner **Notifications**: "No notifications yet." Both replaced by the Notifications feature.
 - Admin **Reports**: "Reports arrive with moderation." Replaced by the moderation feature.
 

@@ -1,21 +1,23 @@
 /* eslint-env jest */
 /* eslint-disable no-script-url -- these tests check that javascript: links are never opened */
 // Tests for venue discovery (docs/features/venues.md, sections e and h): the venue list
-// (VenueList inside the interim VenuesScreen), with the search and area filter sent to
-// the backend 400 ms after typing stops (fake timers), and Venue detail.
+// (VenueList, Explore's Venues section; docs/features/explore.md), with the search and
+// area filter sent to the backend 400 ms after typing stops (fake timers), its pages, and
+// Venue detail.
 
 import React from 'react';
-import { Alert, Linking, Text as NativeText, TextInput } from 'react-native';
+import {
+  Alert,
+  FlatList,
+  Linking,
+  Text as NativeText,
+  TextInput,
+} from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
-import VenuesScreen from '../src/screens/Venue/VenuesScreen';
-import {
-  AREA_FILTER_MAX,
-  NO_MATCH,
-  NO_VENUES,
-  SEARCH_DELAY_MS,
-  SEARCH_MAX,
-} from '../src/screens/Venue/VenueList';
+import VenueList, { NO_MATCH, NO_VENUES } from '../src/screens/Venue/VenueList';
+import { AREA_FILTER_MAX, SEARCH_MAX } from '../src/screens/Shared/PagedList';
+import { SEARCH_DELAY_MS } from '../src/hooks/usePagedList';
 import VenueDetailScreen, {
   GONE_MESSAGE,
 } from '../src/screens/Venue/VenueDetailScreen';
@@ -158,8 +160,7 @@ describe('The venue list (Explore → Venues)', () => {
   async function showList(venues = [FLOODLIGHT, KICKOFF]) {
     api.get.mockResolvedValue(page(venues));
     const navigation = navigationMock();
-    const renderer = await render(<VenuesScreen navigation={navigation} />);
-    await act(async () => navigation.focus());
+    const renderer = await render(<VenueList navigation={navigation} />);
     await flush();
     return { renderer, navigation };
   }
@@ -178,11 +179,9 @@ describe('The venue list (Explore → Venues)', () => {
 
   test('loads every live venue with GET /owners, in the order the backend sends (A to Z)', async () => {
     const { renderer } = await showList();
-    expect(listRequests()).toEqual([{}]);
+    expect(listRequests()).toEqual([{ page: 1 }]);
     const text = shownText(renderer);
     for (const shown of [
-      'Venues',
-      'Explore',
       'Search venues',
       'Area',
       'Floodlight Arena',
@@ -201,23 +200,17 @@ describe('The venue list (Explore → Venues)', () => {
     expect(text).not.toContain('01712345678');
   });
 
-  test('the back link returns to Explore', async () => {
-    const { renderer, navigation } = await showList();
-    await press(renderer, 'Back to Explore');
-    expect(navigation.goBack).toHaveBeenCalled();
-  });
-
   test('the search is sent 400 ms after typing stops, not on every keystroke', async () => {
     const { renderer } = await showList();
     await type(renderer, 'Search venues', 'a');
     await wait(300);
     await type(renderer, 'Search venues', 'ar');
     await wait(SEARCH_DELAY_MS - 1);
-    expect(listRequests()).toEqual([{}]);
+    expect(listRequests()).toEqual([{ page: 1 }]);
     api.get.mockResolvedValue(page([KICKOFF]));
     await wait(1);
     await flush();
-    expect(listRequests()).toEqual([{}, { search: 'ar' }]);
+    expect(listRequests()).toEqual([{ page: 1 }, { search: 'ar', page: 1 }]);
     expect(cards(renderer)).toEqual(['Kickoff Hub, Mirpur 10']);
   });
 
@@ -228,8 +221,8 @@ describe('The venue list (Explore → Venues)', () => {
     await wait(SEARCH_DELAY_MS);
     await flush();
     expect(listRequests()).toEqual([
-      {},
-      { search: 'FLOOD', area: 'dhanmondi 27' },
+      { page: 1 },
+      { search: 'FLOOD', area: 'dhanmondi 27', page: 1 },
     ]);
   });
 
@@ -239,20 +232,23 @@ describe('The venue list (Explore → Venues)', () => {
     await type(renderer, 'Area', 'dhan');
     await press(renderer, 'Suggestion: Dhanmondi');
     expect(input(renderer, 'Area').props.value).toBe('Dhanmondi');
-    expect(listRequests()).toEqual([{}, { area: 'Dhanmondi' }]);
+    expect(listRequests()).toEqual([
+      { page: 1 },
+      { area: 'Dhanmondi', page: 1 },
+    ]);
     // The pending search from typing was dropped: nothing more is sent.
     await wait(SEARCH_DELAY_MS * 2);
     await flush();
     expect(listRequests()).toHaveLength(2);
   });
 
-  test('blank or only-spaces filters are not sent', async () => {
+  test('only-spaces filters are no search at all: nothing is sent', async () => {
     const { renderer } = await showList();
     await type(renderer, 'Search venues', '   ');
     await type(renderer, 'Area', ' ');
     await wait(SEARCH_DELAY_MS);
     await flush();
-    expect(listRequests()).toEqual([{}, {}]);
+    expect(listRequests()).toEqual([{ page: 1 }]);
   });
 
   test('the fields stop at the backend limits: search 60, area 40', async () => {
@@ -283,7 +279,11 @@ describe('The venue list (Explore → Venues)', () => {
     await press(renderer, 'Clear search');
     expect(input(renderer, 'Search venues').props.value).toBe('');
     expect(input(renderer, 'Area').props.value).toBe('');
-    expect(listRequests()).toEqual([{}, { search: 'zzz', area: 'Uttara' }, {}]);
+    expect(listRequests()).toEqual([
+      { page: 1 },
+      { search: 'zzz', area: 'Uttara', page: 1 },
+      { page: 1 },
+    ]);
     expect(cards(renderer)).toHaveLength(2);
   });
 
@@ -316,7 +316,7 @@ describe('The venue list (Explore → Venues)', () => {
     });
   });
 
-  test('pull to refresh and coming back into view reload with the current filter', async () => {
+  test('pull to refresh reloads with the current filter; coming back into view reloads nothing (P18)', async () => {
     const { renderer, navigation } = await showList();
     await type(renderer, 'Search venues', 'hub');
     await wait(SEARCH_DELAY_MS);
@@ -329,18 +329,41 @@ describe('The venue list (Explore → Venues)', () => {
     await act(async () => navigation.focus());
     await flush();
     expect(listRequests()).toEqual([
-      {},
-      { search: 'hub' },
-      { search: 'hub' },
-      { search: 'hub' },
+      { page: 1 },
+      { search: 'hub', page: 1 },
+      { search: 'hub', page: 1 },
+    ]);
+  });
+
+  test('scrolling to the end loads the next page with the same search', async () => {
+    const { renderer } = await showList([]);
+    api.get.mockResolvedValueOnce({
+      data: { items: [FLOODLIGHT], page: 1, limit: 1, total: 2 },
+    });
+    await type(renderer, 'Search venues', 'o');
+    await wait(SEARCH_DELAY_MS);
+    await flush();
+    api.get.mockResolvedValueOnce({
+      data: { items: [KICKOFF], page: 2, limit: 1, total: 2 },
+    });
+    await act(async () =>
+      renderer.root.findByType(FlatList).props.onEndReached(),
+    );
+    await flush();
+    expect(listRequests().slice(1)).toEqual([
+      { search: 'o', page: 1 },
+      { search: 'o', page: 2 },
+    ]);
+    expect(cards(renderer)).toEqual([
+      'Floodlight Arena, Dhanmondi 27',
+      'Kickoff Hub, Mirpur 10',
     ]);
   });
 
   test('a failed first load shows the error with Try again; a failed reload keeps the list', async () => {
     api.get.mockRejectedValueOnce(new Error('offline'));
     const navigation = navigationMock();
-    const renderer = await render(<VenuesScreen navigation={navigation} />);
-    await act(async () => navigation.focus());
+    const renderer = await render(<VenueList navigation={navigation} />);
     await flush();
     expect(shownText(renderer)).toContain("Couldn't load venues.");
 
@@ -349,7 +372,10 @@ describe('The venue list (Explore → Venues)', () => {
     expect(cards(renderer)).toEqual(['Floodlight Arena, Dhanmondi 27']);
 
     api.get.mockRejectedValueOnce(new Error('offline'));
-    await act(async () => navigation.focus());
+    const list = renderer.root.find(
+      node => typeof node.props.onRefresh === 'function',
+    );
+    await act(async () => list.props.onRefresh());
     await flush();
     expect(cards(renderer)).toEqual(['Floodlight Arena, Dhanmondi 27']);
     expect(shownText(renderer)).not.toContain("Couldn't load venues.");
@@ -385,7 +411,7 @@ describe('Venue detail', () => {
     const { renderer } = await showDetail();
     expect(api.get).toHaveBeenCalledWith('/owners/5');
     const text = shownText(renderer);
-    expect(text).toContain('Venues'); // the back link
+    expect(tappable(renderer, 'Back to Explore')).toBeDefined();
     expect(text).toContain('Floodlight Arena');
     expect(text).toContain('Listing');
     expect(renderer.root.findByType(Pill).props).toMatchObject({
