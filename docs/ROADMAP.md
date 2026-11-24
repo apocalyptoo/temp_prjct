@@ -133,7 +133,7 @@ Rule: write a short spec in `docs/features/` before building each feature below.
 - [x] Pagination on list endpoints: covered by this feature for the three Explore lists and the invite search (decided 2026-11-23, DECISIONS.md "Explore details"). The admin's lists get paging with Moderation (spec Q4; its own item there). (done 2026-11-24: `page`, `limit` and `total` on all four endpoints in F3b.1; the app loads pages with `usePagedList` since F3b.4 and F3b.5)
 - [x] Review finding 12: "Position · Area" on Team detail's member, join request and invited rows, on Invite players and in Explore → Players (moved here from the review quick fixes, because the task brief builds it with this feature; spec section e). The Invites screen doesn't change (spec Q1). (done 2026-11-24: Team detail in F3b.2, Explore → Players in F3b.4, Invite players in F3b.5)
 
-**Account deletion**
+**Account deletion** (feature 4; scope decided in DECISIONS.md 2026-11-25, "Account deletion details"; spec: [features/account-deletion.md](features/account-deletion.md), approved 2026-11-25; tasks F4.1 backend, F4.2 Delete account in the app, F4.3 admin dialogs)
 - [ ] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion")
 
 **Notifications**

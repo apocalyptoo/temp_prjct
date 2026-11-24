@@ -82,7 +82,7 @@ The current app puts only Profile and Settings in the bottom bar, and hides ever
 - **My Venue (owner):** the owner's listing, its status ("Pending review" or "Live"), and an Edit button. While the venue is pending, it also shows what's still missing and the admin's note, if there is one.
 - **Notifications:** see "Notifications" below. The tab shows the badge.
 - **Profile:** the user's own profile, with a gear icon for **Settings**. For a venue owner it shows the account (venue name, "Venue owner", email) and a link to My Venue, where the listing itself lives.
-- **Settings:** Edit profile (for venue owners, **Edit venue**) · Change password · Blocked players · Terms & Privacy · Contact support · Log out · **Delete account** (last, in red).
+- **Settings:** Edit profile (for venue owners, **Edit venue**) · Change password · Blocked players · Terms & Privacy · Contact support · Log out · **Delete account** (last, and the only one in red; Log out is a normal secondary button, decided 2026-11-25).
 - **Player detail:** public profile fields (see "Profile visibility") and the player's teams, plus **Invite to my team** (for captains), **Report** and **Block**. An accepted teammate sees the phone and can tap it to call. Invite to my team lists the teams the viewer captains; a team that is full, or where the player is already a member, invited or has asked to join, shows the reason instead of an Invite button. Player rows on Team detail, in Explore and on Invite players open Player detail. (Details approved 2026-11-23, [features/explore.md](features/explore.md).)
 - **Admin Dashboard:** counts, plus highlighted "open reports" and "venues waiting for review". Admin screens prioritise clarity over styling.
 - **v1.1:** a **Matches** tab is added for players.
@@ -223,27 +223,32 @@ _Implementation notes:_
 - Path: **Settings → Delete account**. A screen explains what will be deleted. The user **re-enters their password**, confirms, and the account is **deleted immediately** (no grace period).
 
 **What gets deleted**
-- Everything tied to the account: the user, their profile, their team memberships, and every pending invite and join request they sent or received. This is a full deletion, not hiding or anonymising.
+- Everything tied to the account: the user, their profile, their team memberships, every invite they received and every join request they sent. This is a full deletion, not hiding or anonymising.
+- A team's own pending invites and join requests go only if the team itself is deleted (see "Effect on teams").
 - Database backups may still contain deleted data for a limited time. The privacy policy must say so and give the retention period (decided in the deployment phase).
 
 **Effect on teams**
 - If the user is a captain, captaincy **moves automatically to the team's longest-standing accepted member**. If they're the only member, **the team is deleted**.
+- When a team is handed over, its **pending invites and join requests stay**. They belong to the team, not to the old captain; the new captain can cancel the invites and answer the requests. (Decided 2026-11-25.)
 - The confirmation screen says exactly what will happen to each team (for example "Team Thunder will be handed to Rahim").
+- If a team changes between that screen and the confirmation so that its outcome is different, **nothing is deleted**: the user sees the new outcome and confirms again. (Decided 2026-11-25.)
 
 **Venue owners**
 - Deleting a venue owner account removes the venue listing, and the venue disappears from venue discovery.
 
 **After deletion**
 - The same email can be used to register again. It creates a fresh, empty account.
+- A short **notice email** goes to the deleted account's address ("Your ConnectArena account was deleted"), with no link in it. It's sent after the deletion succeeds, also when the admin deletes the account, and only to an address the account had verified. If sending fails, the deletion stands and the error is logged. (Decided 2026-11-25.)
 
 **Web deletion page (Google Play requirement)**
 - A simple web page served by the backend. The user enters their email, receives a confirmation link by email, and clicking the link deletes the account. The same rules apply as for deletion in the app.
-- Built in the deployment phase.
+- Built in the deployment phase (Phase 5), on the same shared deletion logic, reused unchanged. (Decided 2026-11-25.)
 
 **Admin deletion**
 - When an admin deletes a user, the same rules apply, including the automatic captaincy transfer. All deletions go through the same shared deletion logic.
+- The admin sees the same per-team outcomes before confirming. The admin account itself can't be deleted in the app. (Decided 2026-11-25.)
 
-_Implementation note:_ deletion involves several steps, so they must all succeed or all fail together (a database transaction). That fixes the half-finished deletes found in the audit.
+_Implementation note:_ deletion involves several steps, so they must all succeed or all fail together (a database transaction). That fixes the half-finished deletes found in the audit. Feature spec: [features/account-deletion.md](features/account-deletion.md).
 
 ### Profile visibility (v1.0)
 
@@ -333,7 +338,7 @@ _Implementation note:_ the owner profile needs new fields (area, opening hours, 
 
 **Not in v1.0**
 - **No push notifications** (planned for v1.1).
-- **No email notifications.** Email is only for account emails: verification, password reset, the password-changed notice and deletion confirmation.
+- **No email notifications.** Email is only for account emails: verification, password reset, the password-changed notice, the deletion confirmation link (web deletion page) and the account-deleted notice.
 
 _Implementation note:_ "Needs your action" items come from pending invites and join requests that already exist in the data. "Updates" need a new notifications table (with read/unread). This is a schema change and needs approval.
 

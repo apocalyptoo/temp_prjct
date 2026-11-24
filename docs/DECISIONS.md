@@ -493,3 +493,37 @@ The owner approved `docs/features/explore.md`: its five defaults (D1–D5), all 
 
 **Alternatives considered:** the captain's position and area on the invite card (rejected), position filters that also list the "Any" players (rejected for now), listing unverified players as today (rejected), paging the admin endpoints in this feature (deferred to moderation), an Approve button on Player detail (deferred).
 **Consequence:** the backend task (F3b.1) builds exactly the API in the spec. The `team_area` migration still needs the owner's approval when it's created.
+
+### 2026-11-25: Account deletion details
+The owner's decisions for the account deletion feature (Phase 4, Step 3, feature 4), made before its spec. The rules are in `docs/PRODUCT.md` under "Account deletion".
+- **The web page for deletion requests (Google Play) stays in Phase 5.** This feature is deletion inside the app plus admin deletion. The shared deletion logic is built so that the web page can reuse it unchanged.
+- **A short notice email goes to the address after an account is deleted** ("Your ConnectArena account was deleted"), with no link in it. It's sent after the deletion succeeds. If sending fails, the deletion stands and the error is logged.
+- **A handed-over team keeps its pending invites and join requests.** They belong to the team; the new captain can cancel the invites and answer the requests.
+
+**Why:**
+- The web page needs the real domain and the new email provider, which Phase 5 brings. Writing the logic once, for every caller, means the page adds only its own email link and form.
+- The notice is how the real owner of an account finds out if someone else deleted it, like the password-changed notice (2026-11-22). No link, because a link in a "your account changed" email is what phishing copies. An email problem must never undo or block a deletion.
+- The captain invites for the team and receives requests for the team. Dropping them because one person left would surprise the invited players, the requesters and the new captain.
+
+**Consequence:** this narrows the 2026-11-17 "Account deletion rules for v1.0" line "pending invites and requests they sent or received": for a team that's handed over, the invites its captain sent and the requests its captain received stay. PRODUCT.md's list of account emails now names the notice and the web page's confirmation link separately.
+
+### 2026-11-25: Account deletion feature spec approved
+The owner approved `docs/features/account-deletion.md`: its five defaults (D1–D5), all of Claude Code's proposals (P1–P21, listed in the spec's section k), and these answers to its open questions:
+- **A deletion is refused when a team's outcome changed since the preview.** The user sees the new outcome and confirms again.
+- **The deletion locks every team where the user has a row** (member, invite or request), not only the captained ones, then the user's own row.
+- **The notice email also goes out when the admin deletes an account**, with the same text.
+- **The notice goes only to a verified address.** This narrows the decision of the same day ("goes to the address").
+- **Log out on Settings becomes a secondary button**, so Delete account is the only red one. This replaces "Log out (danger)" in the profiles and registration spec.
+- **In the admin's Users tab only the delete confirmation changes** in this feature, plus the trash button that goes from ADMIN rows (P21). Moderation rebuilds the tab.
+- **The account emails list names the deletion confirmation link (web page) and the account-deleted notice separately.**
+
+**Why:**
+- The screen promises exactly what will happen, so a team must never go to someone the user didn't see.
+- A team where the user is only a member can make them captain while they're being deleted. With only the captained teams locked, the delete then fails with a server error (tried on 2026-11-25).
+- The account's owner should know about a deletion, whoever did it.
+- Anyone can sign up with someone else's email, so an unverified address may be a stranger's.
+- Red should mean "this destroys something", and two red buttons together invite a mis-tap.
+- Rebuilding the Users tab now would be done again in moderation, which adds paging, search and suspension.
+
+**Alternatives considered:** deleting by whatever the state is at that moment (rejected), locking only the captained teams (rejected), no notice for admin deletions (rejected), the notice to every address (rejected), keeping Log out red (rejected), rebuilding the Users tab now (deferred to moderation).
+**Consequence:** the backend task (F4.1) builds exactly the API in the spec. No migration is needed.
