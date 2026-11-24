@@ -1,9 +1,9 @@
 import express from 'express';
 import { verifyToken, isAdmin } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { moveToReviewSchema, reviewNoteSchema } from '../validation/adminSchemas.js';
+import { deleteAccountQuerySchema, moveToReviewSchema, reviewNoteSchema } from '../validation/adminSchemas.js';
 import {
-  getAllUsers, deleteUser, deleteIndoor,
+  getAllUsers, previewDeleteUser, deleteUser, previewDeleteIndoor, deleteIndoor,
   getAllTeams, deleteTeam,
   getAllIndoors, approveIndoor, setIndoorNote, moveIndoorToReview,
   getStats,
@@ -12,12 +12,14 @@ import {
 const router = express.Router();
 
 router.get('/users', verifyToken, isAdmin, getAllUsers);
-router.delete('/users/:id', verifyToken, isAdmin, deleteUser);
+router.get('/users/:id/deletion-preview', verifyToken, isAdmin, previewDeleteUser);
+router.delete('/users/:id', verifyToken, isAdmin, validate({ query: deleteAccountQuerySchema }), deleteUser);
 router.get('/teams', verifyToken, isAdmin, getAllTeams);
 router.delete('/teams/:id', verifyToken, isAdmin, deleteTeam);
 router.get('/indoors', verifyToken, isAdmin, getAllIndoors);
 // Deletes a venue owner's account (only OWNER accounts; see adminController).
-router.delete('/indoors/:id', verifyToken, isAdmin, deleteIndoor);
+router.get('/indoors/:id/deletion-preview', verifyToken, isAdmin, previewDeleteIndoor);
+router.delete('/indoors/:id', verifyToken, isAdmin, validate({ query: deleteAccountQuerySchema }), deleteIndoor);
 // Venue review (docs/features/venues.md, d endpoints 6–8).
 router.post('/indoors/:id/approve', verifyToken, isAdmin, approveIndoor);
 router.put('/indoors/:id/note', verifyToken, isAdmin, validate({ body: reviewNoteSchema }), setIndoorNote);

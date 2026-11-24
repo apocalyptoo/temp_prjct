@@ -17,10 +17,16 @@ import { deleteUserAndData, deleteTeamAndMembers } from '../src/utils/deletion.j
 const sendDelete = (path, jwt) =>
   fetch(BASE_URL + path, { method: 'DELETE', headers: { Authorization: `Bearer ${jwt}` } });
 
+const getJson = async (path, jwt) => {
+  const res = await fetch(BASE_URL + path, { headers: { Authorization: `Bearer ${jwt}` } });
+  return { status: res.status, body: await res.json() };
+};
+
 const createLoggedInAdmin = (t) => createLoggedInUser(t, { role: 'ADMIN' });
 
-// A player with a profile who captains a team (with one other member) and is also a
-// member of somebody else's team. Returns everything the tests need to check.
+// A player with a profile who captains two teams (one with another member, a pending
+// invite and a join request; one alone) and is also a member of somebody else's team.
+// Returns everything the tests need to check.
 async function setUpPlayerWithTeams(t) {
   const player = await createTestUser(t, {
     verified: true,
@@ -28,6 +34,8 @@ async function setUpPlayerWithTeams(t) {
   });
   const teammate = await createTestUser(t, { verified: true });
   const otherCaptain = await createTestUser(t, { verified: true });
+  const invited = await createTestUser(t, { verified: true });
+  const requester = await createTestUser(t, { verified: true });
 
   const ownTeam = await prisma.team.create({
     data: {
@@ -37,6 +45,20 @@ async function setUpPlayerWithTeams(t) {
         create: [
           { userId: player.id, status: 'accepted', origin: 'creator', acceptedAt: new Date() },
           { userId: teammate.id, status: 'accepted', origin: 'invite', acceptedAt: new Date() },
+          { userId: invited.id, status: 'pending', origin: 'invite' },
+          { userId: requester.id, status: 'pending', origin: 'request' },
+        ],
+      },
+    },
+  });
+  const soloTeam = await prisma.team.create({
+    data: {
+      name: 'Solo Team',
+      captainId: player.id,
+      members: {
+        create: [
+          { userId: player.id, status: 'accepted', origin: 'creator', acceptedAt: new Date() },
+          { userId: invited.id, status: 'pending', origin: 'invite' },
         ],
       },
     },
@@ -53,7 +75,7 @@ async function setUpPlayerWithTeams(t) {
       },
     },
   });
-  return { player, teammate, otherCaptain, ownTeam, otherTeam };
+  return { player, teammate, otherCaptain, invited, requester, ownTeam, soloTeam, otherTeam };
 }
 
 // Wraps the real Prisma client so that one step inside a transaction throws, for
@@ -82,22 +104,73 @@ function failAt(modelName, methodName) {
 }
 
 describe('Admin deletes users', () => {
-  test('admin deletes a player: account, profile, teams and memberships are all gone', async (t) => {
+  test('admin deletes a player: the account goes, a team with members is handed over, a lone team goes', async (t) => {
     const admin = await createLoggedInAdmin(t);
-    const { player, teammate, otherCaptain, ownTeam, otherTeam } = await setUpPlayerWithTeams(t);
+    const { player, teammate, otherCaptain, invited, requester, ownTeam, soloTeam, otherTeam } =
+      await setUpPlayerWithTeams(t);
 
     const res = await sendDelete(`/admin/users/${player.id}`, admin.jwt);
 
     assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { message: 'User deleted successfully' });
     assert.equal(await prisma.user.findUnique({ where: { id: player.id } }), null);
     assert.equal(await prisma.playerProfile.findUnique({ where: { userId: player.id } }), null);
-    assert.equal(await prisma.team.findUnique({ where: { id: ownTeam.id } }), null, 'their own team is deleted');
-    assert.equal(await prisma.teamMember.count({ where: { teamId: ownTeam.id } }), 0);
     assert.equal(await prisma.teamMember.count({ where: { userId: player.id } }), 0);
-    // Other people are untouched; the other team just loses this member.
-    assert.ok(await prisma.user.findUnique({ where: { id: teammate.id } }));
-    assert.ok(await prisma.team.findUnique({ where: { id: otherTeam.id } }));
-    assert.equal(await prisma.teamMember.count({ where: { teamId: otherTeam.id, userId: otherCaptain.id } }), 1);
+    // Their team has a new captain, and keeps its pending invite and join request.
+    assert.equal((await prisma.team.findUnique({ where: { id: ownTeam.id } })).captainId, teammate.id);
+    const rows = await prisma.teamMember.findMany({ where: { teamId: ownTeam.id }, orderBy: { id: 'asc' } });
+    assert.deepEqual(
+      rows.map((row) => [row.userId, row.status, row.origin]),
+      [
+        [teammate.id, 'accepted', 'invite'],
+        [invited.id, 'pending', 'invite'],
+        [requester.id, 'pending', 'request'],
+      ]
+    );
+    // The team they were alone in is gone, with its pending invite.
+    assert.equal(await prisma.team.findUnique({ where: { id: soloTeam.id } }), null);
+    assert.equal(await prisma.teamMember.count({ where: { teamId: soloTeam.id } }), 0);
+    // The other team just loses this member.
+    assert.equal((await prisma.team.findUnique({ where: { id: otherTeam.id } })).captainId, otherCaptain.id);
+    assert.equal(await prisma.teamMember.count({ where: { teamId: otherTeam.id } }), 1);
+  });
+
+  test("the preview code: refused (409) when the outcome changed, deleted when it's current", async (t) => {
+    const admin = await createLoggedInAdmin(t);
+    const { player, teammate, ownTeam } = await setUpPlayerWithTeams(t);
+    const preview = await getJson(`/admin/users/${player.id}/deletion-preview`, admin.jwt);
+
+    // The next in line leaves: the team would now be deleted instead of handed over.
+    await prisma.teamMember.deleteMany({ where: { teamId: ownTeam.id, userId: teammate.id } });
+    const stale = await sendDelete(`/admin/users/${player.id}?previewCode=${preview.body.previewCode}`, admin.jwt);
+
+    assert.equal(stale.status, 409);
+    assert.equal((await stale.json()).error, "Something changed in this user's teams. Check what will happen and try again.");
+    assert.ok(await prisma.user.findUnique({ where: { id: player.id } }), 'nothing is deleted');
+    assert.equal((await prisma.team.findUnique({ where: { id: ownTeam.id } })).captainId, player.id);
+
+    const fresh = await getJson(`/admin/users/${player.id}/deletion-preview`, admin.jwt);
+    const res = await sendDelete(`/admin/users/${player.id}?previewCode=${fresh.body.previewCode}`, admin.jwt);
+    assert.equal(res.status, 200);
+    assert.equal(await prisma.user.findUnique({ where: { id: player.id } }), null);
+  });
+
+  test('a badly shaped preview code gets 400 on both routes, and nothing is deleted', async (t) => {
+    const admin = await createLoggedInAdmin(t);
+    const owner = await createTestUser(t, {
+      role: 'OWNER',
+      verified: true,
+      ownerProfile: { create: { indoorName: 'Code Arena' } },
+    });
+
+    for (const route of ['/admin/users', '/admin/indoors']) {
+      for (const query of ['previewCode=', 'previewCode=abc', `previewCode=${'A'.repeat(64)}`, `previewCode=${'a'.repeat(64)}&previewCode=${'a'.repeat(64)}`]) {
+        const res = await sendDelete(`${route}/${owner.id}?${query}`, admin.jwt);
+        assert.equal(res.status, 400, `${route} ${query}`);
+        assert.equal((await res.json()).error, 'Invalid preview code');
+      }
+    }
+    assert.ok(await prisma.user.findUnique({ where: { id: owner.id } }));
   });
 
   test('admin deletes a venue owner from the venues screen route (/admin/indoors/:id)', async (t) => {
@@ -140,23 +213,27 @@ describe('Admin deletes users', () => {
 });
 
 describe('Deletes are all-or-nothing (transactions)', () => {
-  test('if the last step of a user delete fails, nothing is deleted', async (t) => {
-    const { player, teammate, ownTeam, otherTeam } = await setUpPlayerWithTeams(t);
+  for (const [model, method] of [
+    ['team', 'update'], // the handover
+    ['team', 'deleteMany'], // deleting the team they're alone in
+    ['teamMember', 'deleteMany'],
+    ['playerProfile', 'deleteMany'],
+    ['user', 'delete'], // the last step
+  ]) {
+    test(`if a user delete fails at ${model}.${method}, nothing has changed`, async (t) => {
+      const { player, ownTeam, soloTeam, otherTeam } = await setUpPlayerWithTeams(t);
 
-    await assert.rejects(deleteUserAndData(failAt('user', 'delete'), player.id), /forced failure/);
+      await assert.rejects(deleteUserAndData(failAt(model, method), player.id), /forced failure/);
 
-    // Every earlier step (memberships, the team, the profile) was rolled back.
-    assert.ok(await prisma.user.findUnique({ where: { id: player.id } }), 'user still exists');
-    assert.ok(await prisma.playerProfile.findUnique({ where: { userId: player.id } }), 'profile still exists');
-    assert.ok(await prisma.team.findUnique({ where: { id: ownTeam.id } }), 'own team still exists');
-    assert.equal(await prisma.teamMember.count({ where: { teamId: ownTeam.id } }), 2, 'own team keeps both members');
-    assert.equal(
-      await prisma.teamMember.count({ where: { teamId: otherTeam.id, userId: player.id } }),
-      1,
-      'membership in the other team still exists'
-    );
-    assert.ok(await prisma.user.findUnique({ where: { id: teammate.id } }));
-  });
+      assert.ok(await prisma.user.findUnique({ where: { id: player.id } }), 'user still exists');
+      assert.ok(await prisma.playerProfile.findUnique({ where: { userId: player.id } }), 'profile still exists');
+      for (const [team, rows] of [[ownTeam, 4], [soloTeam, 2]]) {
+        assert.equal((await prisma.team.findUnique({ where: { id: team.id } }))?.captainId, player.id, `${team.name}: captain`);
+        assert.equal(await prisma.teamMember.count({ where: { teamId: team.id } }), rows, `${team.name}: rows`);
+      }
+      assert.equal(await prisma.teamMember.count({ where: { teamId: otherTeam.id, userId: player.id } }), 1);
+    });
+  }
 
   test('if deleting the team row fails, its members are not deleted either', async (t) => {
     const { ownTeam } = await setUpPlayerWithTeams(t);
@@ -164,7 +241,7 @@ describe('Deletes are all-or-nothing (transactions)', () => {
     await assert.rejects(deleteTeamAndMembers(failAt('team', 'deleteMany'), ownTeam.id), /forced failure/);
 
     assert.ok(await prisma.team.findUnique({ where: { id: ownTeam.id } }));
-    assert.equal(await prisma.teamMember.count({ where: { teamId: ownTeam.id } }), 2);
+    assert.equal(await prisma.teamMember.count({ where: { teamId: ownTeam.id } }), 4);
   });
 });
 

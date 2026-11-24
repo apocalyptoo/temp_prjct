@@ -24,3 +24,7 @@ export const requiredText = ({ required, notText }) =>
     .string({ error: (issue) => (isFilled(issue.input) ? notText : required) })
     .trim()
     .refine((text) => text !== '', { error: required });
+
+// The code of a deletion preview (previewCodeFor in src/utils/deletion.js): 64 lowercase
+// hex characters.
+export const previewCode = (message) => z.string({ error: message }).regex(/^[0-9a-f]{64}$/, { error: message });

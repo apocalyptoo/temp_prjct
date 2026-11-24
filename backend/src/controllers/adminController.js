@@ -1,6 +1,6 @@
 import { prisma } from '../db.js';
-import { withoutSecrets } from '../utils/visibility.js';
-import { deleteUserAndData, deleteTeamAndMembers } from '../utils/deletion.js';
+import { viewerFrom, withoutSecrets } from '../utils/visibility.js';
+import { deleteUserAndData, deleteTeamAndMembers, planAccountDeletion, toDeletionPreview } from '../utils/deletion.js';
 import { parseId } from '../utils/ids.js';
 import { isLive, missingFields, withMissingFields } from '../utils/venues.js';
 
@@ -40,51 +40,82 @@ export const getAllUsers = async (req, res, next) => {
   }
 };
 
-// ── Delete an account (shared by /admin/users/:id and /admin/indoors/:id) ──
-// Safety rules for both routes:
+// ── Delete an account, and preview it (/admin/users/:id and /admin/indoors/:id) ──
+// Safety rules for both, in this order:
 // - the admin can't delete their own account, or any ADMIN account (403);
 // - each route deletes only the roles it's for; any other account is "not found" (404).
-// Roles can't change through the API, so checking the role just before the delete is safe.
+// Roles can't change through the API, so checking the role just before the delete is
+// safe (and the shared deletion refuses an ADMIN account itself).
 const CANT_DELETE_SELF = "You can't delete your own account from the admin screens.";
 const CANT_DELETE_ADMIN = "Admin accounts can't be deleted from the admin screens.";
-
-const deleteAccount = ({ allowedRoles, invalidIdMessage, notFoundMessage, successMessage }) =>
-  async (req, res, next) => {
-    try {
-      const id = parseId(req.params.id);
-      if (id === null) return res.status(400).json({ error: invalidIdMessage });
-      if (id === req.user.id) return res.status(403).json({ error: CANT_DELETE_SELF });
-
-      const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
-      if (!target) return res.status(404).json({ error: notFoundMessage });
-      if (target.role === 'ADMIN') return res.status(403).json({ error: CANT_DELETE_ADMIN });
-      if (!allowedRoles.includes(target.role)) return res.status(404).json({ error: notFoundMessage });
-
-      // Memberships, created teams, profile and account, all in one transaction.
-      const deleted = await deleteUserAndData(prisma, id);
-      if (!deleted) return res.status(404).json({ error: notFoundMessage });
-
-      return res.json({ message: successMessage });
-    } catch (err) {
-      return next(err);
-    }
-  };
+const DELETION_CHANGED = "Something changed in this user's teams. Check what will happen and try again.";
 
 // /admin/users/:id: players and venue owners.
-export const deleteUser = deleteAccount({
+const USERS = {
   allowedRoles: ['PLAYER', 'OWNER'],
   invalidIdMessage: 'Invalid user id',
   notFoundMessage: 'User not found',
   successMessage: 'User deleted successfully',
-});
-
+};
 // /admin/indoors/:id: venue owners only (deleting the venue deletes the owner's account).
-export const deleteIndoor = deleteAccount({
+const INDOORS = {
   allowedRoles: ['OWNER'],
   invalidIdMessage: 'Invalid venue id',
   notFoundMessage: 'Venue not found',
   successMessage: 'Venue deleted successfully',
-});
+};
+
+// The account the route may act on, as { id }, or why not, as { refusal: [status, error] }.
+async function findDeletable(req, { allowedRoles, invalidIdMessage, notFoundMessage }) {
+  const id = parseId(req.params.id);
+  if (id === null) return { refusal: [400, invalidIdMessage] };
+  if (id === req.user.id) return { refusal: [403, CANT_DELETE_SELF] };
+
+  const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+  if (!target) return { refusal: [404, notFoundMessage] };
+  if (target.role === 'ADMIN') return { refusal: [403, CANT_DELETE_ADMIN] };
+  if (!allowedRoles.includes(target.role)) return { refusal: [404, notFoundMessage] };
+  return { id };
+}
+
+const refuse = (res, [status, error]) => res.status(status).json({ error });
+
+// What the delete would do to the account's teams and venue
+// (docs/features/account-deletion.md, d.4 endpoints 3 and 4).
+const previewDelete = (route) => async (req, res, next) => {
+  try {
+    const { id, refusal } = await findDeletable(req, route);
+    if (refusal) return refuse(res, refusal);
+
+    const plan = await planAccountDeletion(prisma, id);
+    if (!plan) return refuse(res, [404, route.notFoundMessage]); // deleted since the check
+    return res.json(toDeletionPreview(plan, viewerFrom(req)));
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// The shared deletion (endpoints 5 and 6): captained teams are handed over or deleted.
+// With ?previewCode=… it's refused when the outcome isn't what the preview showed (P12).
+const deleteAccount = (route) => async (req, res, next) => {
+  try {
+    const { id, refusal } = await findDeletable(req, route);
+    if (refusal) return refuse(res, refusal);
+
+    const { status } = await deleteUserAndData(prisma, id, { previewCode: req.valid.query.previewCode });
+    if (status === 'gone') return refuse(res, [404, route.notFoundMessage]);
+    if (status === 'admin') return refuse(res, [403, CANT_DELETE_ADMIN]);
+    if (status === 'stale') return refuse(res, [409, DELETION_CHANGED]);
+    return res.json({ message: route.successMessage });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+export const previewDeleteUser = previewDelete(USERS);
+export const deleteUser = deleteAccount(USERS);
+export const previewDeleteIndoor = previewDelete(INDOORS);
+export const deleteIndoor = deleteAccount(INDOORS);
 
 // ── Get all teams ──
 export const getAllTeams = async (req, res, next) => {

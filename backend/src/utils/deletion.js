@@ -1,8 +1,9 @@
 import crypto from 'node:crypto';
 import { isLive } from './venues.js';
-import { lockTeam, longestStandingFirst } from './membership.js';
+import { lockTeam, lockTeams, longestStandingFirst } from './membership.js';
+import { toVisibleUser } from './visibility.js';
 
-// Shared delete logic for users and teams.
+// Shared delete logic for users and teams: the one place for what a delete removes.
 //
 // Each delete has several steps: dependent rows are removed by hand first, in order. The
 // schema's onDelete: Cascade rules (and its Restrict on a team's captain) are only a
@@ -12,9 +13,6 @@ import { lockTeam, longestStandingFirst } from './membership.js';
 //
 // `db` is the caller's Prisma client. It's a parameter so the tests can pass a client
 // that fails on purpose part-way through.
-//
-// TODO (Phase 4, docs/PRODUCT.md "Account deletion"): a deleted captain's teams should
-// pass to the longest-standing member instead of being deleted.
 
 const nameOf = (user) => user.playerProfile?.name ?? user.ownerProfile?.indoorName ?? null;
 const byNameThenId = (a, b) => {
@@ -113,24 +111,97 @@ export function previewCodeFor(plan) {
   return crypto.createHash('sha256').update(JSON.stringify(outcomes), 'utf8').digest('hex');
 }
 
-// Deletes a user and everything that depends on them: their team memberships, the teams
-// they captain (with those teams' members) and their profile. Returns false if no user
-// has this id.
-export async function deleteUserAndData(db, userId) {
-  return db.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({ where: { id: userId }, select: { id: true } });
-    if (!user) return false;
+// A plan as a preview reply, with its code (d.4 endpoint 1). The new captains are other
+// users, so they go through the visibility rules ({ id, name }).
+export const toDeletionPreview = (plan, viewer) => ({
+  previewCode: previewCodeFor(plan),
+  captainedTeams: plan.captainedTeams.map((team) =>
+    team.newCaptain ? { ...team, newCaptain: toVisibleUser(team.newCaptain, viewer) } : team
+  ),
+  otherTeams: plan.otherTeams,
+  pendingCount: plan.pendingCount,
+  venue: plan.venue,
+});
 
-    // Their own memberships, plus every membership of a team they captain.
-    await tx.teamMember.deleteMany({
-      where: { OR: [{ userId }, { team: { captainId: userId } }] },
-    });
-    await tx.team.deleteMany({ where: { captainId: userId } });
-    await tx.playerProfile.deleteMany({ where: { userId } });
-    await tx.ownerProfile.deleteMany({ where: { userId } });
-    await tx.user.delete({ where: { id: userId } });
-    return true;
+// ── Deleting an account ──
+// The one shared deletion (docs/features/account-deletion.md, d.2): the user's own
+// "Delete account", the admin's delete routes and (Phase 5) the web page all use it.
+// It carries out planAccountDeletion: captained teams are handed over or deleted, then
+// the user's memberships, invites and requests, profile and account go.
+//
+// Options, each checked only when given:
+// - passwordHash: the stored hash the caller checked the password against. If it has
+//   changed since, nothing is deleted.
+// - previewCode: the code of the preview the user saw. If the outcome for a captained
+//   team has changed since, nothing is deleted (P4).
+//
+// Returns { status }:
+// - 'deleted', with `user` (id, role, email, displayName, verified) as it was;
+// - 'gone': no user has this id (any more);
+// - 'admin': an ADMIN account, never deleted here (P5);
+// - 'password-changed' / 'stale': see the options.
+const MAX_ATTEMPTS = 3;
+const TIMEOUT_MS = 15_000; // P7: it may wait for several teams' locks
+
+export async function deleteUserAndData(db, userId, options = {}) {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    const result = await db.$transaction((tx) => deleteInTransaction(tx, userId, options), { timeout: TIMEOUT_MS });
+    if (result.status !== 'teams-moved') return result;
+  }
+  return { status: 'stale' };
+}
+
+// Every team the user captains or has any row in (member, invite or request).
+const findTeamIds = async (tx, userId) => {
+  const teams = await tx.team.findMany({
+    where: { OR: [{ captainId: userId }, { members: { some: { userId } } }] },
+    select: { id: true },
   });
+  return teams.map((team) => team.id);
+};
+
+// The locks (P6): first every team the user has anything to do with, lowest id first,
+// then the user's own row. Always in this order: a team action holds one team's lock and
+// then touches a user's row, so locking the user first could leave the two waiting for
+// each other. Holding the teams stops any of them from changing; holding the user stops
+// new links to them (a new team, an invite, being made captain), which must wait and
+// then find the account gone.
+async function deleteInTransaction(tx, userId, { passwordHash, previewCode }) {
+  const teamIds = await findTeamIds(tx, userId);
+  await lockTeams(tx, teamIds);
+
+  const [user] = await tx.$queryRaw`SELECT role::text AS role, password FROM "User" WHERE id = ${userId} FOR UPDATE`;
+  if (!user) return { status: 'gone' };
+  if (user.role === 'ADMIN') return { status: 'admin' };
+  if (passwordHash !== undefined && user.password !== passwordHash) return { status: 'password-changed' };
+
+  // A team joined or created while we waited for the locks isn't locked: start over.
+  // Nothing has been written yet, so ending this transaction only releases the locks.
+  const locked = new Set(teamIds);
+  if ((await findTeamIds(tx, userId)).some((id) => !locked.has(id))) return { status: 'teams-moved' };
+
+  const plan = await planAccountDeletion(tx, userId);
+  if (previewCode !== undefined && previewCode !== previewCodeFor(plan)) return { status: 'stale' };
+
+  for (const team of plan.captainedTeams) {
+    if (team.outcome === 'delete') {
+      await removeTeamRows(tx, team.id);
+    } else {
+      // Only the captain changes: the team keeps its pending invites and requests.
+      await tx.team.update({ where: { id: team.id }, data: { captainId: team.newCaptain.id } });
+      // Notification hook (notifications feature, docs/features/account-deletion.md
+      // section g): tell the new captain "You became captain" here.
+    }
+  }
+
+  await tx.teamMember.deleteMany({ where: { userId } });
+  await tx.playerProfile.deleteMany({ where: { userId } });
+  await tx.ownerProfile.deleteMany({ where: { userId } });
+  // Hooks (docs/features/account-deletion.md, section g): the user's own notifications
+  // (notifications feature), and reports by or about them and blocks in both directions
+  // (moderation), are removed here.
+  await tx.user.delete({ where: { id: userId } });
+  return { status: 'deleted', user: plan.user };
 }
 
 // Deletes a team and all its membership rows (accepted and pending) inside the caller's

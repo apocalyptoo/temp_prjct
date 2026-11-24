@@ -1,6 +1,6 @@
 // Request schemas for the /admin routes. See src/middleware/validate.js for how they're used.
 import { z } from 'zod';
-import { charCount } from './common.js';
+import { charCount, previewCode } from './common.js';
 
 // The admin's note to a venue owner (docs/features/venues.md, P2): trimmed text of at
 // most 200 characters.
@@ -27,3 +27,8 @@ export const moveToReviewSchema = z.object({
     .refine((text) => text !== '', { error: NOTE_REQUIRED })
     .refine((text) => charCount(text) <= REVIEW_NOTE_MAX, { error: NOTE_TOO_LONG }),
 });
+
+// ── DELETE /admin/users/:id and /admin/indoors/:id ──
+// (docs/features/account-deletion.md, P12). The code of the preview the admin saw;
+// without one the delete isn't compared with any preview.
+export const deleteAccountQuerySchema = z.object({ previewCode: previewCode('Invalid preview code').optional() });

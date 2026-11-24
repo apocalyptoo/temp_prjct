@@ -76,7 +76,7 @@ Backend
 - Every body or query has a zod schema in `src/validation/`; controllers read only `req.valid`, never raw `req.body`/`req.query` values in Prisma. URL ids go through `parseId`; body ids stay within `MAX_DB_INT`. (TECH 4.2, 4.3)
 - Don't reword existing API messages unless their rule changes; the app and tests rely on them. (DECISIONS 2026-11-20, 2026-11-22)
 - Any user or profile data in a reply goes through `src/utils/visibility.js`; never hand-filter fields. (TECH 4.6, PRODUCT "Profile visibility")
-- Membership and captain writes run in `withLockedTeam` (first step `lockTeam`); any multi-step write uses a transaction; deletes go through `src/utils/deletion.js`. (TECH 4.5)
+- Membership and captain writes run in `withLockedTeam` (first step `lockTeam`); any multi-step write uses a transaction; deletes go through `src/utils/deletion.js`, and an account is only ever deleted by `deleteUserAndData`, which locks teams before the user. (TECH 4.5)
 - One Prisma client, from `src/db.js`. `src/config.js` is the only reader of `process.env`; never print a setting's value. (TECH 2, 4.5)
 - Errors go to `next(err)`; replies never contain `error.message`, stacks or Prisma details. (TECH 4.4)
 - Emails through `normalizeEmail`; values in HTML through `escapeHtml`; email-link tokens stored only as `hashToken(...)`; login tokens only from `signLoginToken`. (TECH 4.7, 5.4)
