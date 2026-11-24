@@ -575,6 +575,60 @@ describe('Player detail (explore spec P30)', () => {
   });
 });
 
+describe('Invite players (explore spec P29)', () => {
+  test('from Team detail; a player opens on top of it, even one already open below, and back returns', async () => {
+    api.get.mockImplementation(path =>
+      Promise.resolve({
+        data:
+          path === '/teams/2'
+            ? {
+                ...SECOND_TEAM_DETAIL,
+                captainId: PLAYER.id,
+                viewerState: 'captain',
+              }
+            : path === '/teams/2/invite-candidates'
+            ? REPLIES['/players']
+            : REPLIES[path] ?? [],
+      }),
+    );
+    const { renderer, navigationRef } = await renderNavigator(
+      PlayerNavigator,
+      PLAYER,
+    );
+    const stackOf = () =>
+      navigationRef
+        .getRootState()
+        .routes.find(r => r.name === 'MyTeamsTab')
+        .state.routes.map(r => r.name);
+    await pressText(renderer, 'Dhanmondi Strikers');
+    await pressText(renderer, 'Tanvir Ahmed', { last: true });
+    await pressText(renderer, 'Mirpur Mavericks', { last: true });
+    await pressText(renderer, 'Invite players', { last: true });
+    expect(current(navigationRef)).toBe('InvitePlayers');
+    await pressText(renderer, 'Listed Player', { last: true });
+    expect(navigationRef.getCurrentRoute().params).toEqual({
+      userId: 12,
+      playerName: 'Listed Player',
+    });
+    expect(stackOf()).toEqual([
+      'MyTeams',
+      'TeamDetail',
+      'PlayerDetail',
+      'TeamDetail',
+      'InvitePlayers',
+      'PlayerDetail',
+    ]);
+    const lists = () =>
+      api.get.mock.calls.filter(
+        ([path]) => path === '/teams/2/invite-candidates',
+      ).length;
+    const before = lists();
+    await goBack(navigationRef);
+    expect(current(navigationRef)).toBe('InvitePlayers');
+    expect(lists()).toBe(before);
+  });
+});
+
 describe('Owner navigator', () => {
   test('tabs, Explore lists, Profile, Settings and the interim screens', async () => {
     const { renderer, navigationRef } = await renderNavigator(

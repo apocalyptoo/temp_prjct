@@ -443,7 +443,7 @@ Tapping a venue opens **Venue detail**: the listing without empty rows. Tapping 
 
 ### Team invites
 
-1. A captain opens their team and taps **Invite players**. The screen lists every player who isn't already in the team, invited or asking to join, with a search box. Tapping **Invite** turns that row's button into "Invited".
+1. A captain opens their team and taps **Invite players**. The screen lists the players who aren't already in the team, invited or asking to join, with the same search and filters as Explore → Players (name, area and position), a page at a time; the backend does the searching, so the app never downloads every player. Tapping **Invite** turns that row's button into "Invited" and the captain can go on inviting; tapping the player's name opens their page. The title and the member count stay at the top, and when the team is full every Invite is greyed out.
 2. The invited player sees the invite on the **Notifications** tab (for now the Invites screen): the team name, who invited them and how full the team is, with **Accept** and **Decline**. Tapping the card opens the team first.
 3. Accepting makes them a member, unless the team is full (15 members). Declining removes the invite.
 4. If the player had already asked to join, the captain's invite simply approves their request, because both sides agreed.
@@ -480,7 +480,7 @@ Explore is one screen for players and venue owners, with three sections: **Teams
 - **Players:** search by name, filter by area and by position. All three combine.
 - **Venues:** see "Finding a venue".
 
-The app never downloads a whole list. It asks the backend for a page of 20, and for the next page when you near the end. All the matching happens on the backend. A request isn't sent on every keystroke: the app waits until typing has paused for 0.4 seconds (tapping a suggestion or a position searches straight away). If an older answer arrives late, it's thrown away. Opening a team and coming back doesn't load the list again, so you stay where you were; pulling down refreshes it. If a search can't reach the backend, the list says so with **Try again**, rather than showing rows that don't match the search. All this lives in one place, the `usePagedList` hook, which the three sections share.
+The app never downloads a whole list. It asks the backend for a page of 20, and for the next page when you near the end. All the matching happens on the backend. A request isn't sent on every keystroke: the app waits until typing has paused for 0.4 seconds (tapping a suggestion or a position searches straight away). If an older answer arrives late, it's thrown away. Opening a team and coming back doesn't load the list again, so you stay where you were; pulling down refreshes it. If a search can't reach the backend, the list says so with **Try again**, rather than showing rows that don't match the search. All this lives in one place, the `usePagedList` hook, which the three sections and Invite players share.
 
 Venue owners see the same three sections, read-only.
 

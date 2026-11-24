@@ -1,11 +1,22 @@
-// Explore's Players section (docs/features/explore.md, section e): the players the viewer
-// may find, from GET /players, with a search by name and filters by area and position
-// (P22: "All" first, one choice, sent at once). They all combine. One card per player;
-// tapping it opens Player detail.
+// A list of players with a search by name and filters by area and position (P22: "All"
+// first, one choice, sent at once), which all combine, in pages. Shared by Explore's
+// Players section and Invite players (docs/features/explore.md, section e, P29).
+//   <PlayerList navigation={navigation} />
+//   <PlayerList navigation={navigation} path={`/teams/${teamId}/invite-candidates`}
+//               emptyMessage="…" renderActions={(player, list) => <Button … />} />
+// Tapping a player opens Player detail. Each row ends with a chevron, or with its own
+// buttons (renderActions), which sit beside the part that opens the player.
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from '../../theme/ThemeProvider';
-import { Avatar, Card, Icon, OptionGroup, Text } from '../../components/ui';
+import {
+  Avatar,
+  Card,
+  Icon,
+  ListRow,
+  OptionGroup,
+  Text,
+} from '../../components/ui';
 import { POSITIONS } from '../../constants/positions';
 import { usePagedList } from '../../hooks/usePagedList';
 import PagedList, {
@@ -24,14 +35,29 @@ const NO_PLAYER_FILTERS = { ...NO_FILTERS, position: ALL };
 
 const keyOf = player => player.id;
 
-// navigation: the Explore screen's own (Player detail is in the same stack).
-export default function PlayerList({ navigation }) {
+// navigation: the screen's own (Player detail must be in the same stack).
+// path: the endpoint; its rows and filters are those of GET /players.
+// renderActions(player, list): the row's buttons; list is usePagedList's.
+export default function PlayerList({
+  navigation,
+  path = '/players',
+  emptyMessage = NO_PLAYERS,
+  renderActions,
+}) {
   const list = usePagedList({
-    path: '/players',
+    path,
     initialFilters: NO_PLAYER_FILTERS,
     toParams,
     keyOf,
   });
+
+  // Pushed, so Player detail always opens on top, even when the same player's page is
+  // already further down the stack (P30).
+  const openPlayer = player =>
+    navigation.push('PlayerDetail', {
+      userId: player.id,
+      playerName: player.name,
+    });
 
   return (
     <PagedList
@@ -40,12 +66,8 @@ export default function PlayerList({ navigation }) {
       renderItem={({ item }) => (
         <PlayerCard
           player={item}
-          onPress={() =>
-            navigation.navigate('PlayerDetail', {
-              userId: item.id,
-              playerName: item.name,
-            })
-          }
+          onPress={() => openPlayer(item)}
+          actions={renderActions?.(item, list)}
         />
       )}
       filters={
@@ -59,16 +81,30 @@ export default function PlayerList({ navigation }) {
         </ListFilters>
       }
       errorMessage="Couldn't load players."
-      emptyMessage={NO_PLAYERS}
+      emptyMessage={emptyMessage}
       noMatchMessage={NO_MATCH}
     />
   );
 }
 
-// One player: avatar, name, "Goalkeeper · Mirpur 10", a chevron.
-function PlayerCard({ player, onPress }) {
+// One player: avatar, name, "Goalkeeper · Mirpur 10", then a chevron (the whole card
+// opens the player) or the row's own buttons (the rest of the row opens the player).
+function PlayerCard({ player, onPress, actions }) {
   const { colors, spacing } = useTheme();
   const meta = personMeta({ user: player });
+  if (actions) {
+    return (
+      <Card>
+        <ListRow
+          name={player.name}
+          meta={meta}
+          onPress={onPress}
+          actions={actions}
+          last
+        />
+      </Card>
+    );
+  }
   return (
     <Card
       onPress={onPress}

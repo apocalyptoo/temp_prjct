@@ -348,6 +348,63 @@ describe('More pages', () => {
   });
 });
 
+describe("leave: a row that left the server's list but stays on screen", () => {
+  test('is patched, and the next page is asked from further back', async () => {
+    api.get.mockResolvedValueOnce(PAGE_1);
+    const hook = await renderHook();
+    await doIt(() => hook.current.leave(3, { label: 'Invited' }));
+    expect(hook.current.rows[2]).toEqual({
+      id: 3,
+      name: 'Row 3',
+      label: 'Invited',
+    });
+    // The server's page 1 is now 1, 2, 4 … 21.
+    api.get.mockResolvedValueOnce(
+      reply([...rows(1, 2), ...rows(4, 21)], 1, 44),
+    );
+    await doIt(() => hook.current.loadMore());
+    api.get.mockResolvedValueOnce(reply(rows(22, 41), 2, 44));
+    await doIt(() => hook.current.loadMore());
+    expect(sent().map(params => params.page)).toEqual([1, 1, 2]);
+    expect(ids(hook)).toEqual(rows(1, 41).map(keyOf));
+    expect(hook.current.rows[2].label).toBe('Invited');
+  });
+
+  test('a row that is not in the list changes nothing', async () => {
+    api.get.mockResolvedValueOnce(PAGE_1).mockResolvedValueOnce(PAGE_2);
+    const hook = await renderHook();
+    await doIt(() => hook.current.leave(99, { label: 'Invited' }));
+    await doIt(() => hook.current.loadMore());
+    expect(sent()[1]).toEqual({ page: 2 });
+  });
+
+  test('nothing more is asked when everything was loaded', async () => {
+    api.get.mockResolvedValue(reply(rows(1, 20), 1, 20));
+    const hook = await renderHook();
+    await doIt(() => hook.current.leave(1, {}));
+    await doIt(() => hook.current.loadMore());
+    expect(sent()).toHaveLength(1);
+  });
+
+  test('a fresh first page starts counting again; a failed one keeps the count and the patch', async () => {
+    api.get.mockResolvedValueOnce(PAGE_1);
+    const hook = await renderHook();
+    await doIt(() => hook.current.leave(3, { label: 'Invited' }));
+    api.get.mockRejectedValueOnce(new Error('offline'));
+    await doIt(() => hook.current.refresh());
+    expect(hook.current.rows[2].label).toBe('Invited');
+    api.get.mockRejectedValueOnce(new Error('offline'));
+    await doIt(() => hook.current.loadMore());
+    expect(sent()[2]).toEqual({ page: 1 });
+
+    api.get.mockResolvedValueOnce(reply(rows(4, 23), 1, 42));
+    await doIt(() => hook.current.refresh());
+    api.get.mockResolvedValueOnce(reply(rows(24, 43), 2, 42));
+    await doIt(() => hook.current.loadMore());
+    expect(sent()[4]).toEqual({ page: 2 });
+  });
+});
+
 describe('Pull to refresh', () => {
   test('goes back to page 1 with the search as it is now, dropping a pending pause', async () => {
     api.get.mockResolvedValueOnce(PAGE_1).mockResolvedValueOnce(PAGE_2);

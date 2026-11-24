@@ -1,7 +1,7 @@
 // Player detail (docs/features/explore.md, section e, "Player detail"): one player's
-// public profile, from GET /players/:id. Opened from a person row on Team detail (and,
-// from F3b.4, from Explore → Players). Route params: { userId, playerName } (the name
-// shows while the profile loads).
+// public profile, from GET /players/:id. Opened from a person row on Team detail, from
+// Explore → Players and from Invite players. Route params: { userId, playerName } (the
+// name shows while the profile loads).
 // - A card with the avatar, the name, the position and the area.
 // - Details: only the rows that have a value (P23): Height, Weight, and the Phone when
 //   the backend sends it (accepted teammates; tapping it calls, with a line saying why

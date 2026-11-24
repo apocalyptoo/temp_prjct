@@ -1,6 +1,6 @@
 // A list that comes from the backend in pages, with a search and filters that run on the
 // backend (docs/features/explore.md, P17 and P18). Shared by Explore's Teams, Players and
-// Venues.
+// Venues, and by Invite players.
 //   const list = usePagedList({ path: '/teams', initialFilters, toParams, keyOf });
 // path: the endpoint. Its reply is { items, page, limit, total }.
 // initialFilters: the empty search and filters, like { search: '', area: '' }.
@@ -17,6 +17,10 @@
 // - loadMore() asks for the next page, one request at a time, until everything that
 //   matches is loaded. A row that's already there is skipped (the list on the server can
 //   shift between two pages).
+// - leave(key, patch): a row has left the server's list (an invited player), but stays on
+//   screen, with `patch` merged into it. The rows after it have moved up on the server,
+//   so the next page is asked for from further back; otherwise that many rows would never
+//   be shown. A fresh first page drops the row.
 // - A failed refresh keeps the rows. A failed first load or a failed new search shows the
 //   error state instead, so the rows never disagree with the search above them. A failed
 //   next page keeps the rows and offers to try again.
@@ -30,7 +34,8 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 export function usePagedList({ path, initialFilters, toParams, keyOf }) {
   const [filters, setFilters] = useState(initialFilters);
   // The rows shown, the search they were loaded with, and how far they go.
-  const [shown, setShown] = useState(null); // { rows, params, page, limit, total }
+  // gone: how many rows have left the server's list since (leave()).
+  const [shown, setShown] = useState(null); // { rows, params, page, limit, total, gone }
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [refreshing, setRefreshing] = useState(false);
   const [more, setMore] = useState('idle'); // idle | loading | failed
@@ -63,7 +68,7 @@ export function usePagedList({ path, initialFilters, toParams, keyOf }) {
         if (request !== requestRef.current) return;
         const { items, page, limit, total } = res.data;
         firstPageRef.current = 'idle';
-        show({ rows: items, params, page, limit, total });
+        show({ rows: items, params, page, limit, total, gone: 0 });
         setStatus('ready');
       } catch {
         if (request !== requestRef.current) return;
@@ -129,10 +134,12 @@ export function usePagedList({ path, initialFilters, toParams, keyOf }) {
     setRefreshing(false);
   }, [loadFirstPage, toParams]);
 
-  // Try again, after a failed first load or a failed search.
-  const retry = useCallback(() => {
-    loadFirstPage(toParams(filtersRef.current));
-  }, [loadFirstPage, toParams]);
+  // Try again, after a failed first load or a failed search. (Also a reload without
+  // the pull-to-refresh spinner.)
+  const retry = useCallback(
+    () => loadFirstPage(toParams(filtersRef.current)),
+    [loadFirstPage, toParams],
+  );
 
   const fetchNextPage = useCallback(async () => {
     const current = shownRef.current;
@@ -147,23 +154,30 @@ export function usePagedList({ path, initialFilters, toParams, keyOf }) {
       return;
     }
     const request = requestRef.current;
+    // How far the rows go on the server now, so which page comes next.
+    const reached = current.page * current.limit - current.gone;
+    const nextPage = Math.floor(reached / current.limit) + 1;
     loadingMoreRef.current = true;
     setMore('loading');
     try {
       const res = await api.get(path, {
-        params: { ...current.params, page: current.page + 1 },
+        params: { ...current.params, page: nextPage },
       });
       if (request !== requestRef.current) return;
       const { items, page, limit, total } = res.data;
-      const known = new Set(current.rows.map(keyOf));
+      const now = shownRef.current; // a row may have left meanwhile
+      const known = new Set(now.rows.map(keyOf));
       const fresh = items.filter(row => !known.has(keyOf(row)));
       loadingMoreRef.current = false;
       show({
-        rows: [...current.rows, ...fresh],
-        params: current.params,
+        rows: [...now.rows, ...fresh],
+        params: now.params,
         page,
         limit,
         total,
+        // Counted again if it left while this page was on its way: asking too far back
+        // only brings repeated rows, which are skipped.
+        gone: now.gone - current.gone,
       });
       setMore('idle');
     } catch {
@@ -172,6 +186,21 @@ export function usePagedList({ path, initialFilters, toParams, keyOf }) {
       setMore('failed');
     }
   }, [path, keyOf]);
+
+  const leave = useCallback(
+    (key, patch) => {
+      const current = shownRef.current;
+      if (!current?.rows.some(row => keyOf(row) === key)) return;
+      show({
+        ...current,
+        rows: current.rows.map(row =>
+          keyOf(row) === key ? { ...row, ...patch } : row,
+        ),
+        gone: current.gone + 1,
+      });
+    },
+    [keyOf],
+  );
 
   // Near the end of the list. After a failed next page only retryMore() asks again, so
   // a list without a connection doesn't keep trying by itself.
@@ -193,6 +222,7 @@ export function usePagedList({ path, initialFilters, toParams, keyOf }) {
     retry,
     loadMore,
     retryMore: fetchNextPage,
+    leave,
     loadingMore: more === 'loading',
     moreFailed: more === 'failed',
   };

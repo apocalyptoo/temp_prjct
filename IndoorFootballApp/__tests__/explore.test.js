@@ -88,7 +88,11 @@ const sent = path =>
     .map(([, options]) => options.params);
 
 async function render({ user = PLAYER, params } = {}) {
-  const navigation = { navigate: jest.fn(), setParams: jest.fn() };
+  const navigation = {
+    navigate: jest.fn(),
+    push: jest.fn(),
+    setParams: jest.fn(),
+  };
   let renderer;
   const element = nextParams => (
     <ThemeProvider>
@@ -496,7 +500,7 @@ describe('Players', () => {
   test('a player opens Player detail', async () => {
     const { players, navigation } = await renderPlayers();
     await press(players, 'Nayeem Islam, Goalkeeper · Mirpur 10');
-    expect(navigation.navigate).toHaveBeenCalledWith('PlayerDetail', {
+    expect(navigation.push).toHaveBeenCalledWith('PlayerDetail', {
       userId: 19,
       playerName: 'Nayeem Islam',
     });
