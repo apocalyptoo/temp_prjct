@@ -24,3 +24,12 @@ export const passwordChangedEmailHtml = ({ displayName }) => `
           <p>The password for your ConnectArena account was just changed.</p>
           <p>If this was you, you don't need to do anything. If it wasn't, use Forgot password on the app's login screen right away to set a new one.</p>
         `;
+
+// The notice after an account is deleted (docs/features/account-deletion.md, d.3, P9).
+// The same text whether the user or the admin deleted it, and no link, like above.
+// Phase 5 adds the support address.
+export const accountDeletedEmailHtml = ({ displayName }) => `
+          <p>Hi ${escapeHtml(displayName)},</p>
+          <p>Your ConnectArena account and the profile that belonged to it were just deleted. You can't log in to it any more.</p>
+          <p>This can't be undone.</p>
+        `;

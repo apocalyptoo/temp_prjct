@@ -78,13 +78,13 @@ const privacyPage = legalPage({
     {
       heading: 'Emails we send',
       paragraphs: [
-        'We email you only about your account: to verify your email address, to reset your password, to tell you your password was changed, and to confirm an account deletion.',
+        'We email you only about your account: to verify your email address, to reset your password, to tell you your password was changed, to confirm a request to delete your account, and to tell you your account was deleted.',
       ],
     },
     {
       heading: 'Deleting your account',
       paragraphs: [
-        'You can delete your account in the app. This deletes your account, your profile, your team memberships, and the invites and join requests you sent or received.',
+        'You can delete your account in the app. This deletes your account, your profile, your team memberships, the invites you received and the join requests you sent. A team you captain is handed to its longest-standing member, or deleted if nobody else is in it.',
         'Backups of the database may keep deleted data for a limited time. How long will be stated here before the app launches.',
       ],
     },

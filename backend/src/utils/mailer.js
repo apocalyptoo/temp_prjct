@@ -1,4 +1,5 @@
-// Sending account emails (verification, password reset, and the password-changed notice).
+// Sending account emails (verification, password reset, and the password-changed and
+// account-deleted notices).
 //
 // createMailer(transporter, settings) builds the senders around any nodemailer
 // transporter, so tests can pass one that sends nothing (streamTransport). The server's
@@ -8,7 +9,7 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config.js';
 import { normalizeEmail } from './email.js';
-import { verifyEmailHtml, resetEmailHtml, passwordChangedEmailHtml } from './emailTemplates.js';
+import { verifyEmailHtml, resetEmailHtml, passwordChangedEmailHtml, accountDeletedEmailHtml } from './emailTemplates.js';
 
 export function createMailer(transporter, { fromAddress, backendPublicUrl }) {
   const from = `"App Support" <${fromAddress}>`;
@@ -57,7 +58,17 @@ export function createMailer(transporter, { fromAddress, backendPublicUrl }) {
       html: passwordChangedEmailHtml({ displayName }),
     });
 
-  return { sendMail, sendVerificationEmail, sendResetEmail, sendPasswordChangedEmail };
+  // After an account is deleted, by its owner or by the admin (DECISIONS.md 2026-11-25).
+  // No link in it.
+  const sendAccountDeletedEmail = ({ email, displayName }) =>
+    sendMail({
+      from,
+      to: email,
+      subject: 'Your ConnectArena account was deleted',
+      html: accountDeletedEmailHtml({ displayName }),
+    });
+
+  return { sendMail, sendVerificationEmail, sendResetEmail, sendPasswordChangedEmail, sendAccountDeletedEmail };
 }
 
 const gmailTransporter = nodemailer.createTransport({

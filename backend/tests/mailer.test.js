@@ -169,3 +169,36 @@ describe('The password-changed notice, built by nodemailer', () => {
     await assert.rejects(sendPasswordChangedEmail({ email: 'someone@mail.invalid', displayName: 'T' }), /\.invalid address/);
   });
 });
+
+describe('The account-deleted notice, built by nodemailer', () => {
+  test('has the right to and subject, greets by name, and contains no link', async () => {
+    const { sendAccountDeletedEmail } = createMailer(streamTransporter(), SETTINGS);
+
+    const info = await sendAccountDeletedEmail({ email: 'player@example.org', displayName: 'Rahim' });
+    const { headers, body } = readMessage(info.message);
+
+    assert.deepEqual(info.envelope, { from: 'sender@example.org', to: ['player@example.org'] });
+    assert.equal(headers.subject, 'Your ConnectArena account was deleted');
+    assert.match(headers['content-type'], /^text\/html/);
+    assert.ok(body.includes('Hi Rahim,'));
+    assert.ok(body.includes('were just deleted'));
+    assert.ok(body.includes("This can't be undone."));
+    assert.doesNotMatch(body, /<a\s|href=|https?:\/\//i, 'no link of any kind');
+  });
+
+  test('the name is escaped', async () => {
+    const { sendAccountDeletedEmail } = createMailer(streamTransporter(), SETTINGS);
+
+    const info = await sendAccountDeletedEmail({ email: 'player@example.org', displayName: '<b>Bold</b> & Co' });
+    const { body } = readMessage(info.message);
+
+    assert.ok(body.includes('&lt;b&gt;Bold&lt;/b&gt; &amp; Co'));
+    assert.ok(!body.includes('<b>Bold</b>'));
+  });
+
+  test('like every account email, @example.com is skipped and .invalid fails at once', async () => {
+    const { sendAccountDeletedEmail } = createMailer(streamTransporter(), SETTINGS);
+    assert.equal(await sendAccountDeletedEmail({ email: 'test-x@example.com', displayName: 'T' }), undefined);
+    await assert.rejects(sendAccountDeletedEmail({ email: 'someone@mail.invalid', displayName: 'T' }), /\.invalid address/);
+  });
+});

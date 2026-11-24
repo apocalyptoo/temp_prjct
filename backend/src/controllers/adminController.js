@@ -1,6 +1,7 @@
 import { prisma } from '../db.js';
 import { viewerFrom, withoutSecrets } from '../utils/visibility.js';
-import { deleteUserAndData, deleteTeamAndMembers, planAccountDeletion, toDeletionPreview } from '../utils/deletion.js';
+import { deleteAccountAndNotify } from '../utils/accountDeletion.js';
+import { deleteTeamAndMembers, planAccountDeletion, toDeletionPreview } from '../utils/deletion.js';
 import { parseId } from '../utils/ids.js';
 import { isLive, missingFields, withMissingFields } from '../utils/venues.js';
 
@@ -95,14 +96,16 @@ const previewDelete = (route) => async (req, res, next) => {
   }
 };
 
-// The shared deletion (endpoints 5 and 6): captained teams are handed over or deleted.
+// The shared deletion (endpoints 5 and 6): captained teams are handed over or deleted,
+// and the account's owner gets the notice email.
 // With ?previewCode=… it's refused when the outcome isn't what the preview showed (P12).
 const deleteAccount = (route) => async (req, res, next) => {
   try {
     const { id, refusal } = await findDeletable(req, route);
     if (refusal) return refuse(res, refusal);
 
-    const { status } = await deleteUserAndData(prisma, id, { previewCode: req.valid.query.previewCode });
+    const { previewCode } = req.valid.query;
+    const { status } = await deleteAccountAndNotify(prisma, id, { previewCode, adminId: req.user.id });
     if (status === 'gone') return refuse(res, [404, route.notFoundMessage]);
     if (status === 'admin') return refuse(res, [403, CANT_DELETE_ADMIN]);
     if (status === 'stale') return refuse(res, [409, DELETION_CHANGED]);
