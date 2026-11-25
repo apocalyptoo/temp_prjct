@@ -9,7 +9,8 @@
 //   Save note (an empty note clears it; at most 200 characters).
 // - Live: Move back to review, which opens a required note and a red Move back to
 //   review button, then a confirmation.
-// - Both: Delete venue, with a confirmation (it deletes the owner's account).
+// - Both: Delete venue, which deletes the owner's account: the shared admin confirmation
+//   (adminDeletion.js), opened once its preview has loaded.
 // A 404 or 409 (the venue changed meanwhile) alerts "Something changed" with the
 // backend's message and reloads (showActionError). Every action uses useBusyAction.
 import React, { useCallback, useEffect, useState } from 'react';
@@ -36,6 +37,11 @@ import { WebsiteRow } from '../Venue/venueCommon';
 import { GONE_MESSAGE } from '../Venue/VenueDetailScreen';
 import { ownerLine } from './AdminVenuesScreen';
 import {
+  AdminDeletionDialog,
+  CONFIRM_KEY,
+  useAdminDeletion,
+} from './adminDeletion';
+import {
   isLive,
   liveSinceText,
   missingText,
@@ -59,7 +65,7 @@ export default function AdminVenueScreen({ navigation, route }) {
   const [moving, setMoving] = useState(false); // the "move back to review" step is open
   const [moveNote, setMoveNote] = useState('');
   const [moveError, setMoveError] = useState(null);
-  const [confirming, setConfirming] = useState(null); // 'move' | 'delete' | null
+  const [confirmingMove, setConfirmingMove] = useState(false);
   const { run, busy, isBusy } = useBusyAction();
 
   // Shows a venue (loaded, or from an action's reply), with its note in the field.
@@ -139,7 +145,7 @@ export default function AdminVenueScreen({ navigation, route }) {
   const askToMove = () => {
     const problem = noteProblem(moveNote, { required: true });
     setMoveError(problem);
-    if (!problem) setConfirming('move');
+    if (!problem) setConfirmingMove(true);
   };
 
   const moveToReview = () =>
@@ -149,26 +155,20 @@ export default function AdminVenueScreen({ navigation, route }) {
           `/admin/indoors/${userId}/move-to-review`,
           noteBody(moveNote),
         );
-        setConfirming(null);
+        setConfirmingMove(false);
         closeMoveStep();
         show(res.data);
       } catch (err) {
-        setConfirming(null);
+        setConfirmingMove(false);
         showActionError(err, { onStale: load });
       }
     }, 'move');
 
-  const deleteVenue = () =>
-    run(async () => {
-      try {
-        await api.delete(`/admin/indoors/${userId}`);
-        setConfirming(null);
-        navigation.goBack(); // The list reloads when it comes back into view.
-      } catch (err) {
-        setConfirming(null);
-        showActionError(err, { onStale: load });
-      }
-    }, 'delete');
+  const deletion = useAdminDeletion({
+    run,
+    onDeleted: () => navigation.goBack(), // The list reloads when it comes back into view.
+    onStale: load,
+  });
 
   const name = venue?.indoorName ?? venueName;
   const live = isLive(venue);
@@ -322,8 +322,11 @@ export default function AdminVenueScreen({ navigation, route }) {
           title="Delete venue"
           icon="delete"
           variant="danger"
-          onPress={() => setConfirming('delete')}
-          disabled={busy}
+          onPress={() =>
+            deletion.ask({ path: `/admin/indoors/${userId}`, name }, 'delete')
+          }
+          disabled={blocked('delete')}
+          loading={isBusy('delete')}
           fullWidth
         />
       </>
@@ -372,24 +375,19 @@ export default function AdminVenueScreen({ navigation, route }) {
       </ScrollView>
 
       <ConfirmDialog
-        visible={confirming === 'move'}
+        visible={confirmingMove}
         title={`Move ${name} back to review?`}
         message="Players won't see it until you approve it again."
         confirmTitle="Move back to review"
         destructive
         loading={isBusy('move')}
         onConfirm={moveToReview}
-        onCancel={() => setConfirming(null)}
+        onCancel={() => setConfirmingMove(false)}
       />
-      <ConfirmDialog
-        visible={confirming === 'delete'}
-        title={`Delete ${name}?`}
-        message="This deletes the owner's account and all its data. It can't be undone."
+      <AdminDeletionDialog
+        deletion={deletion}
         confirmTitle="Delete venue"
-        destructive
-        loading={isBusy('delete')}
-        onConfirm={deleteVenue}
-        onCancel={() => setConfirming(null)}
+        loading={isBusy(CONFIRM_KEY)}
       />
     </Screen>
   );

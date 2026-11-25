@@ -195,7 +195,7 @@ All shared components live in `IndoorFootballApp/src/components/ui/`, one file e
 
 **Empty states.** Every list has one: a short line saying what's missing, plus the main action (e.g. "You're not in a team yet." + "Create team").
 
-**Confirmation dialogs.** Used for destructive or important actions (leave team, transfer captaincy, delete account). The title says exactly what will happen. The confirm button uses `danger` for destructive actions.
+**Confirmation dialogs.** Used for destructive or important actions (leave team, transfer captaincy, delete account). The title says exactly what will happen. The confirm button uses `danger` for destructive actions. A dialog can show a list between its message and its buttons (added with feature 4, what happens to each team): that part scrolls when it doesn't fit, and the buttons always stay in reach.
 
 **Text field.** There's no field in the mockups, so this is the agreed design:
 - Label above the field, in `bodySmall` / `textMuted`.

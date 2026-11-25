@@ -1,7 +1,7 @@
 /* eslint-env jest */
 // Tests for the admin's venue screens and Dashboard (docs/features/venues.md, sections e
 // and h): the Venues tab list, the review screen (approve, the note, move back to
-// review, delete) and the Dashboard's waiting count.
+// review) and the Dashboard's waiting count. Delete venue is in admin-deletion.test.js.
 
 import React from 'react';
 import { Alert, Text as NativeText, TextInput } from 'react-native';
@@ -576,26 +576,6 @@ describe('The admin review screen', () => {
       'This venue is already waiting for review',
     );
     expect(shownText(renderer)).toContain('Pending review');
-  });
-
-  test('Delete venue asks first, then deletes and goes back', async () => {
-    api.delete.mockResolvedValue({
-      data: { message: 'Venue deleted successfully' },
-    });
-    const { renderer, navigation } = await showVenue();
-    await press(renderer, 'Delete venue');
-    expect(api.delete).not.toHaveBeenCalled();
-    const dialog = renderer.root
-      .findAllByType(ConfirmDialog)
-      .find(node => node.props.visible);
-    expect(dialog.props.title).toBe('Delete Barnabeu Arena?');
-    expect(dialog.props.message).toBe(
-      "This deletes the owner's account and all its data. It can't be undone.",
-    );
-    await act(async () => dialog.props.onConfirm());
-    await settle();
-    expect(api.delete).toHaveBeenCalledWith('/admin/indoors/19034');
-    expect(navigation.goBack).toHaveBeenCalled();
   });
 
   test('a venue no longer in the list shows "not available any more" with a way back', async () => {

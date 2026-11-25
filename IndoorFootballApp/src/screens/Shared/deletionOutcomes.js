@@ -1,14 +1,16 @@
 // What deleting an account will do, in words, from the backend's deletion preview
 // (docs/features/account-deletion.md, d.4 and section e). The app never works out an
-// outcome itself: it only puts the preview's answers into sentences.
+// outcome itself: it only puts the preview's answers into sentences. Two wordings: to the
+// user about themselves (Delete account), and to the admin about somebody else.
 
 const teams = count => (count === 1 ? '1 team' : `${count} teams`);
 
-// One captained team: "Dhanmondi Strikers will be handed to Rahim".
-export const teamOutcomeText = team =>
+// One captained team: "Dhanmondi Strikers will be handed to Rahim". `who` is the member
+// being deleted: "you're" for the user, "they're" for the admin.
+export const teamOutcomeText = (team, who = "you're") =>
   team.outcome === 'handover'
     ? `${team.name} will be handed to ${team.newCaptain.name}`
-    : `${team.name} will be deleted (you're the only member)`;
+    : `${team.name} will be deleted (${who} the only member)`;
 
 // The icon beside it. The words carry the meaning; the icon only supports them.
 export const teamOutcomeIcon = team =>
@@ -64,4 +66,22 @@ export function whatWillBeDeleted(preview, role) {
     });
   }
   return rows;
+}
+
+// What the admin sees before deleting somebody's account: each captained team, then the
+// venue listing. { key, icon, text }, empty when there's neither.
+export function outcomesForAdmin(preview) {
+  const outcomes = preview.captainedTeams.map(team => ({
+    key: team.id,
+    icon: teamOutcomeIcon(team),
+    text: teamOutcomeText(team, "they're"),
+  }));
+  if (preview.venue) {
+    outcomes.push({
+      key: 'venue',
+      icon: 'venue',
+      text: 'The venue listing will be removed',
+    });
+  }
+  return outcomes;
 }

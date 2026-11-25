@@ -1,6 +1,10 @@
 # Feature 4: Account deletion (spec)
 
-Phase 4, Step 3. Task F4.0, written 2026-11-25. **Status: approved 2026-11-25** (DECISIONS.md, "Account deletion feature spec approved"). The backend (F4.1) and Delete account in the app (F4.2) were built 2026-11-25; the admin dialogs (F4.3) aren't yet.
+Phase 4, Step 3. Task F4.0, written 2026-11-25. **Status: approved 2026-11-25** (DECISIONS.md, "Account deletion feature spec approved"). **Built** 2026-11-25 to 2026-11-26 (F4.1 to F4.3). Where the text below differs from this list, this list is what was built:
+
+- **Backend (F4.1):** the log line for a failed notice names the error's code only, because the error itself can contain the address. The rate-limit tests are in `delete-account.test.js`, and the plan, the notice and d.5 have test files of their own.
+- **Delete account (F4.2):** if the outcomes can't be loaded again after a 409, the old ones aren't shown: "Couldn't load what will be deleted." with Try again, and the typed password is kept. A refused deletion's alert is titled "Not deleted".
+- **Admin dialogs (F4.3; the owner's task brief, 2026-11-26):** after a 409 the dialog stays open and shows the new outcome, with the "Something changed" alert; the admin confirms again. It only closes if the new outcome can't be loaded.
 
 **How to read the markers:**
 - **Decided**: one of the owner's three decisions of 2026-11-25 (DECISIONS.md, "Account deletion details"), or a rule already in PRODUCT.md or DECISIONS.md.
@@ -242,7 +246,7 @@ Replies:
 
 - Tapping a user's trash button (Users tab), or **Delete venue** (`AdminVenueScreen`), first loads the preview. The tapped button shows its spinner meanwhile. **[P19, approved]** If the preview can't be loaded, an alert says so and no confirmation opens. Reason: the admin shouldn't confirm something they can't see.
 - Then a `ConfirmDialog` (destructive) titled "Delete {name}?", the message "This deletes their account and profile for good. It can't be undone.", and the same lines as the user's own screen, in the third person: "Dhanmondi Strikers will be handed to Rahim", "Mirpur Mavericks will be deleted (they're the only member)", "The venue listing will be removed". No extra lines for someone with no teams and no venue. Confirm: **Delete account**, or **Delete venue** on the venue screen.
-- A 409 shows "Something changed" and closes the dialog; tapping delete again loads a fresh preview.
+- A 409 shows "Something changed" and the new outcome in the open dialog; the admin confirms again (the owner's task brief, 2026-11-26).
 - **[P20, approved]** `ConfirmDialog` gets optional `children` between the message and the buttons, and that part scrolls when it doesn't fit. Reason: a captain of many teams would otherwise push the buttons off the screen.
 - **[P21, approved]** The trash button isn't shown on ADMIN rows. Reason: today it's there and can only ever answer with a refusal.
 - In the Users tab only the delete confirmation changes; the old-style list stays until moderation (Q6).

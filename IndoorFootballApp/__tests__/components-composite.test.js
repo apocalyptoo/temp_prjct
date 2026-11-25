@@ -5,7 +5,13 @@
 import fs from 'fs';
 import path from 'path';
 import React from 'react';
-import { StyleSheet, Text as NativeText, TextInput } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  Text as NativeText,
+  TextInput,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ReactTestRenderer from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { theme } from '../src/theme';
@@ -207,6 +213,64 @@ describe('ConfirmDialog', () => {
     expect(
       tappableLabelled(renderer, 'Delete team').props.accessibilityState,
     ).toEqual({ disabled: false, busy: true });
+  });
+
+  test('children sit between the message and the buttons, and only they scroll', async () => {
+    const renderer = await render(
+      dialog({ children: <ListRow icon="transfer" name="Team one" last /> }),
+    );
+    const text = shownText(renderer);
+    const order = [
+      'Everyone in it loses the team.',
+      'Team one',
+      'Cancel',
+      'Delete team',
+    ].map(line => text.indexOf(line));
+    expect(order).not.toContain(-1);
+    expect(order).toEqual([...order].sort((x, y) => x - y));
+
+    const scrolls = renderer.root.findAllByType(ScrollView);
+    expect(scrolls).toHaveLength(1);
+    const inside = scrolls[0]
+      .findAllByType(NativeText)
+      .map(node => node.props.children);
+    expect(inside).toEqual(['Team one']);
+    // Both shrink, so a long list never pushes the buttons off the screen, and a short
+    // one doesn't stretch the dialog.
+    expect(StyleSheet.flatten(scrolls[0].props.style)).toMatchObject({
+      flexGrow: 0,
+      flexShrink: 1,
+    });
+    const box = renderer.root.findAll(
+      node => node.props.accessibilityViewIsModal === true,
+    )[0];
+    expect(StyleSheet.flatten(box.props.style).flexShrink).toBe(1);
+  });
+
+  test('without children nothing scrolls, as before', async () => {
+    const renderer = await render(dialog({}));
+    expect(renderer.root.findAllByType(ScrollView)).toHaveLength(0);
+  });
+
+  test('a tall dialog keeps clear of the status bar and the navigation bar', async () => {
+    useSafeAreaInsets.mockReturnValueOnce({
+      top: 50,
+      bottom: 34,
+      left: 0,
+      right: 0,
+    });
+    const renderer = await render(dialog({}));
+    const centre = renderer.root
+      .findAll(node => {
+        const style = StyleSheet.flatten(node.props.style);
+        return style?.backgroundColor === theme.colors.scrim;
+      })
+      .pop();
+    expect(StyleSheet.flatten(centre.props.style)).toMatchObject({
+      paddingTop: 50,
+      paddingBottom: 34,
+      paddingHorizontal: theme.spacing.screenPadding,
+    });
   });
 
   test('uses the floating shadow, and danger for a destructive confirm', async () => {

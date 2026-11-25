@@ -36,6 +36,9 @@ import { INITIALS_METHOD } from '../../components/ui/Avatar';
 import { POSITIONS } from '../../constants/positions';
 import { suggestAreas } from '../../constants/areas';
 
+// Enough rows that the dialog has to scroll.
+const DIALOG_TEAMS = Array.from({ length: 12 }, (_, i) => `Team ${i + 1}`);
+
 const FAKE_REQUEST_MS = 2000;
 
 // Names that test the initials rule (DESIGN.md section 6, Avatar).
@@ -200,6 +203,7 @@ export default function UIGalleryScreen({ navigation }) {
   const [email, setEmail] = useState('not-an-email');
   const [password, setPassword] = useState('secret-pass');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [listDialogOpen, setListDialogOpen] = useState(false);
   const [dialogBusy, setDialogBusy] = useState(false);
   const [buttonBusy, setButtonBusy] = useState(false);
   const [agreed, setAgreed] = useState(false);
@@ -472,6 +476,29 @@ export default function UIGalleryScreen({ navigation }) {
             }
             onCancel={() => setDialogOpen(false)}
           />
+          <Button
+            title="Open a dialog with a long list"
+            variant="secondary"
+            onPress={() => setListDialogOpen(true)}
+          />
+          <ConfirmDialog
+            visible={listDialogOpen}
+            title="Delete Rahim Uddin?"
+            message="The list scrolls; the buttons stay in reach."
+            confirmTitle="Delete account"
+            destructive
+            onConfirm={() => setListDialogOpen(false)}
+            onCancel={() => setListDialogOpen(false)}
+          >
+            {DIALOG_TEAMS.map((team, index) => (
+              <ListRow
+                key={team}
+                icon="transfer"
+                name={`${team} will be handed to Tanvir Ahmed`}
+                last={index === DIALOG_TEAMS.length - 1}
+              />
+            ))}
+          </ConfirmDialog>
         </Section>
 
         <Section title={`Icons (${ICON_NAMES.length})`}>

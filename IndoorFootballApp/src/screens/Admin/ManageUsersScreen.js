@@ -14,6 +14,14 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import api from '../../api/api';
 import { useBusyAction } from '../../hooks/useBusyAction';
+import {
+  AdminDeletionDialog,
+  CONFIRM_KEY,
+  useAdminDeletion,
+} from './adminDeletion';
+
+// The admin's Users tab. Still an old-style screen (moderation rebuilds it); only the
+// delete confirmation is new (docs/features/account-deletion.md, Q6).
 
 const roleIcon = role => {
   if (role === 'PLAYER') return 'person-outline';
@@ -31,8 +39,8 @@ export default function ManageUsersScreen() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  // The id being deleted (one delete at a time).
-  const { run, busyKey: deletingId } = useBusyAction();
+  // The id whose deletion preview is loading, or CONFIRM_KEY (one at a time).
+  const { run, busyKey, isBusy } = useBusyAction();
 
   const loadUsers = async (isRefresh = false) => {
     isRefresh ? setRefreshing(true) : setLoading(true);
@@ -51,32 +59,14 @@ export default function ManageUsersScreen() {
     loadUsers();
   }, []);
 
-  const deleteUser = (id, name) => {
-    Alert.alert(
-      'Delete User',
-      `Are you sure you want to delete "${name}"?\n\nThis will also delete their profile, teams and memberships.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () =>
-            run(async () => {
-              try {
-                await api.delete(`/admin/users/${id}`);
-                await loadUsers();
-                Alert.alert('Deleted', 'User deleted successfully.');
-              } catch (err) {
-                Alert.alert(
-                  'Error',
-                  err.response?.data?.error || 'Failed to delete user.',
-                );
-              }
-            }, id),
-        },
-      ],
-    );
-  };
+  const deletion = useAdminDeletion({
+    run,
+    onDeleted: async () => {
+      await loadUsers();
+      Alert.alert('Deleted', 'User deleted successfully.');
+    },
+    onStale: loadUsers,
+  });
 
   return (
     <View style={styles.container}>
@@ -153,27 +143,39 @@ export default function ManageUsersScreen() {
                   </View>
                 </View>
 
-                {/* Delete button */}
-                <TouchableOpacity
-                  style={[
-                    styles.deleteBtn,
-                    deletingId === item.id && styles.deleteBtnDisabled,
-                  ]}
-                  onPress={() => deleteUser(item.id, item.name)}
-                  disabled={deletingId === item.id}
-                >
-                  {deletingId === item.id ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Ionicons name="trash-outline" size={18} color="#fff" />
-                  )}
-                </TouchableOpacity>
+                {/* Delete button: not on ADMIN rows, where it could only be
+                    refused (P21) */}
+                {item.role !== 'ADMIN' && (
+                  <TouchableOpacity
+                    style={[
+                      styles.deleteBtn,
+                      busyKey === item.id && styles.deleteBtnDisabled,
+                    ]}
+                    onPress={() =>
+                      deletion.ask(
+                        { path: `/admin/users/${item.id}`, name: item.name },
+                        item.id,
+                      )
+                    }
+                    disabled={busyKey === item.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete ${item.name}`}
+                  >
+                    {busyKey === item.id ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Ionicons name="trash-outline" size={18} color="#fff" />
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
             </Animated.View>
           )}
           ListEmptyComponent={<Text style={styles.empty}>No users found</Text>}
         />
       )}
+
+      <AdminDeletionDialog deletion={deletion} loading={isBusy(CONFIRM_KEY)} />
     </View>
   );
 }

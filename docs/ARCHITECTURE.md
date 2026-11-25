@@ -27,7 +27,7 @@ Every account has exactly one role, chosen when the account is created.
 |---|---|---|
 | **Player** | Someone who plays | Sign up, log in, see and edit their profile, change their password, delete their account; create a team, edit or delete it, invite players, remove members, hand over the captaincy, leave a team; accept or decline invites; ask to join a team (and cancel), and as captain approve or decline requests; browse all teams, players and venues |
 | **Owner** | Someone who runs an indoor venue | Sign up, log in, fill in and edit their venue listing, see their account, change their password, delete their account; browse all teams (read-only), players and venues |
-| **Admin** | The person running the app | See counts (users, players, owners, admins, teams), list and delete users, teams and venues (deleting a venue deletes the owner's account). Review venues: approve them, leave a note for the owner, move a live venue back to review. The admin screens can't delete the admin's own account or any admin account |
+| **Admin** | The person running the app | See counts (users, players, owners, admins, teams), list and delete users, teams and venues (deleting a venue deletes the owner's account; before deleting an account, the dialog says what happens to its teams and venue). Review venues: approve them, leave a note for the owner, move a live venue back to review. The admin screens can't delete the admin's own account or any admin account |
 
 Admin accounts can't be created from the app. They're made with a script (see [section 8](#8-configuration)).
 
@@ -431,6 +431,8 @@ The **Resend verification email** button (on Login and on Check your email) asks
 2. The user types their password, taps **Delete account** and confirms once more. The app sends the password and a code that stands for the outcomes it showed.
 3. A wrong password shows under the field, and the user stays logged in. If a team changed in the meantime, nothing is deleted: the app says so and shows the new outcome.
 4. On success the account is gone, the app forgets the login and shows the Login screen with "Your account was deleted." Any other phone is logged out on its next request. What the backend does is under "Deleting a user" in [section 5](#5-database).
+
+The admin deletes an account the same way, from the **Users** tab or a venue's review screen, without a password: the dialog opens once the same preview has loaded, lists the same outcomes ("Mirpur Mavericks will be deleted (they're the only member)"), and shows the new ones if something changed meanwhile.
 
 ### Editing a player profile
 

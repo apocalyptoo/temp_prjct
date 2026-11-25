@@ -4,8 +4,12 @@
 //                  confirmTitle="Delete team" loading={deleting}
 //                  onConfirm={deleteTeam} onCancel={() => setOpen(false)} />
 // Android's back button and tapping outside count as Cancel, but not while loading.
+// children: optional, shown between the message and the buttons (for example what will
+// happen to each team). That part scrolls when the dialog doesn't fit the screen, so the
+// buttons always stay in reach.
 import React from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeProvider';
 import Button from './Button';
 import Text from './Text';
@@ -20,8 +24,13 @@ export default function ConfirmDialog({
   loading = false,
   onConfirm,
   onCancel,
+  children,
 }) {
   const { colors, sizes, spacing, radius, shadows } = useTheme();
+
+  // The Modal covers the whole screen: a tall dialog stops at the status bar and the
+  // navigation bar.
+  const insets = useSafeAreaInsets();
 
   const cancel = () => {
     if (loading) return;
@@ -39,7 +48,12 @@ export default function ConfirmDialog({
       <View
         style={[
           styles.centre,
-          { backgroundColor: colors.scrim, padding: spacing.screenPadding },
+          {
+            backgroundColor: colors.scrim,
+            paddingHorizontal: spacing.screenPadding,
+            paddingTop: Math.max(insets.top, spacing.screenPadding),
+            paddingBottom: Math.max(insets.bottom, spacing.screenPadding),
+          },
         ]}
       >
         {/* Tapping the dimmed area outside the dialog cancels. The Cancel button does
@@ -70,6 +84,9 @@ export default function ConfirmDialog({
             {title}
           </Text>
           {message ? <Text color="textMuted">{message}</Text> : null}
+          {children ? (
+            <ScrollView style={styles.scroll}>{children}</ScrollView>
+          ) : null}
           <View
             style={[styles.buttons, { gap: spacing.md, marginTop: spacing.xs }]}
           >
@@ -96,7 +113,9 @@ export default function ConfirmDialog({
 
 const styles = StyleSheet.create({
   centre: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  dialog: { width: '100%' },
+  // Never taller than the screen: it shrinks, and inside it only the scrolling part does.
+  dialog: { width: '100%', flexShrink: 1 },
+  scroll: { flexGrow: 0, flexShrink: 1 },
   buttons: { flexDirection: 'row', flexWrap: 'wrap' },
   button: { flexGrow: 1, flexBasis: 0 },
 });
