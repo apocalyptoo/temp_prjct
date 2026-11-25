@@ -527,3 +527,36 @@ The owner approved `docs/features/account-deletion.md`: its five defaults (D1–
 
 **Alternatives considered:** deleting by whatever the state is at that moment (rejected), locking only the captained teams (rejected), no notice for admin deletions (rejected), the notice to every address (rejected), keeping Log out red (rejected), rebuilding the Users tab now (deferred to moderation).
 **Consequence:** the backend task (F4.1) builds exactly the API in the spec. No migration is needed.
+
+### 2026-11-26: Notification details
+The owner's decisions for the notifications feature (Phase 4, Step 3, feature 5), made before its spec. The rules are in `docs/PRODUCT.md` under "Notifications".
+- **Captains get an update when a member leaves their team** ("X left your team"). A player cancelling a join request creates no update: it just disappears from "Needs your action".
+- **When a team is deleted** (by its captain, by the admin, or because its last member deleted their account), **the update goes to its accepted members and to everyone with a pending invite or join request for it.**
+- **Each user keeps only their newest 50 updates.** When a new update is added, anything beyond that user's newest 50 is removed in the same step. There's no scheduled job.
+
+**Consequences:**
+- "A member left your team" is a new event in PRODUCT.md. It replaces the "no update for leaving" line in the team membership spec (section g).
+- The deleted-team update now reaches people who were never in the team. It replaces "every other accepted member" in the team membership spec and "nobody to tell" in the account deletion spec (both section g).
+- PRODUCT.md's "automatic cleanup of old ones can come later" is replaced by the 50-update rule.
+- The feature spec is `docs/features/notifications.md`. The notifications table is a schema change and needs approval in the backend task.
+
+### 2026-11-26: Notifications feature spec approved
+The owner approved `docs/features/notifications.md`: its five defaults (D1–D5), all of Claude Code's proposals (P1–P34, listed in the spec's section k), and these answers to its open questions:
+- **When an account is deleted, the updates other users keep that name that player are deleted too.**
+- **When a member's account is deleted, the captain gets an update without a name** ("A member left your team {team}.").
+- **The last member leaving counts as the captain deleting the team**, so players with a pending invite or join request are told.
+- **An approved venue's update says** "{venue} was approved. Players can find it now."
+- **Team detail says "This team isn't available any more."** like Player and Venue detail, wherever it's opened from. This replaces the alert in the team membership spec.
+- **Venue updates are created in the same transaction as the approval or the move back to review**, with the owner's row locked first. This replaces the venues spec's "after the successful update".
+- **A deleted team's name is shown in its update**, whatever the reason for the deletion. Moderation may revisit it.
+- **The badge refreshes at D4's moments and at PRODUCT.md's**, together.
+
+**Why:**
+- Account deletion is a full deletion, "not hiding or anonymising" (PRODUCT.md), so a deleted player's name can't stay in other people's updates. The captain should still know that the team got smaller.
+- A lone captain who leaves deletes the team, so it's the same event for the people waiting on it.
+- "Approved" follows PRODUCT.md, and the second sentence says what it means. One "isn't available any more" message is simpler than two.
+- In one transaction an action and its update can't come apart. Locking the owner first was tried on 2026-11-26: without it, an approval and the owner deleting their account deadlock, and one fails with a server error.
+- A deleted team's members already know its name, and without it the update is useless in the normal case.
+
+**Alternatives considered:** keeping deleted players' names, or replacing them with "A player" (rejected); no update, or a named one, for a deleted member (rejected); no update when the last member leaves (rejected); "{venue} is live" (rejected); keeping Team detail's alert (rejected); the venue update outside the transaction (rejected); hiding the name of a team the admin deletes (rejected for now).
+**Consequence:** the backend tasks (F5.1, F5.2) build exactly the data and API in the spec. The `notifications` migration still needs the owner's approval when it's created.

@@ -136,7 +136,7 @@ Rule: write a short spec in `docs/features/` before building each feature below.
 **Account deletion** (feature 4; scope decided in DECISIONS.md 2026-11-25, "Account deletion details"; spec: [features/account-deletion.md](features/account-deletion.md), approved 2026-11-25; tasks F4.1 backend (done 2026-11-25: the shared deletion with handover, the previews, the own-account endpoints and the notice email), F4.2 Delete account in the app (done 2026-11-25: Settings, the Delete account screen and what follows it), F4.3 admin dialogs (done 2026-11-26))
 - [x] Account deletion with shared deletion logic (in the app; also used by admin deletion), including automatic captaincy transfer (PRODUCT.md, "Account deletion") (done 2026-11-26: one shared deletion under the team locks with handover and the notice email in F4.1; Settings → Delete account in F4.2; the admin's delete dialogs with the same outcomes in F4.3. The web page for deletion requests stays in Phase 5)
 
-**Notifications**
+**Notifications** (feature 5; details decided in DECISIONS.md 2026-11-26, "Notification details"; spec: [features/notifications.md](features/notifications.md), approved 2026-11-26, DECISIONS.md "Notifications feature spec approved"; tasks F5.1 backend: the table and creating updates, F5.2 backend: the endpoints, F5.3 the Notifications screen, F5.4 the badge)
 - [ ] Notifications screen ("Needs your action" + "Updates"), badge, read/unread (PRODUCT.md, "Notifications"). Replaces the interim Notifications tabs (the player's Invites screen, the owner's empty state) and sets the tab's `tabBarBadge`.
 
 **Moderation**

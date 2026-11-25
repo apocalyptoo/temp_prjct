@@ -285,6 +285,8 @@ The outcome sentences live in one file, `src/screens/Shared/deletionOutcomes.js`
 
 ## g. Notification and moderation hook points (not built now)
 
+_Partly replaced on 2026-11-26 (DECISIONS.md, "Notification details"): a team deleted here does have people to tell, everyone with a pending invite or join request for it. The full list is in [notifications.md](notifications.md), section b._
+
 Written in the deletion's own transaction, when feature 5 is built:
 
 | When | Update for | PRODUCT.md event |

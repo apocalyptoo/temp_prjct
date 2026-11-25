@@ -292,6 +292,8 @@ The dialog's confirm button shows the loading state while the request runs, and 
 
 ## g. Notification hook points (built in feature 5, not now)
 
+_Partly replaced on 2026-11-26 (DECISIONS.md, "Notification details"): leaving a team now creates an update for the captain, and a deleted team's update also goes to everyone with a pending invite or join request. The full list is in [notifications.md](notifications.md), section b._
+
 "Needs your action" items need no hooks: they're the pending rows themselves (invites for the player, join requests for the captain), and they disappear when the row is accepted, declined or cancelled.
 
 "Updates" are written by these actions, in the same transaction:

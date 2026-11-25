@@ -224,6 +224,7 @@ _Implementation notes:_
 
 **What gets deleted**
 - Everything tied to the account: the user, their profile, their team memberships, every invite they received and every join request they sent. This is a full deletion, not hiding or anonymising.
+- Their notifications, and the updates other users keep that mention them by name. (Decided 2026-11-26.)
 - A team's own pending invites and join requests go only if the team itself is deleted (see "Effect on teams").
 - Database backups may still contain deleted data for a limited time. The privacy policy must say so and give the retention period (decided in the deployment phase).
 
@@ -321,26 +322,31 @@ _Implementation note:_ the owner profile needs new fields (area, opening hours, 
 - Your join request was approved or declined
 - Your invite was accepted or declined (shown to the captain)
 - You were removed from a team
+- A member left your team (shown to the captain). When it's because their account was deleted, the update doesn't name them. (Decided 2026-11-26.)
 - You became captain (by a transfer or an automatic handover after account deletion)
-- A team you were in was deleted
+- A team was deleted (by its captain, which includes the last member leaving; by the admin; or because its last member deleted their account). The update goes to its accepted members and to everyone with a pending invite or join request for it. (Decided 2026-11-26.)
 - Your venue was approved (venue owners)
 - Your venue was moved back to review, with the admin's note (venue owners; decided 2026-11-23)
+
+*No update:*
+- A player cancels their join request. It just disappears from the captain's "Needs your action". (Decided 2026-11-26.)
 
 **How it looks**
 - One **Notifications** screen with two sections: **"Needs your action"** (invites and requests, with accept/approve and decline buttons right there) and **"Updates"** (newest first).
 - A **badge with a number** on the button that opens the screen. The number counts pending actions plus unread updates.
 - Opening the screen marks updates as read. Action items stay until they're handled or cancelled.
-- The screen shows the **most recent 50 updates**. Automatic cleanup of old ones can come later.
+- Each user keeps only their **newest 50 updates**, and the screen shows them. When a new update is added, anything beyond that user's newest 50 is removed in the same step. There's no scheduled cleanup job. (Decided 2026-11-26.)
+- An update keeps the names it mentions as they were at that moment. Nobody gets an update about their own action. (Decided 2026-11-26.)
 - Exact placement and styling are decided in the UI/UX work.
 
 **Freshness**
-- Notifications refresh when the app opens, when the user comes back to the app, when the Notifications screen opens, and on pull-to-refresh. Not real-time.
+- Notifications refresh when the app opens, when the user comes back to the app, when the Notifications screen opens, and on pull-to-refresh. The badge also refreshes when the user switches tabs and after any action that changes it (decided 2026-11-26). Not real-time.
 
 **Not in v1.0**
 - **No push notifications** (planned for v1.1).
 - **No email notifications.** Email is only for account emails: verification, password reset, the password-changed notice, the deletion confirmation link (web deletion page) and the account-deleted notice.
 
-_Implementation note:_ "Needs your action" items come from pending invites and join requests that already exist in the data. "Updates" need a new notifications table (with read/unread). This is a schema change and needs approval.
+_Implementation note:_ "Needs your action" items come from pending invites and join requests that already exist in the data. "Updates" need a new notifications table (with read/unread). This is a schema change and needs approval. Feature spec: [features/notifications.md](features/notifications.md).
 
 ### Administration and moderation (v1.0)
 
