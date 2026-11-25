@@ -36,6 +36,9 @@ model User {
   captainedTeams Team[]       @relation("CaptainedTeams")
   teamMembers    TeamMember[]
 
+  // The updates on this user's Notifications screen.
+  notifications Notification[]
+
   @@index([verifyToken])
   @@index([resetToken])
 }
@@ -124,6 +127,33 @@ model TeamMember {
   @@index([userId, status])
 }
 
+// One update on someone's Notifications screen (docs/features/notifications.md, section
+// c). Rows are added only by createUpdates (src/utils/notifications.js), which also keeps
+// each user's newest 50 (the highest ids).
+model Notification {
+  id         Int              @id @default(autoincrement())
+  // Who the update is for.
+  userId     Int
+  type       NotificationType
+  // What it's about: the names as they were at that moment, and ids for opening the team
+  // or player. The ids have no foreign key on purpose (spec P8): the team or player may
+  // be gone by then.
+  teamId     Int?
+  teamName   String?
+  playerId   Int?
+  playerName String?
+  venueName  String?
+  // The admin's note (venueMovedToReview only).
+  note       String?
+  // Null means unread.
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, id])
+  @@index([playerId])
+}
+
 // Lowercase on purpose: the old text values convert directly, and API replies and the
 // app keep showing the same status text.
 enum MembershipStatus {
@@ -135,6 +165,22 @@ enum MembershipOrigin {
   invite
   request
   creator
+}
+
+// What an update says (docs/features/notifications.md, b.1).
+enum NotificationType {
+  requestApproved
+  requestDeclined
+  inviteAccepted
+  inviteDeclined
+  memberRemoved
+  memberLeft
+  becameCaptain
+  teamDeleted
+  teamDeletedInvite
+  teamDeletedRequest
+  venueApproved
+  venueMovedToReview
 }
 
 // Spelled exactly as the app shows them; the API sends and accepts these words
