@@ -9,7 +9,7 @@ import { legalPage } from '../src/utils/pages.js';
 
 const PAGES = [
   ['/legal/terms', 'ConnectArena Terms of Use', [/offensive names or content/i, /fake profiles or fake venues/i, /harass/i, /spam/i]],
-  ['/legal/privacy', 'ConnectArena Privacy Policy', [/phone number is seen only by their teammates/i, /email address is seen only by you and the admin/i, /backups/i]],
+  ['/legal/privacy', 'ConnectArena Privacy Policy', [/phone number is seen only by their teammates/i, /email address is seen only by you and the admin/i, /backups/i, /your notifications: the newest 50/i, /mention you by name are deleted too/i]],
 ];
 
 describe('The legal pages', () => {

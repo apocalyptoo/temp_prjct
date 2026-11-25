@@ -62,6 +62,7 @@ const privacyPage = legalPage({
         'For players: your name, phone number and position, and, if you add them, your height, weight and area',
         'For venue owners: your venue listing (venue name, phone, address, website and description)',
         'Your teams, and the invites and join requests you send or receive',
+        'Your notifications: the newest 50 updates about your teams or your venue, with the names of the teams, players and venues they mention',
       ],
     },
     {
@@ -84,7 +85,7 @@ const privacyPage = legalPage({
     {
       heading: 'Deleting your account',
       paragraphs: [
-        'You can delete your account in the app. This deletes your account, your profile, your team memberships, the invites you received and the join requests you sent. A team you captain is handed to its longest-standing member, or deleted if nobody else is in it.',
+        'You can delete your account in the app. This deletes your account, your profile, your team memberships, the invites you received, the join requests you sent and your notifications. Notifications that other people have and that mention you by name are deleted too. A team you captain is handed to its longest-standing member, or deleted if nobody else is in it.',
         'Backups of the database may keep deleted data for a limited time. How long will be stated here before the app launches.',
       ],
     },
