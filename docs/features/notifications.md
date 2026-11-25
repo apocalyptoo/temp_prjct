@@ -1,8 +1,9 @@
 # Feature 5: Notifications (spec)
 
-Phase 4, Step 3. Task F5.0, written 2026-11-26. **Status: approved 2026-11-26** (DECISIONS.md, "Notifications feature spec approved"). **F5.1 built 2026-11-26.** Where the text below differs from this list, this list is what was built:
+Phase 4, Step 3. Task F5.0, written 2026-11-26. **Status: approved 2026-11-26** (DECISIONS.md, "Notifications feature spec approved"). **F5.1 and F5.2 built 2026-11-26.** Where the text below differs from this list, this list is what was built:
 
-- **F5.1:** `createUpdates` refuses to run without `actorId`, so a caller can't forget D3. The sentences (`updateText`, P14) were built here, because the create tests check them; `opens` comes with the endpoints. The race of an account deletion against `read` (section h) is tested in F5.2, when `read` exists. Two orderings have no test that fails without them (the `ORDER BY` of the user lock, and the row order when an account's updates are removed): Postgres happens to visit the few test rows in id order.
+- **F5.1:** `createUpdates` refuses to run without `actorId`, so a caller can't forget D3. The sentences (`updateText`, P14) were built here, because the create tests check them; `opens` comes with the endpoints. The race of an account deletion against `read` (section h) came with F5.2, when `read` existed. Two orderings have no test that fails without them (the `ORDER BY` of the user lock, and the row order when an account's updates are removed): Postgres happens to visit the few test rows in id order.
+- **F5.2:** `GET /players/invites` and its tests stay until F5.3 (P11), so the move of those test cases (section h) happens there too. The badge counts the unread among the newest 50, the same updates the screen shows.
 
 **How to read the markers:**
 - **Decided**: one of the owner's three decisions of 2026-11-26 (DECISIONS.md, "Notification details"), or a rule already in PRODUCT.md or DECISIONS.md.

@@ -151,7 +151,7 @@ Three terms used in this layout:
 | `/players` | My player profile and editing it, my invites, my join requests, the player list (search by name, filter by area and position), one player's public profile with their teams |
 | `/owners` | My venue profile and editing the listing; the list of live venues (search by name, filter by area) and one venue's details |
 | `/teams` | Create, the team list (search by name, filter by area), one team, edit, delete, invites and the search for players to invite, join requests, removing members, leaving, handing over the captaincy |
-| `/notifications` | Everything the Notifications screen shows (what needs your action, and the newest updates) and the number for its badge (players and venue owners only) |
+| `/notifications` | Everything the Notifications screen shows (what needs your action, and the newest updates), the number for its badge, and marking updates as read (players and venue owners only) |
 | `/legal` | The Terms of Use and Privacy Policy pages (placeholder text until launch) |
 | `/admin` | Counts (including how many venues wait for review), and listing and deleting users, teams and venues; reviewing venues: approve, note, move back to review (admin only) |
 

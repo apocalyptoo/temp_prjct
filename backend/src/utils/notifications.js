@@ -73,6 +73,23 @@ export async function createUpdates(tx, updates, { actorId }) {
     )`;
 }
 
+// ── Marking updates as read ──
+// Marks this user's unread updates up to this id (P16), inside the caller's transaction.
+// The user's row is locked first, like everywhere else that changes their updates, and
+// the updates are locked in id order, so it can't deadlock with an account deletion that
+// is removing some of them (P19).
+export async function markUpdatesRead(tx, userId, upToId) {
+  await lockUsers(tx, [userId]);
+  await tx.$queryRaw`
+    SELECT id FROM "Notification"
+    WHERE "userId" = ${userId} AND id <= ${upToId} AND "readAt" IS NULL
+    ORDER BY id FOR UPDATE`;
+  await tx.notification.updateMany({
+    where: { userId, id: { lte: upToId }, readAt: null },
+    data: { readAt: new Date() },
+  });
+}
+
 // ── When an account is deleted ──
 // Removes every update for this user, and every update other people keep that names them
 // (Q1: a full deletion, so their name doesn't stay behind). Part of the shared account

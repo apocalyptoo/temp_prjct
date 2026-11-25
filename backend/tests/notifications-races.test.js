@@ -1,9 +1,10 @@
 // Race tests for updates (docs/features/notifications.md, d.3 and h): whatever happens at
 // the same moment, nobody keeps more than 50 updates, and no two actions end up waiting
 // for each other. Checked by hand on 2026-11-26: the first group fails without the user
-// lock in createUpdates, and the venue group without the owner lock in withLockedOwner
-// (adminController.js). (Without only its ORDER BY nothing fails here, because Postgres
-// happens to visit these few rows in id order; the ORDER BY makes that certain.)
+// lock in createUpdates, the venue group without the owner lock in withLockedOwner
+// (adminController.js), and "marking as read waits" without the user lock in
+// markUpdatesRead. (Without only the ORDER BY of the user lock nothing fails here, because
+// Postgres happens to visit these few rows in id order; the ORDER BY makes that certain.)
 // Safety rules are in helpers.js. All users here are throwaway.
 
 import { test, describe } from 'node:test';
@@ -63,8 +64,14 @@ describe('Two actions telling the same person at once', () => {
   });
 });
 
-const call = async (method, path, jwt) =>
-  (await fetch(BASE_URL + path, { method, headers: { Authorization: `Bearer ${jwt}` } })).status;
+const call = async (method, path, jwt, body) => {
+  const res = await fetch(BASE_URL + path, {
+    method,
+    headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return res.status;
+};
 
 // A team in the database: the first person is captain, everyone is an accepted member.
 const teamOf = (name, ...people) =>
@@ -141,6 +148,59 @@ describe('Deletions at the same moment as other actions', () => {
       assert.equal(await countOf(b), 3);
       await prisma.team.deleteMany({ where: { captainId: a.id } });
     }
+  });
+
+  test(`an account named in many lists is deleted while those people mark them as read, ${ROUNDS} rounds`, async (t) => {
+    const [a, b] = [await createLoggedInPlayer(t), await createLoggedInPlayer(t)];
+    for (let round = 1; round <= ROUNDS; round += 1) {
+      const leaver = await player(t);
+      await fillNaming(a.user, leaver);
+      await fillNaming(b.user, leaver);
+      const read = (person) =>
+        call('POST', '/notifications/read', person.jwt, { upToId: 2147483647 });
+      const [deletion, ...statuses] = await Promise.all([
+        deleteUserAndData(prisma, leaver.id),
+        read(a),
+        read(b),
+        read(a),
+        read(b),
+      ]);
+      assert.equal(deletion.status, 'deleted', `round ${round}`);
+      assert.deepEqual(statuses, [200, 200, 200, 200], `round ${round}`);
+      assert.equal(await prisma.notification.count({ where: { playerId: leaver.id } }), 0);
+    }
+  });
+
+  test(`updates arrive while they are marked as read: exactly 50 stay, ${ROUNDS} rounds`, async (t) => {
+    const person = await createLoggedInPlayer(t);
+    await fill(person.user);
+    for (let round = 1; round <= ROUNDS; round += 1) {
+      const [status] = await Promise.all([
+        call('POST', '/notifications/read', person.jwt, { upToId: 2147483647 }),
+        ...['One', 'Two', 'Three'].map((name) =>
+          prisma.$transaction((tx) => createUpdates(tx, [removed(person.user, name)], { actorId: NOBODY }))
+        ),
+      ]);
+      assert.equal(status, 200, `round ${round}`);
+      assert.equal(await countOf(person.user), 50, `round ${round}`);
+    }
+  });
+
+  test('marking as read waits for a new update being added, so its number is never behind', async (t) => {
+    const person = await createLoggedInPlayer(t); // not full: nothing else to wait for
+    const adding = prisma.$transaction(async (tx) => {
+      await createUpdates(tx, [removed(person.user, 'New')], { actorId: NOBODY });
+      await sleep(300);
+    });
+    await sleep(100);
+    const res = await fetch(`${BASE_URL}/notifications/read`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${person.jwt}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ upToId: 2147483647 }),
+    });
+    await adding;
+    assert.deepEqual(await res.json(), { count: 0 });
+    assert.equal(await prisma.notification.count({ where: { userId: person.user.id, readAt: null } }), 0);
   });
 
   test(`two people who name each other delete their accounts at once, ${ROUNDS} rounds`, async (t) => {
