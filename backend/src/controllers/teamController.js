@@ -36,6 +36,14 @@ const sendReply = (res, [status, body]) => res.status(status).json(body);
 const teamFull = () => [409, { error: TEAM_FULL_MESSAGE }];
 const findRow = (tx, teamId, userId) => tx.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
 
+// An account can be deleted between a request's login check and its write
+// (docs/features/account-deletion.md, d.5). A new row for it is then refused by the
+// database: foreign key error P2003. Each of the three places that add such a row can
+// only mean one account: the caller (the same 401 as for any deleted account, so the app
+// logs out) or the invited player.
+const isAccountGone = (error) => error?.code === 'P2003';
+const callerGone = () => [401, { error: 'Invalid token' }];
+
 // ── Create new team ──
 export const createTeam = async (req, res, next) => {
   try {
@@ -65,6 +73,7 @@ export const createTeam = async (req, res, next) => {
 
     res.status(201).json(team);
   } catch (error) {
+    if (isAccountGone(error)) return sendReply(res, callerGone());
     return next(error);
   }
 };
@@ -106,6 +115,7 @@ export const invitePlayer = async (req, res, next) => {
     });
     return sendReply(res, reply);
   } catch (error) {
+    if (isAccountGone(error)) return sendReply(res, [404, { error: 'Player not found' }]);
     return next(error);
   }
 };
@@ -349,6 +359,7 @@ export const requestToJoin = async (req, res, next) => {
     });
     return sendReply(res, reply);
   } catch (error) {
+    if (isAccountGone(error)) return sendReply(res, callerGone());
     return next(error);
   }
 };

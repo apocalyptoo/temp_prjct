@@ -299,4 +299,25 @@ describe('Many at once', () => {
       await prisma.team.deleteMany({ where: { id: { in: [toTransfer.id, toInherit.id, toJoin.id, toApprove.id] } } });
     }
   });
+
+  test('a deletion against creating a team and being invited: no server error, nothing left behind', async (t) => {
+    const captain = await createLoggedInPlayer(t);
+
+    for (let round = 0; round < ROUNDS; round += 1) {
+      const leaver = await createLoggedInPlayer(t);
+      const team = await teamOf(captain.user);
+
+      const [deletion, ...statuses] = await Promise.all([
+        deleteUserAndData(prisma, leaver.user.id),
+        call('POST', '/teams/create', leaver.jwt, { name: 'Race FC' }),
+        call('POST', `/teams/${team.id}/invite`, captain.jwt, { userId: leaver.user.id }),
+      ]);
+
+      assert.equal(deletion.status, 'deleted', `round ${round}`);
+      assert.ok(statuses.every((status) => status < 500), `round ${round}: ${statuses}`);
+      assert.equal(await prisma.team.count({ where: { captainId: leaver.user.id } }), 0);
+      assert.equal(await prisma.teamMember.count({ where: { userId: leaver.user.id } }), 0);
+      await prisma.team.delete({ where: { id: team.id } });
+    }
+  });
 });
