@@ -12,6 +12,7 @@ import authRoutes from './routes/authRoutes.js';
 import teamRoutes from './routes/teamRoutes.js';
 import playerRoutes from './routes/playerRoutes.js';
 import ownerRoutes from './routes/ownerRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 import legalRoutes from './routes/legalRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -40,6 +41,7 @@ app.use('/auth', authRoutes);
 app.use('/teams', teamRoutes);
 app.use('/players', playerRoutes);
 app.use('/owners', ownerRoutes);
+app.use('/notifications', notificationRoutes);
 app.use('/legal', legalRoutes); // Terms of Use and Privacy Policy pages (no login)
 app.get('/', (req, res) => res.send('API running ✅'));
 

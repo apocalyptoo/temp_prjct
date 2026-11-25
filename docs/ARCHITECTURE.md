@@ -141,7 +141,7 @@ Three terms used in this layout:
 - **Controller:** the function that does the real work for a route: it reads the request, talks to the database and sends a reply.
 - **Middleware:** a function that runs *before* the controller, for example to check the user is logged in. It can let the request continue or stop it.
 
-### The six routers
+### The seven routers
 
 `server.js` connects each address prefix to a router file. Each router file uses the controller with the same name (the `/legal` pages are fixed text, so they need none). The full list of endpoints is in [TECHNICAL.md section 6](TECHNICAL.md#6-endpoints).
 
@@ -151,6 +151,7 @@ Three terms used in this layout:
 | `/players` | My player profile and editing it, my invites, my join requests, the player list (search by name, filter by area and position), one player's public profile with their teams |
 | `/owners` | My venue profile and editing the listing; the list of live venues (search by name, filter by area) and one venue's details |
 | `/teams` | Create, the team list (search by name, filter by area), one team, edit, delete, invites and the search for players to invite, join requests, removing members, leaving, handing over the captaincy |
+| `/notifications` | Everything the Notifications screen shows (what needs your action, and the newest updates) and the number for its badge (players and venue owners only) |
 | `/legal` | The Terms of Use and Privacy Policy pages (placeholder text until launch) |
 | `/admin` | Counts (including how many venues wait for review), and listing and deleting users, teams and venues; reviewing venues: approve, note, move back to review (admin only) |
 
@@ -233,7 +234,7 @@ The tables are described in `backend/prisma/schema.prisma`. Changes to that file
 - **OwnerProfile:** a venue owner's venue name, and optional phone, address, area, website, description, opening hours and pricing info. A new owner signs up with only the venue name and fills in the rest later. It also records whether an admin has approved the venue (and when), and the admin's note to the owner while it waits for review. Each owner has exactly one.
 - **Team:** a team's name, optional description, optional **area** (where it usually plays, like "Mirpur"), its **captain** and when it was created. The creator becomes the captain. The captain is recorded in one place only, so a team can never have two captains or none.
 - **TeamMember:** links a player to a team. Its **status** is either *pending* (invited, or asked to join, but not in yet) or *accepted* (in the team). It also records how it started (an invite, a join request, or the captain's own row), when it was created, when the player actually joined, and a join request's optional message to the captain. Only accepted rows count as membership.
-- **Notification:** one update for one user ("You were removed from Alpha FC"): what happened, the names as they were at that moment, and whether it has been read. One helper adds these rows and keeps each user's newest 50 (see "Updates" below). The team actions, the deletions and the admin's venue decisions create them; nothing shows them yet.
+- **Notification:** one update for one user ("You were removed from Alpha FC"): what happened, the names as they were at that moment, and whether it has been read. One helper adds these rows and keeps each user's newest 50 (see "Updates" below). The team actions, the deletions and the admin's venue decisions create them, and the backend can send them; the app doesn't show them yet.
 
 Admins have a User row but no profile. Every field, enum and migration: [TECHNICAL.md section 7](TECHNICAL.md#7-data-model).
 

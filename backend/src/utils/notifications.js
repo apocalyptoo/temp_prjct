@@ -107,3 +107,32 @@ const TEXTS = {
 
 // The sentence for a stored update. The admin's note is sent beside it, not inside it.
 export const updateText = (update) => TEXTS[update.type](update);
+
+// ── What tapping an update opens (P14, P22) ──
+// A team, a player, or the owner's own venue (their My Venue, so no id). Null when there's
+// nothing to open. The team or player may be gone by then: the app says so (D2).
+const openTeam = ({ teamId, teamName }) => (teamId === null ? null : { kind: 'team', id: teamId, name: teamName });
+// The player, or the team when the update doesn't name one (a deleted account, Q2).
+const openPlayer = (update) =>
+  update.playerId === null ? openTeam(update) : { kind: 'player', id: update.playerId, name: update.playerName };
+const openVenue = ({ venueName }) => ({ kind: 'venue', name: venueName });
+
+// Declined and left open the player's page, where the captain can invite them again.
+const OPENS = {
+  inviteDeclined: openPlayer,
+  memberLeft: openPlayer,
+  venueApproved: openVenue,
+  venueMovedToReview: openVenue,
+};
+export const updateOpens = (update) => (OPENS[update.type] ?? openTeam)(update);
+
+// A stored update as the API sends it.
+export const toUpdateReply = (update) => ({
+  id: update.id,
+  type: update.type,
+  text: updateText(update),
+  note: update.note,
+  createdAt: update.createdAt,
+  read: update.readAt !== null,
+  opens: updateOpens(update),
+});
