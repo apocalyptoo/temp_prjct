@@ -73,6 +73,20 @@ export async function createUpdates(tx, updates, { actorId }) {
     )`;
 }
 
+// ── When an account is deleted ──
+// Removes every update for this user, and every update other people keep that names them
+// (Q1: a full deletion, so their name doesn't stay behind). Part of the shared account
+// deletion, which holds the user's row and their teams' rows by then, so no new update
+// that names them can appear. Rows are locked in id order, in one statement, so it can't
+// deadlock with another change to several updates (P19).
+export async function removeUpdatesAbout(tx, userId) {
+  await tx.$executeRaw`
+    DELETE FROM "Notification" WHERE id IN (
+      SELECT id FROM "Notification" WHERE "userId" = ${userId} OR "playerId" = ${userId}
+      ORDER BY id FOR UPDATE
+    )`;
+}
+
 // ── The wording (docs/features/notifications.md, b.1) ──
 // No sentence names a captain or the admin (P4). memberLeft has no player when the
 // member's account was deleted: a deleted account's name isn't kept (Q1, Q2).

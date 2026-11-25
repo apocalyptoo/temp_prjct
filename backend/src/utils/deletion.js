@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { isLive } from './venues.js';
-import { lockTeam, lockTeams, longestStandingFirst } from './membership.js';
+import { isMember, isPendingInvite, lockTeam, lockTeams, longestStandingFirst } from './membership.js';
+import { createUpdates, removeUpdatesAbout, teamUpdate } from './notifications.js';
 import { toVisibleUser } from './visibility.js';
 
 // Shared delete logic for users and teams: the one place for what a delete removes.
@@ -127,7 +128,9 @@ export const toDeletionPreview = (plan, viewer) => ({
 // The one shared deletion (docs/features/account-deletion.md, d.2): the user's own
 // "Delete account", the admin's delete routes and (Phase 5) the web page all use it.
 // It carries out planAccountDeletion: captained teams are handed over or deleted, then
-// the user's memberships, invites and requests, profile and account go.
+// the user's memberships, invites and requests, notifications, profile and account go.
+// It also tells the people it affects (docs/features/notifications.md, d.4): new captains,
+// the players waiting on a deleted team, and the captains of the user's other teams.
 //
 // Options, each checked only when given:
 // - passwordHash: the stored hash the caller checked the password against. If it has
@@ -168,7 +171,7 @@ const findTeamIds = async (tx, userId) => {
 // then find the account gone.
 async function deleteInTransaction(tx, userId, { passwordHash, previewCode }) {
   const teamIds = await findTeamIds(tx, userId);
-  await lockTeams(tx, teamIds);
+  const lockedTeams = await lockTeams(tx, teamIds);
 
   const [user] = await tx.$queryRaw`SELECT role::text AS role, password FROM "User" WHERE id = ${userId} FOR UPDATE`;
   if (!user) return { status: 'gone' };
@@ -183,43 +186,61 @@ async function deleteInTransaction(tx, userId, { passwordHash, previewCode }) {
   const plan = await planAccountDeletion(tx, userId);
   if (previewCode !== undefined && previewCode !== previewCodeFor(plan)) return { status: 'stale' };
 
+  const updates = [];
   for (const team of plan.captainedTeams) {
     if (team.outcome === 'delete') {
-      await removeTeamRows(tx, team.id);
+      updates.push(...(await removeTeamRows(tx, team)));
     } else {
       // Only the captain changes: the team keeps its pending invites and requests.
       await tx.team.update({ where: { id: team.id }, data: { captainId: team.newCaptain.id } });
-      // Notification hook (notifications feature, docs/features/account-deletion.md
-      // section g): tell the new captain "You became captain" here.
+      updates.push(teamUpdate('becameCaptain', team.newCaptain.id, team));
     }
   }
+  // The captains of the other teams hear that a member left, without a name (Q2).
+  const captainOf = new Map(lockedTeams.map((team) => [team.id, team.captainId]));
+  for (const team of plan.otherTeams) updates.push(teamUpdate('memberLeft', captainOf.get(team.id), team));
+  // All in one call, whatever the number of teams (notifications spec P17).
+  await createUpdates(tx, updates, { actorId: userId });
 
   await tx.teamMember.deleteMany({ where: { userId } });
   await tx.playerProfile.deleteMany({ where: { userId } });
   await tx.ownerProfile.deleteMany({ where: { userId } });
-  // Hooks (docs/features/account-deletion.md, section g): the user's own notifications
-  // (notifications feature), and reports by or about them and blocks in both directions
-  // (moderation), are removed here.
+  await removeUpdatesAbout(tx, userId);
+  // Moderation hook (docs/features/account-deletion.md, section g): reports by or about
+  // the user and blocks in both directions are removed here.
   await tx.user.delete({ where: { id: userId } });
   return { status: 'deleted', user: plan.user };
 }
 
-// Deletes a team and all its membership rows (accepted and pending) inside the caller's
-// transaction `tx`, which must already hold the team lock (lockTeam). Used where the
-// delete is one step of a bigger change, like the last member leaving. Returns false if
-// no team has this id.
-export async function removeTeamRows(tx, teamId) {
-  await tx.teamMember.deleteMany({ where: { teamId } });
-  const { count } = await tx.team.deleteMany({ where: { id: teamId } });
-  return count > 0;
+// Which update someone gets when their team is deleted, by their row in it
+// (docs/features/notifications.md, P2).
+const teamDeletedType = (row) =>
+  isMember(row) ? 'teamDeleted' : isPendingInvite(row) ? 'teamDeletedInvite' : 'teamDeletedRequest';
+
+// Deletes a team ({ id, name }) and all its membership rows (accepted and pending) inside
+// the caller's transaction `tx`, which must already hold the team lock (lockTeam). Used
+// where the delete is one step of a bigger change, like the last member leaving.
+// Returns the updates for everyone who had a row in it, read before the rows go: the
+// caller must pass them to createUpdates, in its one call (notifications spec P17, P21).
+export async function removeTeamRows(tx, team) {
+  const rows = await tx.teamMember.findMany({
+    where: { teamId: team.id },
+    select: { userId: true, status: true, origin: true },
+    orderBy: { id: 'asc' },
+  });
+  await tx.teamMember.deleteMany({ where: { teamId: team.id } });
+  await tx.team.deleteMany({ where: { id: team.id } });
+  return rows.map((row) => teamUpdate(teamDeletedType(row), row.userId, team));
 }
 
 // Deletes a team and all its membership rows in a transaction of its own, under the
-// team lock, so it can't overlap another change to the team. Returns false if no team
-// has this id.
-export async function deleteTeamAndMembers(db, teamId) {
+// team lock, so it can't overlap another change to the team, and tells the people in it.
+// `actorId` is the admin who did it. Returns false if no team has this id.
+export async function deleteTeamAndMembers(db, teamId, { actorId } = {}) {
   return db.$transaction(async (tx) => {
-    if (!(await lockTeam(tx, teamId))) return false;
-    return removeTeamRows(tx, teamId);
+    const team = await lockTeam(tx, teamId);
+    if (!team) return false;
+    await createUpdates(tx, await removeTeamRows(tx, team), { actorId });
+    return true;
   });
 }

@@ -50,10 +50,10 @@ export async function lockTeam(tx, teamId) {
 // come in. Account deletion needs it (docs/features/account-deletion.md, P6): two
 // deletions that share teams lock them in the same order, so they can't each hold a team
 // the other is waiting for. A team that no longer exists is just left out. The rows are
-// read after the wait, so captainId is the current one.
+// read after the wait, so the name and captainId are the current ones.
 export async function lockTeams(tx, teamIds) {
   if (teamIds.length === 0) return [];
-  return tx.$queryRaw`SELECT id, "captainId" FROM "Team" WHERE id = ANY(${teamIds}::int[]) ORDER BY id FOR UPDATE`;
+  return tx.$queryRaw`SELECT id, name, "captainId" FROM "Team" WHERE id = ANY(${teamIds}::int[]) ORDER BY id FOR UPDATE`;
 }
 
 // The team's accepted members (the captain included).

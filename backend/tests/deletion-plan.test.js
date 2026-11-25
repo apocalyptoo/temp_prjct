@@ -210,7 +210,7 @@ describe('The shared order (inMemberOrder)', () => {
 });
 
 describe('lockTeams', () => {
-  test('locks the teams that exist, lowest id first, with their current captain', async (t) => {
+  test('locks the teams that exist, lowest id first, with their current name and captain', async (t) => {
     const captain = await player(t, 'Captain');
     const one = await teamOf(captain, 'One');
     const two = await teamOf(captain, 'Two');
@@ -218,8 +218,8 @@ describe('lockTeams', () => {
     const locked = await prisma.$transaction((tx) => lockTeams(tx, [two.id, 2147483647, one.id]));
 
     assert.deepEqual(locked, [
-      { id: one.id, captainId: captain.id },
-      { id: two.id, captainId: captain.id },
+      { id: one.id, name: 'One', captainId: captain.id },
+      { id: two.id, name: 'Two', captainId: captain.id },
     ]);
     assert.deepEqual(await prisma.$transaction((tx) => lockTeams(tx, [])), []);
   });
@@ -250,6 +250,6 @@ describe('lockTeams', () => {
     release();
     await transfer;
 
-    assert.deepEqual(await second, [{ id: team.id, captainId: mate.id }]);
+    assert.deepEqual(await second, [{ id: team.id, name: 'Wait FC', captainId: mate.id }]);
   });
 });

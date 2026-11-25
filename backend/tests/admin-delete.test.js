@@ -216,14 +216,26 @@ describe('Deletes are all-or-nothing (transactions)', () => {
   for (const [model, method] of [
     ['team', 'update'], // the handover
     ['team', 'deleteMany'], // deleting the team they're alone in
+    ['notification', 'createMany'], // telling the people it affects
     ['teamMember', 'deleteMany'],
     ['playerProfile', 'deleteMany'],
     ['user', 'delete'], // the last step
   ]) {
     test(`if a user delete fails at ${model}.${method}, nothing has changed`, async (t) => {
-      const { player, ownTeam, soloTeam, otherTeam } = await setUpPlayerWithTeams(t);
+      const { player, teammate, otherCaptain, ownTeam, soloTeam, otherTeam } = await setUpPlayerWithTeams(t);
+      // One update for the player, and one that names them.
+      await prisma.notification.createMany({
+        data: [
+          { userId: player.id, type: 'becameCaptain', teamId: ownTeam.id, teamName: 'Own' },
+          { userId: teammate.id, type: 'inviteAccepted', teamName: 'Own', playerId: player.id, playerName: 'Leaver' },
+        ],
+      });
+      const countUpdates = () =>
+        prisma.notification.count({ where: { userId: { in: [player.id, teammate.id, otherCaptain.id] } } });
 
       await assert.rejects(deleteUserAndData(failAt(model, method), player.id), /forced failure/);
+
+      assert.equal(await countUpdates(), 2, 'no update was added or removed');
 
       assert.ok(await prisma.user.findUnique({ where: { id: player.id } }), 'user still exists');
       assert.ok(await prisma.playerProfile.findUnique({ where: { userId: player.id } }), 'profile still exists');
@@ -238,7 +250,16 @@ describe('Deletes are all-or-nothing (transactions)', () => {
   test('if deleting the team row fails, its members are not deleted either', async (t) => {
     const { ownTeam } = await setUpPlayerWithTeams(t);
 
-    await assert.rejects(deleteTeamAndMembers(failAt('team', 'deleteMany'), ownTeam.id), /forced failure/);
+    await assert.rejects(deleteTeamAndMembers(failAt('team', 'deleteMany'), ownTeam.id, { actorId: 1 }), /forced failure/);
+
+    assert.ok(await prisma.team.findUnique({ where: { id: ownTeam.id } }));
+    assert.equal(await prisma.teamMember.count({ where: { teamId: ownTeam.id } }), 4);
+  });
+
+  test('if telling its people fails, the team is not deleted (notifications spec D1)', async (t) => {
+    const { ownTeam } = await setUpPlayerWithTeams(t);
+
+    await assert.rejects(deleteTeamAndMembers(failAt('notification', 'createMany'), ownTeam.id, { actorId: 1 }), /forced failure/);
 
     assert.ok(await prisma.team.findUnique({ where: { id: ownTeam.id } }));
     assert.equal(await prisma.teamMember.count({ where: { teamId: ownTeam.id } }), 4);

@@ -167,7 +167,7 @@ export const deleteTeam = async (req, res, next) => {
     const id = parseId(req.params.id);
     if (id === null) return res.status(400).json({ error: 'Invalid team id' });
 
-    const deleted = await deleteTeamAndMembers(prisma, id);
+    const deleted = await deleteTeamAndMembers(prisma, id, { actorId: req.user.id });
     if (!deleted) return res.status(404).json({ error: 'Team not found' });
 
     return res.json({ message: 'Team deleted successfully' });

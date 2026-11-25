@@ -5,7 +5,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { prisma, BASE_URL, createLoggedInUser, postJson } from './helpers.js';
+import { prisma, BASE_URL, OLD_PASSWORD, createLoggedInUser, postJson } from './helpers.js';
 import { updateText } from '../src/utils/notifications.js';
 
 const send = (method, path, jwt, body) =>
@@ -201,6 +201,160 @@ describe('Members and captaincy', () => {
       text: "You're now the captain of Alpha FC.",
       team,
     });
+  });
+});
+
+const textsOf = async (person) => (await updatesOf(person)).map(updateText);
+const MEMBER = 'Alpha FC, a team you were in, was deleted.';
+const INVITED = 'Alpha FC, which had invited you, was deleted.';
+const REQUESTED = 'Alpha FC, which you asked to join, was deleted.';
+
+describe('A team is deleted', () => {
+  // Alpha FC with its two members, plus an invited player and one who asked to join.
+  async function setUpWaiting(t) {
+    const people = await setUp(t);
+    const requester = await createPlayer(t, 'Farhan');
+    await invited(people.team, people.outsider);
+    await requested(people.team, requester);
+    return { ...people, requester };
+  }
+
+  test('by its captain: members, invited and requesting players are told, the captain is not', async (t) => {
+    const { captain, member, other, outsider, requester, team } = await setUpWaiting(t);
+    await ok(send('DELETE', `/teams/${team.id}`, captain.jwt));
+    assert.deepEqual(await textsOf(captain), []);
+    assert.deepEqual(await textsOf(member), [MEMBER]);
+    assert.deepEqual(await textsOf(other), [MEMBER]);
+    assert.deepEqual(await textsOf(outsider), [INVITED]);
+    assert.deepEqual(await textsOf(requester), [REQUESTED]);
+    const [update] = await updatesOf(member);
+    assert.deepEqual([update.teamId, update.teamName, update.playerId, update.playerName], [team.id, 'Alpha FC', null, null]);
+  });
+
+  test('by the admin: the captain is told too', async (t) => {
+    const { captain, member, other, outsider, requester, team } = await setUpWaiting(t);
+    const admin = await createLoggedInUser(t, { role: 'ADMIN' });
+    await ok(send('DELETE', `/admin/teams/${team.id}`, admin.jwt));
+    for (const person of [captain, member, other]) assert.deepEqual(await textsOf(person), [MEMBER]);
+    assert.deepEqual(await textsOf(outsider), [INVITED]);
+    assert.deepEqual(await textsOf(requester), [REQUESTED]);
+    assert.deepEqual(await textsOf(admin), []);
+  });
+
+  test('by its last member leaving (Q3): the invited and requesting players are told', async (t) => {
+    const { captain, member, other, outsider, requester, team } = await setUpWaiting(t);
+    await prisma.teamMember.deleteMany({ where: { teamId: team.id, userId: { in: [member.user.id, other.user.id] } } });
+    await ok(send('POST', `/teams/${team.id}/leave`, captain.jwt));
+    for (const person of [captain, member, other]) assert.deepEqual(await textsOf(person), []);
+    assert.deepEqual(await textsOf(outsider), [INVITED]);
+    assert.deepEqual(await textsOf(requester), [REQUESTED]);
+  });
+
+  test("by its last member's account being deleted: the same people are told", async (t) => {
+    const { captain, member, other, outsider, requester, team } = await setUpWaiting(t);
+    await prisma.teamMember.deleteMany({ where: { teamId: team.id, userId: { in: [member.user.id, other.user.id] } } });
+    await deleteOwnAccount(captain);
+    for (const person of [member, other]) assert.deepEqual(await textsOf(person), []);
+    assert.deepEqual(await textsOf(outsider), [INVITED]);
+    assert.deepEqual(await textsOf(requester), [REQUESTED]);
+  });
+
+  test('refused deletes tell nobody', async (t) => {
+    const people = await setUpWaiting(t);
+    await ok(send('DELETE', `/teams/${people.team.id}`, people.member.jwt), 403);
+    await ok(send('DELETE', `/admin/teams/${people.team.id}`, people.captain.jwt), 403);
+    await assertNoUpdates(people);
+  });
+});
+
+// Deletes the account the way the app does: preview, then password and code.
+async function deleteOwnAccount(person) {
+  const { previewCode } = await (await send('GET', '/auth/deletion-preview', person.jwt)).json();
+  await ok(postJson('/auth/delete-account', { password: OLD_PASSWORD, previewCode }, person.jwt));
+}
+
+describe('An account is deleted', () => {
+  test("a captain's: the new captain is told, the other members and waiting players are not", async (t) => {
+    const { captain, member, other, outsider, team } = await setUp(t);
+    await invited(team, outsider);
+    await prisma.teamMember.updateMany({ where: { teamId: team.id, userId: member.user.id }, data: { acceptedAt: new Date('2026-01-01') } });
+    await deleteOwnAccount(captain);
+    assert.deepEqual(await textsOf(member), ["You're now the captain of Alpha FC."]);
+    assert.deepEqual(await textsOf(other), []);
+    assert.deepEqual(await textsOf(outsider), []);
+  });
+
+  test("a member's: the captain hears that a member left, without a name (Q2)", async (t) => {
+    const { captain, member, other, team } = await setUp(t);
+    await deleteOwnAccount(member);
+    assert.deepEqual(await textsOf(captain), ['A member left your team Alpha FC.']);
+    assert.deepEqual(await textsOf(other), []);
+    const [update] = await updatesOf(captain);
+    assert.deepEqual([update.type, update.teamId, update.playerId, update.playerName], ['memberLeft', team.id, null, null]);
+  });
+
+  test('by the admin: the same updates', async (t) => {
+    const { captain, member } = await setUp(t);
+    const admin = await createLoggedInUser(t, { role: 'ADMIN' });
+    await ok(send('DELETE', `/admin/users/${member.user.id}`, admin.jwt));
+    assert.deepEqual(await textsOf(captain), ['A member left your team Alpha FC.']);
+    assert.deepEqual(await textsOf(admin), []);
+  });
+
+  test('several teams at once: everyone gets what concerns them, in one go', async (t) => {
+    const { captain, member, other, outsider, team } = await setUp(t);
+    // Karim also captains a team with Rahim in it, and one alone that invited Nayeem.
+    const withRahim = await (await postJson('/teams/create', { name: 'Beta FC' }, member.jwt)).json();
+    await addRow(withRahim, captain, 'accepted', 'invite');
+    const alone = await (await postJson('/teams/create', { name: 'Gamma FC' }, member.jwt)).json();
+    await invited(alone, outsider);
+    await deleteOwnAccount(member);
+    assert.deepEqual(
+      (await textsOf(captain)).sort(),
+      ['A member left your team Alpha FC.', "You're now the captain of Beta FC."].sort()
+    );
+    assert.deepEqual(await textsOf(outsider), ['Gamma FC, which had invited you, was deleted.']);
+    assert.deepEqual(await textsOf(other), []);
+    assert.equal((await prisma.team.findUnique({ where: { id: team.id } })).captainId, captain.user.id);
+  });
+
+  test('pending invites and requests of the account create nothing', async (t) => {
+    const people = await setUp(t);
+    await invited(people.team, people.outsider);
+    const second = await createPlayer(t, 'Second');
+    await requested(people.team, second);
+    await deleteOwnAccount(people.outsider);
+    await deleteOwnAccount(second);
+    await assertNoUpdates({ captain: people.captain, member: people.member, other: people.other });
+  });
+
+  test("the account's own updates go, and those that name it (Q1); nobody else's do", async (t) => {
+    const { captain, member, other, team } = await setUp(t);
+    await ok(send('POST', `/teams/${team.id}/leave`, member.jwt)); // names Karim, for Rahim
+    await ok(send('POST', `/teams/${team.id}/leave`, other.jwt)); // names Tanvir, for Rahim
+    await prisma.notification.create({ data: { userId: member.user.id, type: 'memberRemoved', teamName: 'Old FC' } });
+    assert.equal((await updatesOf(captain)).length, 2);
+
+    await deleteOwnAccount(member);
+    assert.deepEqual(await textsOf(captain), ['Tanvir left your team Alpha FC.']);
+    assert.equal(await prisma.notification.count({ where: { OR: [{ userId: member.user.id }, { playerId: member.user.id }] } }), 0);
+  });
+
+  test("a venue owner's updates go with the account", async (t) => {
+    const owner = await createLoggedInUser(t, { role: 'OWNER', ownerProfile: { create: { indoorName: 'Arena 71' } } });
+    await prisma.notification.create({ data: { userId: owner.user.id, type: 'venueApproved', venueName: 'Arena 71' } });
+    await deleteOwnAccount(owner);
+    assert.equal(await prisma.notification.count({ where: { userId: owner.user.id } }), 0);
+  });
+
+  test('a refused deletion (wrong password) creates and removes nothing', async (t) => {
+    const { captain, member, team } = await setUp(t);
+    await prisma.notification.create({ data: { userId: member.user.id, type: 'memberRemoved', teamName: 'Old FC' } });
+    const { previewCode } = await (await send('GET', '/auth/deletion-preview', member.jwt)).json();
+    await ok(postJson('/auth/delete-account', { password: 'Wrong-pass-1!', previewCode }, member.jwt), 400);
+    assert.deepEqual(await textsOf(captain), []);
+    assert.equal((await updatesOf(member)).length, 1);
+    assert.ok(await prisma.team.findUnique({ where: { id: team.id } }));
   });
 });
 

@@ -39,8 +39,9 @@ const findRow = (tx, teamId, userId) => tx.teamMember.findUnique({ where: { team
 
 // The updates these actions create (docs/features/notifications.md, d.4). Each one is the
 // last step of its action's own transaction, so it's there exactly when the action is.
+// `updates` is one update or a list.
 // The person who makes the request is never told about it themselves (actorId).
-const tell = (tx, req, update) => createUpdates(tx, [update], { actorId: req.user.id });
+const tell = (tx, req, updates) => createUpdates(tx, [updates].flat(), { actorId: req.user.id });
 
 // The caller as an update names them: { id, name }.
 async function callerAsPlayer(tx, req) {
@@ -214,7 +215,7 @@ export const deleteTeam = async (req, res, next) => {
 
     const reply = await withLockedTeam(teamId, async (tx, team) => {
       if (team.captainId !== req.user.id) return [403, { error: 'Only the team captain can delete this team.' }];
-      await removeTeamRows(tx, teamId);
+      await tell(tx, req, await removeTeamRows(tx, team));
       return [200, { message: 'Team deleted successfully.' }];
     });
     return sendReply(res, reply);
@@ -239,7 +240,7 @@ export const leaveTeam = async (req, res, next) => {
 
       if (team.captainId === userId) {
         if ((await countMembers(tx, teamId)) > 1) return [409, { error: 'Transfer captaincy before leaving the team.' }];
-        await removeTeamRows(tx, teamId);
+        await tell(tx, req, await removeTeamRows(tx, team));
         return [200, { message: 'Team deleted', teamDeleted: true }];
       }
 
