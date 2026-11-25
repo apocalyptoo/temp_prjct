@@ -1,13 +1,14 @@
 // Race tests for updates (docs/features/notifications.md, d.3 and h): whatever happens at
 // the same moment, nobody keeps more than 50 updates, and no two actions end up waiting
 // for each other. Checked by hand on 2026-11-26: the first group fails without the user
-// lock in createUpdates. (Without only its ORDER BY nothing fails here, because Postgres
+// lock in createUpdates, and the venue group without the owner lock in withLockedOwner
+// (adminController.js). (Without only its ORDER BY nothing fails here, because Postgres
 // happens to visit these few rows in id order; the ORDER BY makes that certain.)
 // Safety rules are in helpers.js. All users here are throwaway.
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { prisma, BASE_URL, createTestUser, createLoggedInPlayer } from './helpers.js';
+import { prisma, BASE_URL, createTestUser, createLoggedInPlayer, createLoggedInUser } from './helpers.js';
 import { deleteUserAndData } from '../src/utils/deletion.js';
 import { MAX_UPDATES, createUpdates, teamUpdate } from '../src/utils/notifications.js';
 
@@ -156,4 +157,86 @@ describe('Deletions at the same moment as other actions', () => {
       assert.ok(left.length > 0 && left.every((update) => update.playerId === null), 'only updates without a name are left');
     }
   });
+});
+
+describe('The admin reviews a venue while its owner deletes the account (P20)', () => {
+  const ACTIONS = [
+    ['approve', undefined, false],
+    ['move-to-review', { note: 'Closed for repairs' }, true],
+  ];
+  const venueOwner = (t, live) =>
+    createTestUser(t, {
+      role: 'OWNER',
+      verified: true,
+      ownerProfile: {
+        create: {
+          indoorName: 'Race Arena',
+          address: 'Road 5',
+          area: 'Mirpur',
+          phone: '01712345678',
+          approvedAt: live ? new Date() : null,
+        },
+      },
+    });
+  const review = async (admin, owner, action, body) => {
+    const res = await fetch(`${BASE_URL}/admin/indoors/${owner.id}/${action}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${admin.jwt}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    });
+    return { status: res.status, body: await res.json() };
+  };
+
+  // The real Prisma client, except that `between` runs inside the deletion's transaction
+  // once it holds the owner's row, just before it deletes the venue.
+  const bindAll = (obj, override) =>
+    new Proxy(obj, {
+      get(target, prop) {
+        if (prop in override) return override[prop];
+        const value = target[prop];
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+  const pausedBeforeTheVenue = (between) => ({
+    $transaction: (work, options) =>
+      prisma.$transaction((tx) => {
+        const deleteMany = async (...args) => {
+          await between();
+          return tx.ownerProfile.deleteMany(...args);
+        };
+        return work(bindAll(tx, { ownerProfile: bindAll(tx.ownerProfile, { deleteMany }) }));
+      }, options),
+  });
+
+  for (const [action, body, live] of ACTIONS) {
+    test(`${action} in the middle of the deletion waits, then finds nobody`, async (t) => {
+      const admin = await createLoggedInUser(t, { role: 'ADMIN' });
+      const owner = await venueOwner(t, live);
+      let reply;
+      const result = await deleteUserAndData(
+        pausedBeforeTheVenue(async () => {
+          reply = review(admin, owner, action, body);
+          await sleep(300);
+        }),
+        owner.id
+      );
+      assert.equal(result.status, 'deleted');
+      assert.deepEqual(await reply, { status: 404, body: { error: 'Venue not found' } });
+      assert.equal(await prisma.notification.count({ where: { userId: owner.id } }), 0);
+    });
+
+    test(`${action} and the deletion at the same moment, ${ROUNDS} rounds: no server error`, async (t) => {
+      const admin = await createLoggedInUser(t, { role: 'ADMIN' });
+      for (let round = 1; round <= ROUNDS; round += 1) {
+        const owner = await venueOwner(t, live);
+        const [deletion, reply] = await Promise.all([
+          sleep(round).then(() => deleteUserAndData(prisma, owner.id)),
+          review(admin, owner, action, body),
+        ]);
+        assert.equal(deletion.status, 'deleted', `round ${round}`);
+        assert.ok([200, 404].includes(reply.status), `round ${round}: ${reply.status}`);
+        assert.equal(await prisma.notification.count({ where: { userId: owner.id } }), 0);
+      }
+    });
+  }
 });

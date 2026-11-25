@@ -358,6 +358,75 @@ describe('An account is deleted', () => {
   });
 });
 
+describe('Venues', () => {
+  const LISTING = { indoorName: 'Arena 71', address: 'Road 5', area: 'Dhanmondi', phone: '01712345678' };
+  async function setUpVenue(t, { live = false, ...listing } = {}) {
+    const admin = await createLoggedInUser(t, { role: 'ADMIN' });
+    const owner = await createLoggedInUser(t, {
+      role: 'OWNER',
+      ownerProfile: { create: { ...LISTING, approvedAt: live ? new Date() : null, ...listing } },
+    });
+    return { admin, owner, path: `/admin/indoors/${owner.user.id}` };
+  }
+
+  test('approving tells the owner', async (t) => {
+    const { admin, owner, path } = await setUpVenue(t);
+    await ok(send('POST', `${path}/approve`, admin.jwt));
+    const updates = await updatesOf(owner);
+    assert.deepEqual(updates.map(updateText), ['Arena 71 was approved. Players can find it now.']);
+    const [{ type, venueName, note, teamId, playerId, readAt }] = updates;
+    assert.deepEqual([type, venueName, note, teamId, playerId, readAt], ['venueApproved', 'Arena 71', null, null, null, null]);
+    assert.deepEqual(await updatesOf(admin), []);
+  });
+
+  test('moving back to review tells the owner, with the note', async (t) => {
+    const { admin, owner, path } = await setUpVenue(t, { live: true });
+    await ok(send('POST', `${path}/move-to-review`, admin.jwt, { note: '  Closed for repairs  ' }));
+    const updates = await updatesOf(owner);
+    assert.deepEqual(updates.map(updateText), ['Arena 71 was moved back to review.']);
+    assert.deepEqual([updates[0].type, updates[0].venueName, updates[0].note], ['venueMovedToReview', 'Arena 71', 'Closed for repairs']);
+    assert.deepEqual(await updatesOf(admin), []);
+  });
+
+  test('approving again keeps both updates, the older one with its note', async (t) => {
+    const { admin, owner, path } = await setUpVenue(t, { live: true });
+    await ok(send('POST', `${path}/move-to-review`, admin.jwt, { note: 'Closed for repairs' }));
+    await ok(send('POST', `${path}/approve`, admin.jwt));
+    const updates = await updatesOf(owner);
+    assert.deepEqual(updates.map((update) => [update.type, update.note]), [
+      ['venueMovedToReview', 'Closed for repairs'],
+      ['venueApproved', null],
+    ]);
+  });
+
+  test('saving a note, and everything refused, creates none', async (t) => {
+    const pending = await setUpVenue(t, { area: null });
+    await ok(send('PUT', `${pending.path}/note`, pending.admin.jwt, { note: 'Please add your area' }));
+    await ok(send('POST', `${pending.path}/approve`, pending.admin.jwt), 409); // incomplete
+    await ok(send('POST', `${pending.path}/move-to-review`, pending.admin.jwt, { note: 'Why' }), 409); // already pending
+    const live = await setUpVenue(t, { live: true });
+    await ok(send('POST', `${live.path}/approve`, live.admin.jwt), 409); // already live
+    await ok(send('POST', `${live.path}/move-to-review`, live.admin.jwt, { note: ' ' }), 400);
+    await ok(send('POST', `${live.path}/move-to-review`, live.owner.jwt, { note: 'Why' }), 403);
+    const player = await createPlayer(t, 'Rahim');
+    await ok(send('POST', `/admin/indoors/${player.user.id}/approve`, live.admin.jwt), 404);
+    await ok(send('POST', `/admin/indoors/${player.user.id}/move-to-review`, live.admin.jwt, { note: 'Why' }), 404);
+    await ok(send('POST', '/admin/indoors/2147483647/approve', live.admin.jwt), 404);
+    await ok(send('POST', '/admin/indoors/2147483647/move-to-review', live.admin.jwt, { note: 'Why' }), 404);
+    await assertNoUpdates({ pending: pending.owner, live: live.owner, player });
+  });
+
+  test('approving twice at once: one 200, one 409, one update; the same for moving back', async (t) => {
+    const { admin, owner, path } = await setUpVenue(t);
+    const approvals = await Promise.all([send('POST', `${path}/approve`, admin.jwt), send('POST', `${path}/approve`, admin.jwt)]);
+    assert.deepEqual(approvals.map((reply) => reply.status).sort(), [200, 409]);
+    const move = () => send('POST', `${path}/move-to-review`, admin.jwt, { note: 'Why' });
+    const moves = await Promise.all([move(), move()]);
+    assert.deepEqual(moves.map((reply) => reply.status).sort(), [200, 409]);
+    assert.deepEqual((await updatesOf(owner)).map((update) => update.type), ['venueApproved', 'venueMovedToReview']);
+  });
+});
+
 describe('What creates no update', () => {
   test('creating, editing, inviting, cancelling an invite, asking to join and cancelling that', async (t) => {
     const people = await setUp(t);

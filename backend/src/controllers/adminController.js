@@ -4,6 +4,7 @@ import { deleteAccountAndNotify } from '../utils/accountDeletion.js';
 import { deleteTeamAndMembers, planAccountDeletion, toDeletionPreview } from '../utils/deletion.js';
 import { parseId } from '../utils/ids.js';
 import { isLive, missingFields, withMissingFields } from '../utils/venues.js';
+import { createUpdates, lockUsers, venueUpdate } from '../utils/notifications.js';
 
 // ── Get all users ──
 export const getAllUsers = async (req, res, next) => {
@@ -199,7 +200,20 @@ const ADMIN_VENUE_SELECT = {
 const toAdminVenue = ({ user, ...venue }) =>
   withoutSecrets(withMissingFields({ ...venue, email: user.email, createdAt: user.createdAt, verified: user.verified }));
 
-const loadAdminVenue = (userId) => prisma.ownerProfile.findUnique({ where: { userId }, select: ADMIN_VENUE_SELECT });
+// `db` is the Prisma client or a transaction.
+const loadAdminVenue = (userId, db = prisma) => db.ownerProfile.findUnique({ where: { userId }, select: ADMIN_VENUE_SELECT });
+
+// Runs `work(tx)` in one transaction whose first step locks the venue owner's user row
+// (docs/features/notifications.md, P20): the change to the venue and the owner's update
+// are saved together, or not at all. The lock must come before the venue is written,
+// because account deletion takes them in that order too: the other way round, an approval
+// and the owner deleting their account would wait for each other (tried on 2026-11-26).
+// `work` returns the reply as [status, body]; no such account is 404 "Venue not found".
+const withLockedOwner = (userId, work) =>
+  prisma.$transaction(async (tx) => {
+    const found = await lockUsers(tx, [userId]);
+    return found.has(userId) ? work(tx) : [404, { error: VENUE_NOT_FOUND }];
+  });
 
 // GET /admin/indoors: every venue. Pending venues first, oldest waiting first (by the
 // owner's sign-up date), then live venues by name A to Z (spec P13).
@@ -223,18 +237,15 @@ const OWNER_UNVERIFIED = "The owner hasn't verified their email yet";
 const LIVE_NO_NOTE = 'This venue is live. Move it back to review to leave a note';
 const ALREADY_PENDING = 'This venue is already waiting for review';
 
-// Why a venue can't be approved right now, as { status, body }, or null if it can.
+// Why a venue can't be approved right now, as a reply ([status, body]), or null if it can.
 // Checked in this order: already live, the owner unverified (spec Q5), incomplete (with
 // the missing fields in the reply, spec P14).
 function approvalRefusal(venue) {
-  if (isLive(venue)) return { status: 409, body: { error: ALREADY_LIVE } };
-  if (!venue.user.verified) return { status: 409, body: { error: OWNER_UNVERIFIED } };
+  if (isLive(venue)) return [409, { error: ALREADY_LIVE }];
+  if (!venue.user.verified) return [409, { error: OWNER_UNVERIFIED }];
   const missing = missingFields(venue);
   if (missing.length > 0) {
-    return {
-      status: 409,
-      body: { error: `This venue can't go live yet. Missing: ${missing.join(', ')}`, missingFields: missing },
-    };
+    return [409, { error: `This venue can't go live yet. Missing: ${missing.join(', ')}`, missingFields: missing }];
   }
   return null;
 }
@@ -242,39 +253,41 @@ function approvalRefusal(venue) {
 // POST /admin/indoors/:id/approve (spec d endpoint 6). The approval is one conditional
 // update that only applies while the venue is still pending, complete and its owner
 // verified (spec P11), so an owner emptying a field at the same moment can't leave an
-// incomplete venue live. Approving clears the admin's note (spec D5).
+// incomplete venue live. Approving clears the admin's note (spec D5), and tells the owner
+// in the same transaction.
 export const approveIndoor = async (req, res, next) => {
   try {
     const userId = parseId(req.params.id);
     if (userId === null) return res.status(400).json({ error: INVALID_VENUE_ID });
 
-    const venue = await loadAdminVenue(userId);
-    if (!venue) return res.status(404).json({ error: VENUE_NOT_FOUND });
-    const refusal = approvalRefusal(venue);
-    if (refusal) return res.status(refusal.status).json(refusal.body);
+    const [status, body] = await withLockedOwner(userId, async (tx) => {
+      const venue = await loadAdminVenue(userId, tx);
+      if (!venue) return [404, { error: VENUE_NOT_FOUND }];
+      const refusal = approvalRefusal(venue);
+      if (refusal) return refusal;
 
-    const { count } = await prisma.ownerProfile.updateMany({
-      where: {
-        userId,
-        approvedAt: null,
-        address: { not: null },
-        area: { not: null },
-        phone: { not: null },
-        user: { is: { verified: true } },
-      },
-      data: { approvedAt: new Date(), reviewNote: null },
+      const { count } = await tx.ownerProfile.updateMany({
+        where: {
+          userId,
+          approvedAt: null,
+          address: { not: null },
+          area: { not: null },
+          phone: { not: null },
+          user: { is: { verified: true } },
+        },
+        data: { approvedAt: new Date(), reviewNote: null },
+      });
+      const now = await loadAdminVenue(userId, tx);
+      if (count === 0) {
+        // The venue changed between the check and the update: say what stops it now.
+        if (!now) return [404, { error: VENUE_NOT_FOUND }];
+        return approvalRefusal(now) ?? [409, { error: ALREADY_LIVE }];
+      }
+
+      await createUpdates(tx, [venueUpdate('venueApproved', userId, now.indoorName)], { actorId: req.user.id });
+      return [200, toAdminVenue(now)];
     });
-    if (count === 0) {
-      // The venue changed between the check and the update: say what stops it now.
-      const now = await loadAdminVenue(userId);
-      if (!now) return res.status(404).json({ error: VENUE_NOT_FOUND });
-      const late = approvalRefusal(now) ?? { status: 409, body: { error: ALREADY_LIVE } };
-      return res.status(late.status).json(late.body);
-    }
-
-    // Notification hook (notifications feature, docs/features/venues.md section g): tell
-    // the owner "Your venue is live" here, after the successful update.
-    return res.json(toAdminVenue(await loadAdminVenue(userId)));
+    return res.status(status).json(body);
   } catch (err) {
     return next(err);
   }
@@ -304,25 +317,28 @@ export const setIndoorNote = async (req, res, next) => {
 };
 
 // POST /admin/indoors/:id/move-to-review (spec d endpoint 8): a live venue goes back to
-// "Pending review", hidden from discovery at once, with the admin's note saying why.
+// "Pending review", hidden from discovery at once, with the admin's note saying why. The
+// owner is told, with the note, in the same transaction.
 export const moveIndoorToReview = async (req, res, next) => {
   try {
     const userId = parseId(req.params.id);
     if (userId === null) return res.status(400).json({ error: INVALID_VENUE_ID });
 
-    const { count } = await prisma.ownerProfile.updateMany({
-      where: { userId, approvedAt: { not: null } },
-      data: { approvedAt: null, reviewNote: req.valid.body.note },
-    });
-    if (count === 0) {
-      const venue = await loadAdminVenue(userId);
-      if (!venue) return res.status(404).json({ error: VENUE_NOT_FOUND });
-      return res.status(409).json({ error: ALREADY_PENDING });
-    }
+    const { note } = req.valid.body;
 
-    // Notification hook (notifications feature, docs/features/venues.md section g): tell
-    // the owner "Your venue was moved back to review", with the note, here.
-    return res.json(toAdminVenue(await loadAdminVenue(userId)));
+    const [status, body] = await withLockedOwner(userId, async (tx) => {
+      const { count } = await tx.ownerProfile.updateMany({
+        where: { userId, approvedAt: { not: null } },
+        data: { approvedAt: null, reviewNote: note },
+      });
+      const venue = await loadAdminVenue(userId, tx);
+      if (!venue) return [404, { error: VENUE_NOT_FOUND }];
+      if (count === 0) return [409, { error: ALREADY_PENDING }];
+
+      await createUpdates(tx, [venueUpdate('venueMovedToReview', userId, venue.indoorName, note)], { actorId: req.user.id });
+      return [200, toAdminVenue(venue)];
+    });
+    return res.status(status).json(body);
   } catch (err) {
     return next(err);
   }
