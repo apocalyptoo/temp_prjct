@@ -1,0 +1,282 @@
+// Tests for which action creates which update (docs/features/notifications.md, b.1, b.2
+// and d.4): who is told, the exact sentence, the names and ids it stores, and that nobody
+// else hears anything. Real requests to the running server. Safety rules are in
+// helpers.js. All users and teams here are throwaway.
+
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+import { prisma, BASE_URL, createLoggedInUser, postJson } from './helpers.js';
+import { updateText } from '../src/utils/notifications.js';
+
+const send = (method, path, jwt, body) =>
+  fetch(BASE_URL + path, {
+    method,
+    headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+
+const createPlayer = (t, name) =>
+  createLoggedInUser(t, {
+    role: 'PLAYER',
+    playerProfile: { create: { name, phone: '01712345678', position: 'Any' } },
+  });
+
+// A captain (Rahim) with the team Alpha FC, two accepted members, and an outsider.
+async function setUp(t) {
+  const captain = await createPlayer(t, 'Rahim');
+  const member = await createPlayer(t, 'Karim');
+  const other = await createPlayer(t, 'Tanvir');
+  const outsider = await createPlayer(t, 'Nayeem');
+  const team = await (await postJson('/teams/create', { name: 'Alpha FC' }, captain.jwt)).json();
+  for (const person of [member, other]) await addRow(team, person, 'accepted', 'invite');
+  return { captain, member, other, outsider, team };
+}
+
+const addRow = (team, person, status, origin, extra = {}) =>
+  prisma.teamMember.create({
+    data: {
+      teamId: team.id,
+      userId: person.user.id,
+      status,
+      origin,
+      acceptedAt: status === 'accepted' ? new Date() : null,
+      ...extra,
+    },
+  });
+const invited = (team, person) => addRow(team, person, 'pending', 'invite');
+const requested = (team, person) => addRow(team, person, 'pending', 'request', { message: 'Hi, I play on Thursdays' });
+
+const updatesOf = (person) => prisma.notification.findMany({ where: { userId: person.user.id }, orderBy: { id: 'asc' } });
+
+// Exactly one update among these people: `type` for `recipient`, with this sentence.
+async function assertOnlyUpdate(people, recipient, { type, text, team, player = null }) {
+  for (const person of Object.values(people)) {
+    if (!person.user) continue;
+    const updates = await updatesOf(person);
+    if (person !== recipient) {
+      assert.deepEqual(updates.map(updateText), [], 'nobody else is told');
+      continue;
+    }
+    assert.equal(updates.length, 1);
+    const [update] = updates;
+    assert.equal(update.type, type);
+    assert.equal(updateText(update), text);
+    assert.deepEqual([update.teamId, update.teamName], [team.id, 'Alpha FC']);
+    assert.deepEqual(
+      [update.playerId, update.playerName],
+      player ? [player.user.id, await nameOf(player)] : [null, null]
+    );
+    assert.deepEqual([update.venueName, update.note, update.readAt], [null, null, null]);
+  }
+}
+const nameOf = async (person) =>
+  (await prisma.playerProfile.findUnique({ where: { userId: person.user.id } })).name;
+
+async function assertNoUpdates(people) {
+  for (const person of Object.values(people)) {
+    if (person.user) assert.deepEqual((await updatesOf(person)).map(updateText), []);
+  }
+}
+
+const ok = async (response, status = 200) => assert.equal((await response).status, status);
+
+describe('Join requests', () => {
+  test('approving tells the requester', async (t) => {
+    const people = await setUp(t);
+    const { captain, outsider, team } = people;
+    await requested(team, outsider);
+    await ok(send('POST', `/teams/${team.id}/requests/${outsider.user.id}/approve`, captain.jwt));
+    await assertOnlyUpdate(people, outsider, {
+      type: 'requestApproved',
+      text: 'Your request to join Alpha FC was approved.',
+      team,
+    });
+  });
+
+  test('inviting a player who had asked approves the request and tells them so', async (t) => {
+    const people = await setUp(t);
+    const { captain, outsider, team } = people;
+    await requested(team, outsider);
+    await ok(send('POST', `/teams/${team.id}/invite`, captain.jwt, { userId: outsider.user.id }));
+    await assertOnlyUpdate(people, outsider, {
+      type: 'requestApproved',
+      text: 'Your request to join Alpha FC was approved.',
+      team,
+    });
+  });
+
+  test('declining tells the requester', async (t) => {
+    const people = await setUp(t);
+    const { captain, outsider, team } = people;
+    await requested(team, outsider);
+    await ok(send('POST', `/teams/${team.id}/requests/${outsider.user.id}/reject`, captain.jwt));
+    await assertOnlyUpdate(people, outsider, {
+      type: 'requestDeclined',
+      text: 'Your request to join Alpha FC was declined.',
+      team,
+    });
+  });
+});
+
+describe('Invites', () => {
+  test('accepting tells the captain', async (t) => {
+    const people = await setUp(t);
+    const { captain, outsider, team } = people;
+    await invited(team, outsider);
+    await ok(send('POST', `/teams/${team.id}/accept`, outsider.jwt));
+    await assertOnlyUpdate(people, captain, {
+      type: 'inviteAccepted',
+      text: 'Nayeem accepted the invite to Alpha FC.',
+      team,
+      player: outsider,
+    });
+  });
+
+  test('asking to join a team that had invited you accepts the invite and tells the captain so', async (t) => {
+    const people = await setUp(t);
+    const { captain, outsider, team } = people;
+    await invited(team, outsider);
+    await ok(send('POST', `/teams/${team.id}/requests`, outsider.jwt, { message: 'Hi' }));
+    await assertOnlyUpdate(people, captain, {
+      type: 'inviteAccepted',
+      text: 'Nayeem accepted the invite to Alpha FC.',
+      team,
+      player: outsider,
+    });
+  });
+
+  test('declining tells the captain', async (t) => {
+    const people = await setUp(t);
+    const { captain, outsider, team } = people;
+    await invited(team, outsider);
+    await ok(send('POST', `/teams/${team.id}/reject`, outsider.jwt));
+    await assertOnlyUpdate(people, captain, {
+      type: 'inviteDeclined',
+      text: 'Nayeem declined the invite to Alpha FC.',
+      team,
+      player: outsider,
+    });
+  });
+
+  test('the captain now is told, not the one who sent the invite', async (t) => {
+    const people = await setUp(t);
+    const { captain, member, outsider, team } = people;
+    await ok(send('POST', `/teams/${team.id}/invite`, captain.jwt, { userId: outsider.user.id }), 201);
+    await ok(send('POST', `/teams/${team.id}/transfer`, captain.jwt, { userId: member.user.id }));
+    await ok(send('POST', `/teams/${team.id}/accept`, outsider.jwt));
+    assert.deepEqual((await updatesOf(member)).map(updateText), [
+      "You're now the captain of Alpha FC.",
+      'Nayeem accepted the invite to Alpha FC.',
+    ]);
+    assert.deepEqual(await updatesOf(captain), []);
+  });
+});
+
+describe('Members and captaincy', () => {
+  test('removing a member tells them', async (t) => {
+    const people = await setUp(t);
+    const { captain, member, team } = people;
+    await ok(send('DELETE', `/teams/${team.id}/members/${member.user.id}`, captain.jwt));
+    await assertOnlyUpdate(people, member, { type: 'memberRemoved', text: 'You were removed from Alpha FC.', team });
+  });
+
+  test('a member who leaves: the captain is told', async (t) => {
+    const people = await setUp(t);
+    const { captain, member, team } = people;
+    await ok(send('POST', `/teams/${team.id}/leave`, member.jwt));
+    await assertOnlyUpdate(people, captain, {
+      type: 'memberLeft',
+      text: 'Karim left your team Alpha FC.',
+      team,
+      player: member,
+    });
+  });
+
+  test('transferring captaincy tells the new captain', async (t) => {
+    const people = await setUp(t);
+    const { captain, member, team } = people;
+    await ok(send('POST', `/teams/${team.id}/transfer`, captain.jwt, { userId: member.user.id }));
+    await assertOnlyUpdate(people, member, {
+      type: 'becameCaptain',
+      text: "You're now the captain of Alpha FC.",
+      team,
+    });
+  });
+});
+
+describe('What creates no update', () => {
+  test('creating, editing, inviting, cancelling an invite, asking to join and cancelling that', async (t) => {
+    const people = await setUp(t);
+    const { captain, outsider, team } = people;
+    await ok(send('PATCH', `/teams/${team.id}`, captain.jwt, { name: 'Alpha FC', description: 'New words' }));
+    await ok(send('POST', `/teams/${team.id}/invite`, captain.jwt, { userId: outsider.user.id }), 201);
+    await ok(send('DELETE', `/teams/${team.id}/invites/${outsider.user.id}`, captain.jwt));
+    await ok(send('POST', `/teams/${team.id}/requests`, outsider.jwt, { message: 'Hi' }), 201);
+    await ok(send('DELETE', `/teams/${team.id}/requests/me`, outsider.jwt));
+    await assertNoUpdates(people);
+  });
+
+  test('refused actions: not the captain, not a member, nothing to act on', async (t) => {
+    const people = await setUp(t);
+    const { captain, member, other, outsider, team } = people;
+    const base = `/teams/${team.id}`;
+    await requested(team, outsider);
+    await ok(send('POST', `${base}/requests/${outsider.user.id}/approve`, member.jwt), 403);
+    await ok(send('POST', `${base}/requests/${outsider.user.id}/reject`, member.jwt), 403);
+    await ok(send('POST', `${base}/invite`, member.jwt, { userId: outsider.user.id }), 403);
+    await ok(send('DELETE', `${base}/members/${other.user.id}`, member.jwt), 403);
+    await ok(send('POST', `${base}/transfer`, member.jwt, { userId: other.user.id }), 403);
+    await ok(send('POST', `${base}/accept`, outsider.jwt), 404);
+    await ok(send('POST', `${base}/reject`, outsider.jwt), 404);
+    await ok(send('POST', `${base}/leave`, outsider.jwt), 404);
+    await ok(send('POST', `${base}/leave`, captain.jwt), 409);
+    await ok(send('POST', `${base}/requests/${other.user.id}/approve`, captain.jwt), 404);
+    await ok(send('POST', `${base}/requests/${other.user.id}/reject`, captain.jwt), 404);
+    await ok(send('DELETE', `${base}/members/${outsider.user.id}`, captain.jwt), 404);
+    await ok(send('POST', `${base}/transfer`, captain.jwt, { userId: outsider.user.id }), 404);
+    await assertNoUpdates(people);
+  });
+
+  test('a full team: accepting and approving are refused and nobody is told', async (t) => {
+    const people = await setUp(t);
+    const { captain, outsider, team } = people;
+    for (let index = 0; index < 12; index += 1) {
+      await addRow(team, await createPlayer(t, `Filler ${index}`), 'accepted', 'invite');
+    }
+    const second = await createPlayer(t, 'Second');
+    await invited(team, outsider);
+    await requested(team, second);
+    await ok(send('POST', `/teams/${team.id}/accept`, outsider.jwt), 409);
+    await ok(send('POST', `/teams/${team.id}/requests`, outsider.jwt, {}), 409);
+    await ok(send('POST', `/teams/${team.id}/requests/${second.user.id}/approve`, captain.jwt), 409);
+    await ok(send('POST', `/teams/${team.id}/invite`, captain.jwt, { userId: second.user.id }), 409);
+    await assertNoUpdates({ ...people, second });
+  });
+
+  test('the same action from two devices at once creates one update', async (t) => {
+    const people = await setUp(t);
+    const { captain, outsider, team } = people;
+    await requested(team, outsider);
+    const path = `/teams/${team.id}/requests/${outsider.user.id}/approve`;
+    const replies = await Promise.all([send('POST', path, captain.jwt), send('POST', path, captain.jwt)]);
+    assert.deepEqual(replies.map((reply) => reply.status).sort(), [200, 404]);
+    assert.equal((await updatesOf(outsider)).length, 1);
+  });
+});
+
+describe('The names are a snapshot (D2)', () => {
+  test('renaming the team and the player afterwards changes nothing in old updates', async (t) => {
+    const { captain, member, team } = await setUp(t);
+    await ok(send('POST', `/teams/${team.id}/leave`, member.jwt));
+    await ok(send('PATCH', `/teams/${team.id}`, captain.jwt, { name: 'Beta FC' }));
+    await prisma.playerProfile.update({ where: { userId: member.user.id }, data: { name: 'Somebody Else' } });
+    assert.deepEqual((await updatesOf(captain)).map(updateText), ['Karim left your team Alpha FC.']);
+  });
+
+  test('the name is the team\'s at that moment, with any letters in it', async (t) => {
+    const { captain, member, team } = await setUp(t);
+    await ok(send('PATCH', `/teams/${team.id}`, captain.jwt, { name: "O'Neil's ঢাকা FC" }));
+    await ok(send('POST', `/teams/${team.id}/leave`, member.jwt));
+    assert.deepEqual((await updatesOf(captain)).map(updateText), ["Karim left your team O'Neil's ঢাকা FC."]);
+  });
+});

@@ -1,6 +1,7 @@
 import { prisma } from '../db.js';
 import { viewerFrom, toVisibleUser } from '../utils/visibility.js';
 import { removeTeamRows } from '../utils/deletion.js';
+import { createUpdates, teamUpdate } from '../utils/notifications.js';
 import { parseId } from '../utils/ids.js';
 import { escapeLike } from '../utils/search.js';
 import { pageArgs, pagedReply } from '../utils/paging.js';
@@ -35,6 +36,17 @@ function withLockedTeam(teamId, work) {
 const sendReply = (res, [status, body]) => res.status(status).json(body);
 const teamFull = () => [409, { error: TEAM_FULL_MESSAGE }];
 const findRow = (tx, teamId, userId) => tx.teamMember.findUnique({ where: { teamId_userId: { teamId, userId } } });
+
+// The updates these actions create (docs/features/notifications.md, d.4). Each one is the
+// last step of its action's own transaction, so it's there exactly when the action is.
+// The person who makes the request is never told about it themselves (actorId).
+const tell = (tx, req, update) => createUpdates(tx, [update], { actorId: req.user.id });
+
+// The caller as an update names them: { id, name }.
+async function callerAsPlayer(tx, req) {
+  const profile = await tx.playerProfile.findUnique({ where: { userId: req.user.id }, select: { name: true } });
+  return { id: req.user.id, name: profile?.name ?? 'Unknown' };
+}
 
 // An account can be deleted between a request's login check and its write
 // (docs/features/account-deletion.md, d.5). A new row for it is then refused by the
@@ -103,6 +115,7 @@ export const invitePlayer = async (req, res, next) => {
           where: { id: existing.id },
           data: { status: 'accepted', acceptedAt: new Date(), message: null },
         });
+        await tell(tx, req, teamUpdate('requestApproved', userId, team));
         return [200, { message: 'Request approved', joined: true }];
       }
       if (existing) return [400, { error: 'Player is already invited or in the team.' }];
@@ -162,6 +175,7 @@ export const removePlayer = async (req, res, next) => {
 
       const { count } = await tx.teamMember.deleteMany({ where: { teamId, userId, status: 'accepted' } });
       if (count === 0) return [404, { error: 'Player not found in this team.' }];
+      await tell(tx, req, teamUpdate('memberRemoved', userId, team));
       return [200, { message: 'Player removed successfully.' }];
     });
     return sendReply(res, reply);
@@ -230,6 +244,7 @@ export const leaveTeam = async (req, res, next) => {
       }
 
       await tx.teamMember.delete({ where: { id: own.id } });
+      await tell(tx, req, teamUpdate('memberLeft', team.captainId, team, await callerAsPlayer(tx, req)));
       return [200, { message: 'You left the team.', teamDeleted: false }];
     });
     return sendReply(res, reply);
@@ -255,6 +270,7 @@ export const transferCaptaincy = async (req, res, next) => {
       if (!target || !isMember(target)) return [404, { error: 'Player not found in this team.' }];
 
       await tx.team.update({ where: { id: teamId }, data: { captainId: userId } });
+      await tell(tx, req, teamUpdate('becameCaptain', userId, team));
       return [200, { message: 'Captaincy transferred', captainId: userId }];
     });
     return sendReply(res, reply);
@@ -292,11 +308,12 @@ export const acceptInvite = async (req, res, next) => {
     if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
     const userId = req.user.id;
 
-    const reply = await withLockedTeam(teamId, async (tx) => {
+    const reply = await withLockedTeam(teamId, async (tx, team) => {
       const own = await findRow(tx, teamId, userId);
       if (!own || !isPendingInvite(own)) return [404, { error: 'Invite not found' }];
       if ((await countMembers(tx, teamId)) >= MAX_TEAM_MEMBERS) return teamFull();
       await tx.teamMember.update({ where: { id: own.id }, data: { status: 'accepted', acceptedAt: new Date() } });
+      await tell(tx, req, teamUpdate('inviteAccepted', team.captainId, team, await callerAsPlayer(tx, req)));
       return [200, { message: 'Joined team successfully' }];
     });
     return sendReply(res, reply);
@@ -314,11 +331,12 @@ export const rejectInvite = async (req, res, next) => {
     if (teamId === null) return res.status(400).json({ error: 'Invalid team id' });
     const userId = req.user.id;
 
-    const reply = await withLockedTeam(teamId, async (tx) => {
+    const reply = await withLockedTeam(teamId, async (tx, team) => {
       const { count } = await tx.teamMember.deleteMany({
         where: { teamId, userId, status: 'pending', origin: 'invite' },
       });
       if (count === 0) return [404, { error: 'Invite not found' }];
+      await tell(tx, req, teamUpdate('inviteDeclined', team.captainId, team, await callerAsPlayer(tx, req)));
       return [200, { message: 'Invite rejected' }];
     });
     return sendReply(res, reply);
@@ -348,6 +366,7 @@ export const requestToJoin = async (req, res, next) => {
 
       if (own && isPendingInvite(own)) {
         await tx.teamMember.update({ where: { id: own.id }, data: { status: 'accepted', acceptedAt: new Date() } });
+        await tell(tx, req, teamUpdate('inviteAccepted', team.captainId, team, await callerAsPlayer(tx, req)));
         return [200, { message: 'Joined team successfully', joined: true }];
       }
 
@@ -413,6 +432,7 @@ export const approveRequest = async (req, res, next) => {
         where: { id: found.id },
         data: { status: 'accepted', acceptedAt: new Date(), message: null },
       });
+      await tell(tx, req, teamUpdate('requestApproved', userId, team));
       return [200, { message: 'Request approved' }];
     });
     return sendReply(res, reply);
@@ -434,6 +454,7 @@ export const rejectRequest = async (req, res, next) => {
       const found = await findRequestForCaptain(tx, team, teamId, userId, req.user.id);
       if (Array.isArray(found)) return found;
       await tx.teamMember.delete({ where: { id: found.id } });
+      await tell(tx, req, teamUpdate('requestDeclined', userId, team));
       return [200, { message: 'Request declined' }];
     });
     return sendReply(res, reply);
