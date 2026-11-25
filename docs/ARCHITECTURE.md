@@ -25,13 +25,13 @@ Every account has exactly one role, chosen when the account is created.
 
 | Role | Who it is | What they can do today |
 |---|---|---|
-| **Player** | Someone who plays | Sign up, log in, see and edit their profile, change their password; create a team, edit or delete it, invite players, remove members, hand over the captaincy, leave a team; accept or decline invites; ask to join a team (and cancel), and as captain approve or decline requests; browse all teams, players and venues |
-| **Owner** | Someone who runs an indoor venue | Sign up, log in, fill in and edit their venue listing, see their account, change their password; browse all teams (read-only), players and venues |
+| **Player** | Someone who plays | Sign up, log in, see and edit their profile, change their password, delete their account; create a team, edit or delete it, invite players, remove members, hand over the captaincy, leave a team; accept or decline invites; ask to join a team (and cancel), and as captain approve or decline requests; browse all teams, players and venues |
+| **Owner** | Someone who runs an indoor venue | Sign up, log in, fill in and edit their venue listing, see their account, change their password, delete their account; browse all teams (read-only), players and venues |
 | **Admin** | The person running the app | See counts (users, players, owners, admins, teams), list and delete users, teams and venues (deleting a venue deletes the owner's account). Review venues: approve them, leave a note for the owner, move a live venue back to review. The admin screens can't delete the admin's own account or any admin account |
 
 Admin accounts can't be created from the app. They're made with a script (see [section 8](#8-configuration)).
 
-Still missing: deleting your own account, in-app notifications, reports and blocking, venue review and search. See [ROADMAP.md](ROADMAP.md), Phase 4.
+Still missing: in-app notifications, reports and blocking, venue review and search. See [ROADMAP.md](ROADMAP.md), Phase 4.
 
 ---
 
@@ -257,7 +257,7 @@ PlayerProfile        │        │         OwnerProfile
 
 **Deleting safely.** The database has delete rules as a safety net: deleting a user also deletes their profile and memberships, and deleting a team deletes its memberships (this is called **cascade**). But it **refuses** to delete a user who is still captain of a team, so a team is never left without a captain. The code doesn't rely on cascade: it deletes the linked rows itself, in order, inside one **transaction**. A transaction means the database either does every step or, if one fails, undoes the ones already done, so nothing is ever left half-deleted. All of this lives in one file, `src/utils/deletion.js`.
 
-**Deleting a user.** A captain's teams don't disappear with them: each team is handed to its longest-standing member, with its pending invites and requests, and is only deleted when nobody else is in it. The same function first works out a **plan** of what will happen to each team; the preview shows that plan and the delete carries it out. While it runs, every team the user has anything to do with is locked, and so is the user, so nobody can make them captain halfway through. The admin's delete buttons use it, and so does deleting your own account, which also asks for the password (the backend is ready; the app's screen is the next task). If a team changed since the preview, nothing is deleted and the new outcome is shown first. Afterwards a short notice email, with no link, goes to the account's address (if it was ever verified); an email that fails never undoes the deletion.
+**Deleting a user.** A captain's teams don't disappear with them: each team is handed to its longest-standing member, with its pending invites and requests, and is only deleted when nobody else is in it. The same function first works out a **plan** of what will happen to each team; the preview shows that plan and the delete carries it out. While it runs, every team the user has anything to do with is locked, and so is the user, so nobody can make them captain halfway through. The admin's delete buttons use it, and so does deleting your own account (see [Deleting your account](#deleting-your-account)), which also asks for the password. If a team changed since the preview, nothing is deleted and the new outcome is shown first. Afterwards a short notice email, with no link, goes to the account's address (if it was ever verified); an email that fails never undoes the deletion.
 
 **The team lock.** Every change to a team's members (invite, accept, approve, leave, hand over the captaincy…) first locks that team's row, so two changes to the same team run one after the other. That's what makes the 15-member limit safe: two approvals at the same moment can't both squeeze in.
 
@@ -341,7 +341,7 @@ A **navigator** is the part of the app that decides which screen is showing and 
 - A **stack navigator** works like a pile of cards: opening a screen puts it on top, and going back removes it.
 - A **tab navigator** shows a bar at the bottom with icons you tap to switch screens.
 
-The login state lives in a **context** (`AuthContext.js`). A React context is a value that any screen can read without passing it around by hand. It holds the current `user` and the functions to log in, log out, sign up and change the password.
+The login state lives in a **context** (`AuthContext.js`). A React context is a value that any screen can read without passing it around by hand. It holds the current `user` and the functions to log in, log out, sign up, change the password and delete the account.
 
 `src/navigation/AppNavigator.js` reads `user` from the context and picks a whole set of screens:
 
@@ -357,7 +357,7 @@ Because the screen set swaps as soon as `user` changes, logging in or out instan
 Each logged-in role gets a **bottom tab bar**, and **each tab has its own stack**. So when you open a team from My Teams, Team detail is put on top of the My Teams stack and the tab bar stays visible. Each tab remembers where you were, and tapping the tab you're already on takes you back to its first screen.
 
 What each tab holds today:
-- **Player:** My Teams (your teams and join requests → Team detail → invite players, hand over the captaincy, edit team, or tap a person to open their Player detail; create team), Explore, Notifications (for now the Invites screen, which opens Team detail), Profile (your details with Edit profile, and a gear that opens Settings: Edit profile, Change password, the Terms of Use and Privacy Policy pages, and Log out).
+- **Player:** My Teams (your teams and join requests → Team detail → invite players, hand over the captaincy, edit team, or tap a person to open their Player detail; create team), Explore, Notifications (for now the Invites screen, which opens Team detail), Profile (your details with Edit profile, and a gear that opens Settings: Edit profile, Change password, the Terms of Use and Privacy Policy pages, Log out and Delete account).
 - **Venue owner:** My Venue (the listing, with Edit venue), Explore (teams read-only, players and venues), Notifications (for now just "No notifications yet."), Profile (the account: venue name, "Venue owner" and email, a link to My Venue, and the gear to Settings, where **Edit venue** replaces Edit profile).
 - **Admin:** Dashboard (how many venues are waiting for review, which opens the Venues tab, and the totals), Reports (for now just "Reports arrive with moderation."), Venues (the venue review, see "Venue review"), Users and Teams (the old management screens).
 - **Explore** (players and owners) is one screen with three sections, Teams, Players and Venues (see "Explore").
@@ -382,7 +382,7 @@ The login token is saved in **AsyncStorage**, the phone's simple built-in storag
 
 ### Expired or invalid login while using the app
 
-When a request that carried the token gets a 401 (for example the token's 30 days are up, or the password was changed or reset on another phone), the app removes the saved token, switches to the login screen and shows "Your session has expired. Please log in again." once. One exception: right after a password change, the app has just saved a fresh token, so a 401 for a request sent a moment earlier with the old token is ignored, and the phone that changed the password stays logged in. Details: [TECHNICAL.md 8.6](TECHNICAL.md#86-talking-to-the-backend-the-login-and-the-session).
+When a request that carried the token gets a 401 (for example the token's 30 days are up, or the password was changed or reset on another phone), the app removes the saved token, switches to the login screen and shows "Your session has expired. Please log in again." once. One exception: right after a password change, the app has just saved a fresh token, so a 401 for a request sent a moment earlier with the old token is ignored, and the phone that changed the password stays logged in. Another: while this phone is deleting its own account, "Your session has expired" isn't shown, because "Your account was deleted." is on its way. Details: [TECHNICAL.md 8.6](TECHNICAL.md#86-talking-to-the-backend-the-login-and-the-session).
 
 ---
 
@@ -424,6 +424,13 @@ The **Resend verification email** button (on Login and on Check your email) asks
 2. The backend checks the current password. If it's wrong, the error shows under that field. That reply is deliberately not a 401, because the app treats every 401 as "your session has expired" and a typo shouldn't log anyone out.
 3. On success the backend saves the new password, logs out every *other* phone, and sends this phone a fresh token, which the app saves at once. The app shows "Password changed: You're still logged in on this phone. Any other phones have been logged out."
 4. The backend also emails a short notice: the password was changed, and if it wasn't you, use Forgot password. The email has no link in it (links in "your account changed" emails are what phishing copies).
+
+### Deleting your account
+
+1. **Profile → Settings → Delete account** (players and venue owners; the last and only red button). The screen first asks the backend what will happen, and shows it: what goes, and for a captain what happens to each team ("Dhanmondi Strikers will be handed to Rahim").
+2. The user types their password, taps **Delete account** and confirms once more. The app sends the password and a code that stands for the outcomes it showed.
+3. A wrong password shows under the field, and the user stays logged in. If a team changed in the meantime, nothing is deleted: the app says so and shows the new outcome.
+4. On success the account is gone, the app forgets the login and shows the Login screen with "Your account was deleted." Any other phone is logged out on its next request. What the backend does is under "Deleting a user" in [section 5](#5-database).
 
 ### Editing a player profile
 

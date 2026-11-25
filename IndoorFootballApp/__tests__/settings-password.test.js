@@ -8,6 +8,7 @@ import { Alert, Linking, Text as NativeText, TextInput } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { AuthContext, AuthProvider } from '../src/contexts/AuthContext';
+import { Button } from '../src/components/ui';
 import SettingsScreen from '../src/screens/Shared/SettingsScreen';
 import ChangePasswordScreen, {
   CHANGED_MESSAGE,
@@ -166,6 +167,46 @@ describe('Settings', () => {
     await press(renderer, 'Log out');
     await press(renderer, 'Log out', { last: true });
     expect(logout).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Settings: Delete account (feature 4)', () => {
+  const buttons = renderer =>
+    renderer.root
+      .findAllByType(Button)
+      .map(node => [node.props.title, node.props.variant]);
+
+  test.each([
+    ['a player', USER],
+    ['a venue owner', { ...USER, role: 'OWNER' }],
+  ])(
+    'is last and the only red button, for %s, and opens its screen',
+    async (who, user) => {
+      const navigation = navigationMock();
+      const renderer = await render(
+        <SettingsScreen navigation={navigation} />,
+        { user, logout: jest.fn() },
+      );
+      expect(buttons(renderer)).toEqual([
+        ['Log out', 'secondary'],
+        ['Delete account', 'danger'],
+      ]);
+      const text = shownText(renderer).split(' | ');
+      expect(text[text.length - 1]).toBe('Delete account');
+      await press(renderer, 'Delete account');
+      expect(navigation.navigate).toHaveBeenCalledWith('DeleteAccount');
+    },
+  );
+
+  test("the Log out dialog's confirm isn't red either (Q5)", async () => {
+    const renderer = await render(
+      <SettingsScreen navigation={navigationMock()} />,
+      { logout: jest.fn() },
+    );
+    await press(renderer, 'Log out');
+    expect(buttons(renderer).filter(([, look]) => look === 'danger')).toEqual([
+      ['Delete account', 'danger'],
+    ]);
   });
 });
 

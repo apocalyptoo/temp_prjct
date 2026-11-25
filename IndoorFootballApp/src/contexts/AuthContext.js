@@ -13,6 +13,8 @@ export const AuthContext = createContext();
 
 export const SESSION_EXPIRED_MESSAGE =
   'Your session has expired. Please log in again.';
+export const ACCOUNT_DELETED_MESSAGE = 'Your account was deleted.';
+const DELETE_ACCOUNT_URL = '/auth/delete-account';
 
 // How long the start-up check may take before we show "Can't reach the server".
 const STARTUP_TIMEOUT_MS = 15000;
@@ -25,11 +27,18 @@ export const AuthProvider = ({ children }) => {
   const [serverUnreachable, setServerUnreachable] = useState(false);
   // stops several failed requests at once from showing the expired message several times
   const sessionExpiredShown = useRef(false);
+  // true while this phone's own account deletion runs
+  const deletingAccount = useRef(false);
 
   // 🔹 Expired or invalid login while using the app: api.js calls this when a request
   // that carried the token gets a 401. Clearing the user swaps to the login screen.
+  // While this phone's own deletion runs, a 401 on another request is ignored (P18): the
+  // account is gone on the server a moment before this phone hears so, and "Your session
+  // has expired" would clash with "Your account was deleted." A 401 on the deletion itself
+  // still counts.
   useEffect(() => {
-    setSessionExpiredHandler(async () => {
+    setSessionExpiredHandler(async config => {
+      if (deletingAccount.current && config?.url !== DELETE_ACCOUNT_URL) return;
       if (sessionExpiredShown.current) return;
       sessionExpiredShown.current = true;
       await removeToken();
@@ -153,6 +162,23 @@ export const AuthProvider = ({ children }) => {
     return res.data;
   };
 
+  // 🔹 DELETE MY ACCOUNT (POST /auth/delete-account), with the password and the code of the
+  // preview the user saw. On success the saved login goes first, which shows the Login
+  // screen, and then one alert (P17). A refusal is thrown as axios gave it, with the user
+  // still logged in, so the screen can tell "Password is incorrect" (400) and "Something
+  // changed" (409) from the rest.
+  const deleteAccount = async (password, previewCode) => {
+    deletingAccount.current = true;
+    try {
+      await api.post(DELETE_ACCOUNT_URL, { password, previewCode });
+      await removeToken();
+      setUser(null);
+      Alert.alert('Account deleted', ACCOUNT_DELETED_MESSAGE);
+    } finally {
+      deletingAccount.current = false;
+    }
+  };
+
   // 🔹 LOGOUT: forget the saved token as well as the user, so the next app start
   // shows the login screen. No server call, so it also works from the
   // "Can't reach the server" screen (which it closes).
@@ -175,6 +201,7 @@ export const AuthProvider = ({ children }) => {
         register,
         resendVerification,
         changePassword,
+        deleteAccount,
       }}
     >
       {children}

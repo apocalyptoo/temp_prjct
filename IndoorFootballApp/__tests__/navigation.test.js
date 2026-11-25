@@ -201,6 +201,13 @@ const REPLIES = {
       description: null,
     },
   },
+  '/auth/deletion-preview': {
+    previewCode: 'a'.repeat(64),
+    captainedTeams: [],
+    otherTeams: [],
+    pendingCount: 0,
+    venue: null,
+  },
   '/admin/stats': {
     userCount: 3,
     playerCount: 1,
@@ -414,6 +421,18 @@ describe('Player navigator', () => {
     )[0];
     await ReactTestRenderer.act(() => gear.props.onPress());
     await settle();
+    expect(current(navigationRef)).toBe('Settings');
+
+    // Settings → Delete account, with the preview loaded; Back returns to Settings.
+    await pressText(renderer, 'Delete account');
+    expect(current(navigationRef)).toBe('DeleteAccount');
+    expect(currentTab(navigationRef)).toBe('ProfileTab');
+    expect(
+      renderer.root
+        .findAllByType(NativeText)
+        .some(node => node.props.children === 'What will be deleted'),
+    ).toBe(true);
+    await goBack(navigationRef);
     expect(current(navigationRef)).toBe('Settings');
   });
 });
@@ -732,6 +751,9 @@ describe('Owner navigator', () => {
     expect(current(navigationRef)).toBe('Settings');
     await pressText(renderer, 'Change password');
     expect(current(navigationRef)).toBe('ChangePassword');
+    await goBack(navigationRef);
+    await pressText(renderer, 'Delete account');
+    expect(current(navigationRef)).toBe('DeleteAccount');
     await goBack(navigationRef);
     await goBack(navigationRef);
     expect(current(navigationRef)).toBe('OwnerProfile');

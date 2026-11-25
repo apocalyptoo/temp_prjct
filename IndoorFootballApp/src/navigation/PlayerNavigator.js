@@ -15,6 +15,7 @@ import PlayerProfileScreen from '../screens/Player/PlayerProfileScreen';
 import EditProfileScreen from '../screens/Player/EditProfileScreen';
 import SettingsScreen from '../screens/Shared/SettingsScreen';
 import ChangePasswordScreen from '../screens/Shared/ChangePasswordScreen';
+import DeleteAccountScreen from '../screens/Shared/DeleteAccountScreen';
 
 const Tab = createBottomTabNavigator();
 const MyTeamsStack = createNativeStackNavigator();
@@ -54,8 +55,8 @@ function NotificationsTab() {
   );
 }
 
-// Profile, Edit profile, Settings and Change password each draw their own header (the
-// Profile title with its Settings gear, the others a back link).
+// Profile, Edit profile, Settings, Change password and Delete account each draw their
+// own header (the Profile title with its Settings gear, the others a back link).
 function ProfileTab() {
   return (
     <ProfileStack.Navigator>
@@ -77,6 +78,11 @@ function ProfileTab() {
       <ProfileStack.Screen
         name="ChangePassword"
         component={ChangePasswordScreen}
+        options={{ headerShown: false }}
+      />
+      <ProfileStack.Screen
+        name="DeleteAccount"
+        component={DeleteAccountScreen}
         options={{ headerShown: false }}
       />
     </ProfileStack.Navigator>

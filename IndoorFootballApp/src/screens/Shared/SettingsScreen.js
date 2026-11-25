@@ -1,8 +1,10 @@
 // Settings (docs/features/profiles-and-registration.md, section e, P29): one screen for
 // players and venue owners. The rows that exist in v1.0 so far: Edit profile (for venue
 // owners Edit venue, Q3), Change password, Terms of Use and Privacy Policy (each opens
-// its page in the browser), then Log out with a confirmation. Later features add Blocked
-// players, Contact support and Delete account. Registered in each role's Profile stack.
+// its page in the browser), then Log out with a confirmation, and Delete account last,
+// the only red button (docs/features/account-deletion.md, section e, Q5). Later features
+// add Blocked players and Contact support. Registered in each role's Profile stack; the
+// admin has no Settings.
 import React, { useContext, useState } from 'react';
 import { AuthContext } from '../../contexts/AuthContext';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -75,9 +77,16 @@ export default function SettingsScreen({ navigation }) {
       </Card>
       <Button
         title="Log out"
-        variant="danger"
+        variant="secondary"
         icon="logout"
         onPress={() => setConfirmingLogout(true)}
+        fullWidth
+      />
+      <Button
+        title="Delete account"
+        variant="danger"
+        icon="delete"
+        onPress={() => navigation.navigate('DeleteAccount')}
         fullWidth
       />
       <ConfirmDialog
@@ -85,7 +94,6 @@ export default function SettingsScreen({ navigation }) {
         title="Log out?"
         message="You'll need your email and password to log in again."
         confirmTitle="Log out"
-        destructive
         onConfirm={() => {
           setConfirmingLogout(false);
           logout(); // AppNavigator then shows the Login screen.

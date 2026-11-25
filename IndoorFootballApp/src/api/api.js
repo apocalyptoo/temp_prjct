@@ -24,7 +24,8 @@ api.interceptors.request.use(
 
 // What to do when the backend says the saved login is no longer valid. AuthContext sets
 // this (it clears the token and the user, which shows the login screen). This file can't
-// reach the login state itself, so it just calls whatever was registered here.
+// reach the login state itself, so it just calls whatever was registered here, with the
+// refused request's config (AuthContext looks at its url).
 let onSessionExpired = null;
 export const setSessionExpiredHandler = handler => {
   onSessionExpired = handler;
@@ -50,7 +51,7 @@ api.interceptors.response.use(
       onSessionExpired
     ) {
       const saved = await getToken();
-      if (saved && sentWith === `Bearer ${saved}`) onSessionExpired();
+      if (saved && sentWith === `Bearer ${saved}`) onSessionExpired(config);
     }
     return Promise.reject(error);
   },

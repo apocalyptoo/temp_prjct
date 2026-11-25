@@ -1,6 +1,6 @@
 # Feature 4: Account deletion (spec)
 
-Phase 4, Step 3. Task F4.0, written 2026-11-25. **Status: approved 2026-11-25** (DECISIONS.md, "Account deletion feature spec approved"). The backend (F4.1) was built 2026-11-25; the screens (F4.2, F4.3) aren't yet.
+Phase 4, Step 3. Task F4.0, written 2026-11-25. **Status: approved 2026-11-25** (DECISIONS.md, "Account deletion feature spec approved"). The backend (F4.1) and Delete account in the app (F4.2) were built 2026-11-25; the admin dialogs (F4.3) aren't yet.
 
 **How to read the markers:**
 - **Decided**: one of the owner's three decisions of 2026-11-25 (DECISIONS.md, "Account deletion details"), or a rule already in PRODUCT.md or DECISIONS.md.

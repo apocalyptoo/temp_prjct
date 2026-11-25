@@ -37,6 +37,8 @@ test('a 401 for the saved token: session expired', async () => {
   getToken.mockResolvedValue('current');
   await run(failure({ status: 401, token: 'current' }));
   expect(expired).toHaveBeenCalledTimes(1);
+  // The handler is told which request it was (feature 4, P18).
+  expect(expired.mock.calls[0][0]).toMatchObject({ url: '/players/me' });
 });
 
 test('a 401 for an older token (a fresh one has been saved since): ignored', async () => {

@@ -13,6 +13,7 @@ import OwnerNotificationsScreen from '../screens/Owner/OwnerNotificationsScreen'
 import OwnerProfileScreen from '../screens/Owner/OwnerProfileScreen';
 import SettingsScreen from '../screens/Shared/SettingsScreen';
 import ChangePasswordScreen from '../screens/Shared/ChangePasswordScreen';
+import DeleteAccountScreen from '../screens/Shared/DeleteAccountScreen';
 
 const Tab = createBottomTabNavigator();
 const MyVenueStack = createNativeStackNavigator();
@@ -50,8 +51,9 @@ function NotificationsTab() {
   );
 }
 
-// Profile (the account, with the Settings gear), Settings, Change password, and Edit
-// venue again, so Settings → Edit venue goes back to Settings. Each draws its own header.
+// Profile (the account, with the Settings gear), Settings, Change password, Delete
+// account, and Edit venue again, so Settings → Edit venue goes back to Settings. Each
+// draws its own header.
 function ProfileTab() {
   return (
     <ProfileStack.Navigator>
@@ -68,6 +70,11 @@ function ProfileTab() {
       <ProfileStack.Screen
         name="ChangePassword"
         component={ChangePasswordScreen}
+        options={{ headerShown: false }}
+      />
+      <ProfileStack.Screen
+        name="DeleteAccount"
+        component={DeleteAccountScreen}
         options={{ headerShown: false }}
       />
       <ProfileStack.Screen
