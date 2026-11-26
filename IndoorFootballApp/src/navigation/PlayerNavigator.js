@@ -6,7 +6,15 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { PlayerExploreStack } from './ExploreStack';
-import { tabNavigatorProps } from './tabs';
+import {
+  NOTIFICATIONS_TAB,
+  refreshBadgeOnTabFocus,
+  tabNavigatorProps,
+} from './tabs';
+import {
+  NotificationsProvider,
+  useNotifications,
+} from '../contexts/NotificationsContext';
 import { teamScreens } from './teamScreens';
 import MyTeamsScreen from '../screens/Team/MyTeamsScreen';
 import TeamFormScreen from '../screens/Team/TeamFormScreen';
@@ -90,9 +98,23 @@ function ProfileTab() {
   );
 }
 
+// The badge's number lives in a provider around the tabs, so it starts at login and
+// ends at logout (docs/features/notifications.md, P31).
 export default function PlayerNavigator() {
   return (
-    <Tab.Navigator {...tabNavigatorProps}>
+    <NotificationsProvider>
+      <Tabs />
+    </NotificationsProvider>
+  );
+}
+
+function Tabs() {
+  const { count, refresh } = useNotifications();
+  return (
+    <Tab.Navigator
+      {...tabNavigatorProps}
+      screenListeners={refreshBadgeOnTabFocus(refresh)}
+    >
       <Tab.Screen
         name="MyTeamsTab"
         component={MyTeamsTab}
@@ -104,9 +126,13 @@ export default function PlayerNavigator() {
         options={{ title: 'Explore', tabBarIconName: 'explore' }}
       />
       <Tab.Screen
-        name="NotificationsTab"
+        name={NOTIFICATIONS_TAB}
         component={NotificationsTab}
-        options={{ title: 'Notifications', tabBarIconName: 'notifications' }}
+        options={{
+          title: 'Notifications',
+          tabBarIconName: 'notifications',
+          tabBarBadge: count,
+        }}
       />
       <Tab.Screen
         name="ProfileTab"

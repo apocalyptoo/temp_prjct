@@ -6,7 +6,15 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { OwnerExploreStack } from './ExploreStack';
-import { tabNavigatorProps } from './tabs';
+import {
+  NOTIFICATIONS_TAB,
+  refreshBadgeOnTabFocus,
+  tabNavigatorProps,
+} from './tabs';
+import {
+  NotificationsProvider,
+  useNotifications,
+} from '../contexts/NotificationsContext';
 import MyVenueScreen from '../screens/Owner/MyVenueScreen';
 import EditVenueScreen from '../screens/Owner/EditVenueScreen';
 import OwnerProfileScreen from '../screens/Owner/OwnerProfileScreen';
@@ -87,9 +95,23 @@ function ProfileTab() {
   );
 }
 
+// The badge's number lives in a provider around the tabs, so it starts at login and
+// ends at logout (docs/features/notifications.md, P31).
 export default function OwnerNavigator() {
   return (
-    <Tab.Navigator {...tabNavigatorProps}>
+    <NotificationsProvider>
+      <Tabs />
+    </NotificationsProvider>
+  );
+}
+
+function Tabs() {
+  const { count, refresh } = useNotifications();
+  return (
+    <Tab.Navigator
+      {...tabNavigatorProps}
+      screenListeners={refreshBadgeOnTabFocus(refresh)}
+    >
       <Tab.Screen
         name="MyVenueTab"
         component={MyVenueTab}
@@ -101,9 +123,13 @@ export default function OwnerNavigator() {
         options={{ title: 'Explore', tabBarIconName: 'explore' }}
       />
       <Tab.Screen
-        name="NotificationsTab"
+        name={NOTIFICATIONS_TAB}
         component={NotificationsTab}
-        options={{ title: 'Notifications', tabBarIconName: 'notifications' }}
+        options={{
+          title: 'Notifications',
+          tabBarIconName: 'notifications',
+          tabBarBadge: count,
+        }}
       />
       <Tab.Screen
         name="ProfileTab"

@@ -12,3 +12,17 @@ export const tabNavigatorProps = {
   backBehavior: 'firstRoute',
   screenOptions: { headerShown: false },
 };
+
+// The player's and venue owner's navigators: a tab coming into view refreshes the
+// Notifications badge (docs/features/notifications.md, D4), including the first tab when
+// the app opens or someone logs in. Not the Notifications tab itself: its screen loads
+// everything, the number included.
+//   <Tab.Navigator screenListeners={refreshBadgeOnTabFocus(refresh)}>
+export const NOTIFICATIONS_TAB = 'NotificationsTab';
+export const refreshBadgeOnTabFocus =
+  refresh =>
+  ({ route }) => ({
+    focus: () => {
+      if (route.name !== NOTIFICATIONS_TAB) refresh();
+    },
+  });

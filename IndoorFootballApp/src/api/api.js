@@ -57,4 +57,37 @@ api.interceptors.response.use(
   },
 );
 
+// What to do after a request that may have changed the Notifications badge's number
+// (docs/features/notifications.md, P32): every request to /teams… other than a GET that
+// ends with 2xx, 404 or 409 (a 404 or 409 means the screen was out of date, so the
+// number may be too). The NotificationsProvider sets this while a player or venue owner
+// is logged in. Returns a function that removes it again (only if it's still the one set).
+let onTeamChange = null;
+export const setTeamChangeListener = listener => {
+  onTeamChange = listener;
+  return () => {
+    if (onTeamChange === listener) onTeamChange = null;
+  };
+};
+const TEAMS_PATH = /^\/teams(\/|\?|$)/;
+const changesTeams = config =>
+  Boolean(config) &&
+  (config.method ?? 'get').toLowerCase() !== 'get' &&
+  TEAMS_PATH.test(config.url ?? '');
+
+// After every reply: tell the badge when a team action went through.
+api.interceptors.response.use(
+  response => {
+    if (changesTeams(response.config)) onTeamChange?.();
+    return response;
+  },
+  error => {
+    const status = error?.response?.status;
+    if ((status === 404 || status === 409) && changesTeams(error.config)) {
+      onTeamChange?.();
+    }
+    return Promise.reject(error);
+  },
+);
+
 export default api;

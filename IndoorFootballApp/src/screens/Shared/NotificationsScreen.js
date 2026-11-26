@@ -17,6 +17,9 @@
 //   to the foreground on it. A failed first load says so, with Try again; a failed reload
 //   keeps what's shown. A 403, 404 or 409 on an action says "Something changed" and
 //   reloads (P34).
+// - The badge: the `count` of GET /notifications and of POST /notifications/read goes to
+//   the NotificationsProvider (`follow`), so opening the screen, pulling to refresh and
+//   reading set the badge without another request.
 import React, {
   useCallback,
   useContext,
@@ -33,6 +36,7 @@ import {
 } from 'react-native';
 import api from '../../api/api';
 import { AuthContext } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationsContext';
 import { useTheme } from '../../theme/ThemeProvider';
 import {
   Button,
@@ -106,6 +110,7 @@ export default function NotificationsScreen({ navigation }) {
   // The join request whose decline is being confirmed: { teamId, row }, or null.
   const [asking, setAsking] = useState(null);
   const { run: runOnce, busyKey: busy } = useBusyAction();
+  const { follow } = useNotifications();
 
   // Each time the user leaves the screen, a new visit starts: a load sent before that
   // is ignored, so nothing the user didn't see is marked as read or shown as "New".
@@ -120,8 +125,11 @@ export default function NotificationsScreen({ navigation }) {
     sent.current += 1;
     const number = sent.current;
     const thisVisit = visit.current;
+    const showCount = follow();
     try {
       const res = await api.get('/notifications');
+      // The badge takes the number even from a reply this visit no longer shows.
+      showCount(res.data.count);
       if (visit.current !== thisVisit || number < shown.current) return;
       shown.current = number;
       setData(res.data);
@@ -135,14 +143,18 @@ export default function NotificationsScreen({ navigation }) {
         });
         const upToId = Math.max(...res.data.updates.map(update => update.id));
         // A failed read shows nothing: the updates stay unread and the next load
-        // tries again.
-        api.post('/notifications/read', { upToId }).catch(() => {});
+        // tries again. Its reply has the badge's new number.
+        const showReadCount = follow();
+        api
+          .post('/notifications/read', { upToId })
+          .then(reply => showReadCount(reply?.data?.count))
+          .catch(() => {});
       }
     } catch {
       if (visit.current !== thisVisit) return;
       setStatus(current => (current === 'ready' ? 'ready' : 'error'));
     }
-  }, []);
+  }, [follow]);
 
   useEffect(() => {
     const offFocus = navigation.addListener('focus', () => {

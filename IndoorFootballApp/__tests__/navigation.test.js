@@ -22,6 +22,7 @@ jest.mock('../src/api/api', () => ({
   __esModule: true,
   default: { get: jest.fn(), post: jest.fn(), delete: jest.fn() },
   setSessionExpiredHandler: jest.fn(),
+  setTeamChangeListener: jest.fn(() => () => {}),
 }));
 
 const PLAYER = {
