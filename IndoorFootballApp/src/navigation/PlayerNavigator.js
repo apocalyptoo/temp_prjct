@@ -10,12 +10,12 @@ import { tabNavigatorProps } from './tabs';
 import { teamScreens } from './teamScreens';
 import MyTeamsScreen from '../screens/Team/MyTeamsScreen';
 import TeamFormScreen from '../screens/Team/TeamFormScreen';
-import InvitesScreen from '../screens/Player/InvitesScreen';
 import PlayerProfileScreen from '../screens/Player/PlayerProfileScreen';
 import EditProfileScreen from '../screens/Player/EditProfileScreen';
 import SettingsScreen from '../screens/Shared/SettingsScreen';
 import ChangePasswordScreen from '../screens/Shared/ChangePasswordScreen';
 import DeleteAccountScreen from '../screens/Shared/DeleteAccountScreen';
+import NotificationsScreen from '../screens/Shared/NotificationsScreen';
 
 const Tab = createBottomTabNavigator();
 const MyTeamsStack = createNativeStackNavigator();
@@ -40,14 +40,15 @@ function MyTeamsTab() {
   );
 }
 
-// Interim: the Invites screen, until the real Notifications screen (feature 5). An invite
-// opens Team detail, so the team screens are registered here too.
+// The Notifications screen (docs/features/notifications.md, section e). Invites, join
+// requests and updates open Team detail and Player detail, so the team screens are
+// registered here too.
 function NotificationsTab() {
   return (
     <NotificationsStack.Navigator>
       <NotificationsStack.Screen
-        name="Invites"
-        component={InvitesScreen}
+        name="Notifications"
+        component={NotificationsScreen}
         options={{ headerShown: false }}
       />
       {teamScreens(NotificationsStack)}

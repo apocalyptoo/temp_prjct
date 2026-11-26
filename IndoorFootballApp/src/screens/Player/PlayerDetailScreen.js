@@ -59,7 +59,7 @@ export const NO_TEAMS = 'Not in a team yet.';
 const BACK_LABELS = {
   MyTeams: 'My Teams',
   Explore: 'Explore',
-  Invites: 'Invites',
+  Notifications: 'Notifications',
 };
 function backLabel(navigation) {
   const state = navigation.getState?.();

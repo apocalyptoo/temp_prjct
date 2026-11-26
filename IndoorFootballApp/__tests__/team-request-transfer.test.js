@@ -275,15 +275,12 @@ describe('Transfer captaincy', () => {
     expect(shownText(renderer)).toContain('No other members yet.');
   });
 
-  test('the team is gone: an alert, then back', async () => {
+  test('the team is gone: back to Team detail without an alert (Team detail says so)', async () => {
     api.get.mockRejectedValue(httpError(404, 'Team not found'));
     const { navigation } = await render(TransferCaptaincyScreen, PARAMS);
 
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Team not found',
-      'This team no longer exists.',
-    );
-    expect(navigation.goBack).toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(navigation.goBack).toHaveBeenCalledTimes(1);
   });
 
   test('a failed first load offers Try again, which loads again', async () => {

@@ -9,7 +9,9 @@ import { Alert, Text as NativeText } from 'react-native';
 import ReactTestRenderer from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { AuthContext } from '../src/contexts/AuthContext';
-import TeamDetailScreen from '../src/screens/Team/TeamDetailScreen';
+import TeamDetailScreen, {
+  GONE_MESSAGE,
+} from '../src/screens/Team/TeamDetailScreen';
 import { personMeta } from '../src/screens/Team/teamCommon';
 import api from '../src/api/api';
 
@@ -167,17 +169,26 @@ describe('Loading', () => {
     const fromExplore = await render(CAPTAIN_VIEW, { below: 'Explore' });
     expect(button(fromExplore.renderer, 'Back to Explore')).toBeTruthy();
 
+    // Opened from the Notifications screen (notifications spec P29).
+    const fromNotifications = await render(CAPTAIN_VIEW, {
+      below: 'Notifications',
+    });
+    expect(
+      button(fromNotifications.renderer, 'Back to Notifications'),
+    ).toBeTruthy();
+
     // Opened from a player's teams: no short name, so just "Back".
     const fromPlayer = await render(CAPTAIN_VIEW, { below: 'PlayerDetail' });
     expect(button(fromPlayer.renderer, 'Back')).toBeTruthy();
     expect(labels(fromPlayer.renderer)).not.toContain('Back to Back');
   });
 
-  test('the team is gone: "This team no longer exists.", then back', async () => {
+  test('the team is gone: the gone message with Back, no alert (Q5)', async () => {
     api.get.mockRejectedValue(httpError(404, 'Team not found'));
-    const navigation = fakeNavigation();
+    const navigation = fakeNavigation('Notifications');
+    let renderer;
     await act(async () => {
-      ReactTestRenderer.create(
+      renderer = ReactTestRenderer.create(
         <ThemeProvider>
           <AuthContext.Provider value={{ user: PLAYER }}>
             <TeamDetailScreen
@@ -190,11 +201,33 @@ describe('Loading', () => {
     });
     await settle();
 
+    expect(GONE_MESSAGE).toBe("This team isn't available any more.");
+    expect(shownText(renderer)).toContain(GONE_MESSAGE);
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(navigation.goBack).not.toHaveBeenCalled();
+    // The back link still names the screen underneath; the Back button goes there.
+    expect(button(renderer, 'Back to Notifications')).toBeTruthy();
+    await press(renderer, 'Back');
+    expect(navigation.goBack).toHaveBeenCalledTimes(1);
+  });
+
+  test('deleted while shown: the action says so once, then the gone state', async () => {
+    const { renderer } = await render(viewAs('invited'), {
+      user: { ...PLAYER, id: 4 },
+    });
+    api.post.mockRejectedValue(httpError(404, 'Team not found'));
+    api.get.mockRejectedValue(httpError(404, 'Team not found'));
+
+    await press(renderer, 'Accept invite');
+
+    expect(Alert.alert).toHaveBeenCalledTimes(1);
     expect(Alert.alert).toHaveBeenCalledWith(
+      'Something changed',
       'Team not found',
-      'This team no longer exists.',
     );
-    expect(navigation.goBack).toHaveBeenCalled();
+    const text = shownText(renderer);
+    expect(text).toContain(GONE_MESSAGE);
+    expect(text).not.toContain('Members');
   });
 });
 

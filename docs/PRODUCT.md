@@ -89,8 +89,7 @@ The current app puts only Profile and Settings in the bottom bar, and hides ever
 
 **Language:** English only in v1.0.
 
-**Interim screens (until their Step 3 feature):** the bottom tabs exist now (ROADMAP Step 2), but some tabs show stand-ins:
-- Player **Notifications**: the Invites screen (rebuilt in the new design with team membership, feature 1). Owner **Notifications**: "No notifications yet." Both replaced by the Notifications feature.
+**Interim screens (until their Step 3 feature):** the bottom tabs exist now (ROADMAP Step 2), but one tab still shows a stand-in (the Notifications stand-ins were replaced by the Notifications screen in feature 5):
 - Admin **Reports**: "Reports arrive with moderation." Replaced by the moderation feature.
 
 **New screens in v1.0:** Notifications, Edit profile, Change password, Delete account, Blocked players, Player detail, Venue detail, report form, suspension message, Terms checkbox at registration, admin Reports, admin Pending venues (the "Waiting for review" section at the top of the admin's Venues tab, decided 2026-11-23). Team detail gains pending requests, Leave team and Transfer captaincy.

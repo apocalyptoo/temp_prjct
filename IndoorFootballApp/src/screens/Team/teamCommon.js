@@ -26,12 +26,21 @@ export const personMeta = row => {
 
 // After a failed action. A 404 (the thing is gone) or 409 (the team changed, for example
 // it's full) means the screen shows old data: say so, then refresh with onStale.
+// forbiddenIsStale: a 403 counts as old data too (the Notifications screen, P34: the
+// viewer has handed the team over, so the request is no longer theirs to answer).
 // Anything else is a plain error. The backend's message is short and human, so it's
 // shown as it is.
-export function showActionError(err, { onStale } = {}) {
+export function showActionError(
+  err,
+  { onStale, forbiddenIsStale = false } = {},
+) {
   const status = err?.response?.status;
   const message = err?.response?.data?.error;
-  if (status === 404 || status === 409) {
+  if (
+    status === 404 ||
+    status === 409 ||
+    (forbiddenIsStale && status === 403)
+  ) {
     Alert.alert('Something changed', message || 'This is no longer possible.');
     onStale?.();
     return;
@@ -41,10 +50,13 @@ export function showActionError(err, { onStale } = {}) {
 
 // Loads GET /teams/:teamId whenever the screen comes into view (React Navigation's
 // focus event also fires when it first opens).
-// status: 'loading' (first load), 'ready', or 'error' (the first load failed for a
-// reason other than 404). A failed reload keeps the content already shown. When the
-// team no longer exists, an alert says so and the screen goes back.
-export function useTeam(teamId, navigation) {
+// status: 'loading' (first load), 'ready', 'error' (the first load failed for a reason
+// other than 404) or 'gone' (a 404, even after the team was shown: the team was
+// deleted). A failed reload keeps the content already shown.
+// leaveWhenGone: a screen opened from Team detail (Transfer captaincy, Invite players)
+// just goes back instead, and Team detail then says the team isn't available any more
+// (notifications spec Q5: one message, not two).
+export function useTeam(teamId, navigation, { leaveWhenGone = false } = {}) {
   const [team, setTeam] = useState(null);
   const [status, setStatus] = useState('loading');
 
@@ -55,13 +67,13 @@ export function useTeam(teamId, navigation) {
       setStatus('ready');
     } catch (err) {
       if (err?.response?.status === 404) {
-        Alert.alert('Team not found', 'This team no longer exists.');
-        navigation.goBack();
+        setStatus('gone');
+        if (leaveWhenGone) navigation.goBack();
         return;
       }
       setStatus(current => (current === 'ready' ? 'ready' : 'error'));
     }
-  }, [teamId, navigation]);
+  }, [teamId, navigation, leaveWhenGone]);
 
   useEffect(
     () => navigation.addListener('focus', reload),

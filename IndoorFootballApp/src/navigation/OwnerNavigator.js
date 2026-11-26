@@ -9,11 +9,11 @@ import { OwnerExploreStack } from './ExploreStack';
 import { tabNavigatorProps } from './tabs';
 import MyVenueScreen from '../screens/Owner/MyVenueScreen';
 import EditVenueScreen from '../screens/Owner/EditVenueScreen';
-import OwnerNotificationsScreen from '../screens/Owner/OwnerNotificationsScreen';
 import OwnerProfileScreen from '../screens/Owner/OwnerProfileScreen';
 import SettingsScreen from '../screens/Shared/SettingsScreen';
 import ChangePasswordScreen from '../screens/Shared/ChangePasswordScreen';
 import DeleteAccountScreen from '../screens/Shared/DeleteAccountScreen';
+import NotificationsScreen from '../screens/Shared/NotificationsScreen';
 
 const Tab = createBottomTabNavigator();
 const MyVenueStack = createNativeStackNavigator();
@@ -38,13 +38,14 @@ function MyVenueTab() {
   );
 }
 
-// Interim: an empty state until the real Notifications screen (Step 3).
+// The Notifications screen (docs/features/notifications.md, section e). An owner only
+// gets venue updates, which open My Venue in its own tab, so no team screens here.
 function NotificationsTab() {
   return (
     <NotificationsStack.Navigator>
       <NotificationsStack.Screen
-        name="OwnerNotifications"
-        component={OwnerNotificationsScreen}
+        name="Notifications"
+        component={NotificationsScreen}
         options={{ headerShown: false }}
       />
     </NotificationsStack.Navigator>

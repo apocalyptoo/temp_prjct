@@ -139,11 +139,45 @@ const VENUE = {
   pricingInfo: null,
 };
 
+// GET /notifications for a player: one update about the first team.
+const PLAYER_NOTIFICATIONS = {
+  count: 1,
+  needsAction: { invites: [], joinRequests: [] },
+  updates: [
+    {
+      id: 7,
+      type: 'memberRemoved',
+      text: 'You were removed from Dhanmondi Strikers.',
+      note: null,
+      createdAt: '2026-11-20T10:00:00.000Z',
+      read: false,
+      opens: { kind: 'team', id: 1, name: 'Dhanmondi Strikers' },
+    },
+  ],
+};
+// The same for a venue owner: their venue was approved.
+const OWNER_NOTIFICATIONS = {
+  count: 1,
+  needsAction: { invites: [], joinRequests: [] },
+  updates: [
+    {
+      id: 8,
+      type: 'venueApproved',
+      text: 'Arena One was approved. Players can find it now.',
+      note: null,
+      createdAt: '2026-11-20T10:00:00.000Z',
+      read: false,
+      opens: { kind: 'venue', name: 'Arena One' },
+    },
+  ],
+};
+
 // Fake server replies, by path. Anything else gets an empty list.
 const REPLIES = {
   '/owners': { items: [VENUE], page: 1, limit: 20, total: 1 },
   '/owners/5': VENUE,
   '/teams/me': [TEAM],
+  '/notifications': PLAYER_NOTIFICATIONS,
   // The paged player list (Explore → Players).
   '/players': {
     items: [
@@ -245,6 +279,8 @@ beforeEach(() => {
   api.get.mockImplementation(path =>
     Promise.resolve({ data: REPLIES[path] ?? [] }),
   );
+  // POST /notifications/read, sent when the Notifications screen shows unread updates.
+  api.post.mockResolvedValue({ data: { count: 0 } });
 });
 
 // Lets pending fetches, their state updates and focus effects finish.
@@ -409,9 +445,18 @@ describe('Player navigator', () => {
     // …and from there there's nothing to go back to, so Android leaves the app.
     expect(navigationRef.canGoBack()).toBe(false);
 
-    // Notifications shows the invites screen; Profile has the Settings gear.
+    // Notifications: an update opens Team detail inside the Notifications tab, whose
+    // back link says "Notifications" (notifications spec P29).
     await pressTab(renderer, 'Notifications');
-    expect(current(navigationRef)).toBe('Invites');
+    expect(current(navigationRef)).toBe('Notifications');
+    await pressText(renderer, 'You were removed from Dhanmondi Strikers.');
+    expect(current(navigationRef)).toBe('TeamDetail');
+    expect(currentTab(navigationRef)).toBe('NotificationsTab');
+    expect(navigationRef.getCurrentRoute().params).toEqual({ teamId: 1 });
+    await pressLabel(renderer, 'Back to Notifications');
+    expect(current(navigationRef)).toBe('Notifications');
+
+    // Profile has the Settings gear.
     await pressTab(renderer, 'Profile');
     expect(current(navigationRef)).toBe('PlayerProfile');
     const gear = renderer.root.findAll(
@@ -649,7 +694,7 @@ describe('Invite players (explore spec P29)', () => {
 });
 
 describe('Owner navigator', () => {
-  test('tabs, Explore lists, Profile, Settings and the interim screens', async () => {
+  test('tabs, Explore lists, Notifications, Profile and Settings', async () => {
     const { renderer, navigationRef } = await renderNavigator(
       OwnerNavigator,
       OWNER,
@@ -718,13 +763,27 @@ describe('Owner navigator', () => {
     await goBack(navigationRef);
     expect(current(navigationRef)).toBe('TeamDetail');
 
+    // Notifications: no "Needs your action" for an owner (P23); a venue update opens
+    // My Venue in its own tab (P22).
+    api.get.mockImplementation(path =>
+      Promise.resolve({
+        data:
+          path === '/notifications' ? OWNER_NOTIFICATIONS : REPLIES[path] ?? [],
+      }),
+    );
     await pressTab(renderer, 'Notifications');
-    expect(current(navigationRef)).toBe('OwnerNotifications');
-    expect(
-      renderer.root
-        .findAllByType(NativeText)
-        .some(node => node.props.children === 'No notifications yet.'),
-    ).toBe(true);
+    expect(current(navigationRef)).toBe('Notifications');
+    const ownerTexts = renderer.root
+      .findAllByType(NativeText)
+      .map(node => node.props.children);
+    expect(ownerTexts).toContain('Updates');
+    expect(ownerTexts).not.toContain('Needs your action');
+    await pressText(
+      renderer,
+      'Arena One was approved. Players can find it now.',
+    );
+    expect(current(navigationRef)).toBe('MyVenue');
+    expect(currentTab(navigationRef)).toBe('MyVenueTab');
 
     // Profile: the account, with the Settings gear.
     await pressTab(renderer, 'Profile');

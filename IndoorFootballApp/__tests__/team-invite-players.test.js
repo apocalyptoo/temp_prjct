@@ -259,6 +259,18 @@ describe('The list', () => {
     expect(ids(second.renderer)).toEqual([5, 6]);
   });
 
+  test('the team is gone: back to Team detail without an alert (Team detail says so)', async () => {
+    api.get.mockImplementation(async path =>
+      path === CANDIDATES
+        ? listPage({})
+        : Promise.reject(httpError(404, 'Team not found')),
+    );
+    const { navigation } = await render();
+
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(navigation.goBack).toHaveBeenCalledTimes(1);
+  });
+
   test('a row opens Player detail; its button does not', async () => {
     const { renderer, navigation } = await render();
     await press(renderer, 'Fahim Rahman, Defender · Mirpur 10');

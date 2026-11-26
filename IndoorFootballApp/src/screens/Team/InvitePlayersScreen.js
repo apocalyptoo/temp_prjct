@@ -20,7 +20,9 @@ export default function InvitePlayersScreen({ route, navigation }) {
   const { teamId, teamName } = route.params;
   const { spacing } = useTheme();
   // The team, for the member count and whether it's full.
-  const { team, status, reload, retry } = useTeam(teamId, navigation);
+  const { team, status, reload, retry } = useTeam(teamId, navigation, {
+    leaveWhenGone: true,
+  });
   // The id of the player whose invite runs (one at a time).
   const { run, busy, isBusy } = useBusyAction();
 

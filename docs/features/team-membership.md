@@ -222,7 +222,7 @@ Layout from the mockup: `BackLink`; pills; `title` (team name); description (`bo
 - **Requested view:** a "Your request" card ("Waiting for the captain", plus the message if any) with **Cancel request** (secondary), then Members.
 - **Visitor view (other player):** **Request to join** (primary, full width; disabled with "Team is full (15/15)" when full), then Members.
 - **Venue owner view:** pills, name, description, Members. No buttons.
-- **Team gone:** when the load returns 404, an alert "This team no longer exists." and the screen goes back.
+- **Team gone:** when the load returns 404, an alert "This team no longer exists." and the screen goes back. _Replaced 2026-11-26 (notifications spec Q5, built in F5.3): Team detail shows "This team isn't available any more." with Back, and Transfer captaincy and Invite players go back to it without an alert._
 
 ### Request to join (new, small screen)
 
@@ -274,7 +274,7 @@ The dialog's confirm button shows the loading state while the request runs, and 
 
 | Case | Backend | App |
 |---|---|---|
-| The team is deleted while you're looking at it | Any call: 404 "Team not found" | Alert "This team no longer exists.", go back; My Teams reloads on focus |
+| The team is deleted while you're looking at it | Any call: 404 "Team not found" | Alert "This team no longer exists.", go back; My Teams reloads on focus. _Since F5.3: Team detail's gone state instead (notifications spec Q5)._ |
 | You're removed while looking at the team | The next load gives `viewerState: none` | The screen shows the visitor view |
 | Request when already invited | Accepts the invite (D3), with the full check | Shows the member view |
 | Invite when they've already asked to join | Approves the request (D2), with the full check | The invited player disappears from the Invite list on reload; they're now a member |

@@ -25,13 +25,13 @@ Every account has exactly one role, chosen when the account is created.
 
 | Role | Who it is | What they can do today |
 |---|---|---|
-| **Player** | Someone who plays | Sign up, log in, see and edit their profile, change their password, delete their account; create a team, edit or delete it, invite players, remove members, hand over the captaincy, leave a team; accept or decline invites; ask to join a team (and cancel), and as captain approve or decline requests; browse all teams, players and venues |
-| **Owner** | Someone who runs an indoor venue | Sign up, log in, fill in and edit their venue listing, see their account, change their password, delete their account; browse all teams (read-only), players and venues |
+| **Player** | Someone who plays | Sign up, log in, see and edit their profile, change their password, delete their account; create a team, edit or delete it, invite players, remove members, hand over the captaincy, leave a team; accept or decline invites; ask to join a team (and cancel), and as captain approve or decline requests; see what needs their action and their updates on the Notifications screen; browse all teams, players and venues |
+| **Owner** | Someone who runs an indoor venue | Sign up, log in, fill in and edit their venue listing, see their account, change their password, delete their account; see updates about their venue; browse all teams (read-only), players and venues |
 | **Admin** | The person running the app | See counts (users, players, owners, admins, teams), list and delete users, teams and venues (deleting a venue deletes the owner's account; before deleting an account, the dialog says what happens to its teams and venue). Review venues: approve them, leave a note for the owner, move a live venue back to review. The admin screens can't delete the admin's own account or any admin account |
 
 Admin accounts can't be created from the app. They're made with a script (see [section 8](#8-configuration)).
 
-Still missing: in-app notifications, reports and blocking, venue review and search. See [ROADMAP.md](ROADMAP.md), Phase 4.
+Still missing: the badge on the Notifications tab, reports and blocking, venue review and search. See [ROADMAP.md](ROADMAP.md), Phase 4.
 
 ---
 
@@ -234,7 +234,7 @@ The tables are described in `backend/prisma/schema.prisma`. Changes to that file
 - **OwnerProfile:** a venue owner's venue name, and optional phone, address, area, website, description, opening hours and pricing info. A new owner signs up with only the venue name and fills in the rest later. It also records whether an admin has approved the venue (and when), and the admin's note to the owner while it waits for review. Each owner has exactly one.
 - **Team:** a team's name, optional description, optional **area** (where it usually plays, like "Mirpur"), its **captain** and when it was created. The creator becomes the captain. The captain is recorded in one place only, so a team can never have two captains or none.
 - **TeamMember:** links a player to a team. Its **status** is either *pending* (invited, or asked to join, but not in yet) or *accepted* (in the team). It also records how it started (an invite, a join request, or the captain's own row), when it was created, when the player actually joined, and a join request's optional message to the captain. Only accepted rows count as membership.
-- **Notification:** one update for one user ("You were removed from Alpha FC"): what happened, the names as they were at that moment, and whether it has been read. One helper adds these rows and keeps each user's newest 50 (see "Updates" below). The team actions, the deletions and the admin's venue decisions create them, and the backend can send them; the app doesn't show them yet.
+- **Notification:** one update for one user ("You were removed from Alpha FC"): what happened, the names as they were at that moment, and whether it has been read. One helper adds these rows and keeps each user's newest 50 (see "Updates" below). The team actions, the deletions and the admin's venue decisions create them, and the app shows them on the Notifications screen.
 
 Admins have a User row but no profile. Every field, enum and migration: [TECHNICAL.md section 7](TECHNICAL.md#7-data-model).
 
@@ -362,8 +362,8 @@ Because the screen set swaps as soon as `user` changes, logging in or out instan
 Each logged-in role gets a **bottom tab bar**, and **each tab has its own stack**. So when you open a team from My Teams, Team detail is put on top of the My Teams stack and the tab bar stays visible. Each tab remembers where you were, and tapping the tab you're already on takes you back to its first screen.
 
 What each tab holds today:
-- **Player:** My Teams (your teams and join requests → Team detail → invite players, hand over the captaincy, edit team, or tap a person to open their Player detail; create team), Explore, Notifications (for now the Invites screen, which opens Team detail), Profile (your details with Edit profile, and a gear that opens Settings: Edit profile, Change password, the Terms of Use and Privacy Policy pages, Log out and Delete account).
-- **Venue owner:** My Venue (the listing, with Edit venue), Explore (teams read-only, players and venues), Notifications (for now just "No notifications yet."), Profile (the account: venue name, "Venue owner" and email, a link to My Venue, and the gear to Settings, where **Edit venue** replaces Edit profile).
+- **Player:** My Teams (your teams and join requests → Team detail → invite players, hand over the captaincy, edit team, or tap a person to open their Player detail; create team), Explore, Notifications (what needs your action and your updates; see [Notifications](#notifications)), Profile (your details with Edit profile, and a gear that opens Settings: Edit profile, Change password, the Terms of Use and Privacy Policy pages, Log out and Delete account).
+- **Venue owner:** My Venue (the listing, with Edit venue), Explore (teams read-only, players and venues), Notifications (updates about your venue), Profile (the account: venue name, "Venue owner" and email, a link to My Venue, and the gear to Settings, where **Edit venue** replaces Edit profile).
 - **Admin:** Dashboard (how many venues are waiting for review, which opens the Venues tab, and the totals), Reports (for now just "Reports arrive with moderation."), Venues (the venue review, see "Venue review"), Users and Teams (the old management screens).
 - **Explore** (players and owners) is one screen with three sections, Teams, Players and Venues (see "Explore").
 
@@ -460,7 +460,7 @@ Tapping a venue opens **Venue detail**: the listing without empty rows. Tapping 
 ### Team invites
 
 1. A captain opens their team and taps **Invite players**. The screen lists the players who aren't already in the team, invited or asking to join, with the same search and filters as Explore → Players (name, area and position), a page at a time; the backend does the searching, so the app never downloads every player. Tapping **Invite** turns that row's button into "Invited" and the captain can go on inviting; tapping the player's name opens their page. The title and the member count stay at the top, and when the team is full every Invite is greyed out.
-2. The invited player sees the invite on the **Notifications** tab (for now the Invites screen): the team name, who invited them and how full the team is, with **Accept** and **Decline**. Tapping the card opens the team first.
+2. The invited player sees the invite on the **Notifications** tab, under "Needs your action": the team name, who invited them and how full the team is, with **Accept** and **Decline**. Tapping the card opens the team first.
 3. Accepting makes them a member, unless the team is full (15 members). Declining removes the invite.
 4. If the player had already asked to join, the captain's invite simply approves their request, because both sides agreed.
 
@@ -470,7 +470,7 @@ The captain can also cancel an invite, remove a member or delete the team, each 
 
 1. A player opens a team (from Explore → Teams) and taps **Request to join**, with an optional message to the captain (up to 150 characters).
 2. The request shows on the player's **My Teams** under "Requests sent", where they can cancel it.
-3. The captain sees "2 join requests waiting for you" on My Teams, and the requests with their messages on Team detail, where they approve or decline each one. A full team can't approve more.
+3. The captain sees "2 join requests waiting for you" on My Teams, and the requests with their messages on Team detail and on the Notifications tab, where they approve or decline each one (the same rows and the same "Decline …'s request?" question in both places). A full team can't approve more.
 4. If the captain had already invited the player, asking to join simply accepts the invite.
 
 The message is private: only the captain, the player who sent it and the admin ever see it. A player can never approve their own request: every membership row records whether it began as an invite or a request, and only invites can be accepted by the player.
@@ -486,7 +486,15 @@ Team detail shows one team as the viewer sees it: its name, its area (if it has 
 - **Any other player:** **Request to join**.
 - **Venue owner:** the same team, read-only.
 
-Destructive or important actions ask first, in a dialog that says exactly what will happen ("Remove Tanvir Ahmed from Dhanmondi Strikers?"). A captain with other members has to hand over the captaincy before leaving; a captain who's alone deletes the team by leaving. If the team changed in the meantime (for example it filled up), the screen says "Something changed" and reloads. Tapping anyone in the team (a member, a join request or an invite) opens their **Player detail**. **Edit team** opens the same form as Create team, filled in. A captain whose team has no area yet sees "No area yet." with an **Add area** link to that form, because a team without an area can't be found with the area filter.
+Destructive or important actions ask first, in a dialog that says exactly what will happen ("Remove Tanvir Ahmed from Dhanmondi Strikers?"). A captain with other members has to hand over the captaincy before leaving; a captain who's alone deletes the team by leaving. If the team changed in the meantime (for example it filled up), the screen says "Something changed" and reloads. Tapping anyone in the team (a member, a join request or an invite) opens their **Player detail**. If the team has been deleted, the screen says "This team isn't available any more." with a Back button, wherever it was opened from (for example an old update on the Notifications tab); Invite players and Transfer captaincy simply go back to it. **Edit team** opens the same form as Create team, filled in. A captain whose team has no area yet sees "No area yet." with an **Add area** link to that form, because a team without an area can't be found with the area filter.
+
+### Notifications
+
+One **Notifications** screen for players and venue owners (the admin has none), loaded each time it comes into view, on pull to refresh, and when the app comes back to the front while it's open.
+
+- **Needs your action** (players only): your invites, with **Accept** and **Decline**, and, if you're a captain, one card per team with its join requests, approve and decline. These are the same pending invites and requests as everywhere else, so answering one here or on Team detail is the same thing. If something changed meanwhile (the invite was cancelled, the team filled up, you handed the team over), the screen says "Something changed" and reloads.
+- **Updates**, newest first: what happened to you ("Your request to join Alpha FC was approved."), when ("5 min ago", "Yesterday", "12 Nov"), and for a venue moved back to review, the admin's note. The sentences come from the backend, so the app shows them as they are. Tapping one opens the team, the player or, for venue updates, My Venue; a deleted team says it isn't available any more.
+- **Read and unread:** an update that hadn't been seen has a "New" pill. As soon as the screen shows it, the app tells the backend it's read (up to the newest one shown, so an update that arrives a moment later stays unread). The pill stays while you're on the screen, also after a refresh or an action, and goes once you leave it for another screen or tab; putting the app in the background doesn't count as leaving.
 
 ### Explore
 

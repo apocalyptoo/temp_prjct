@@ -5,6 +5,8 @@
 // player pages goes back one step at a time (P30).
 // The backend says where the viewer stands (viewerState: captain, member, invited,
 // requested or none) and sends join requests and pending invites only to the captain.
+// A 404, even after the team was shown, means it was deleted: "This team isn't available
+// any more." with Back, wherever it was opened from (docs/features/notifications.md, Q5).
 import React, { useContext, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import api from '../../api/api';
@@ -15,7 +17,7 @@ import {
   Button,
   Card,
   ConfirmDialog,
-  Divider,
+  EmptyState,
   Icon,
   IconButton,
   ListRow,
@@ -36,12 +38,20 @@ import {
   showActionError,
   useTeam,
 } from './teamCommon';
+import {
+  JoinRequestsCard,
+  approveKey,
+  approveRequest,
+  declineRequestDialog,
+} from './joinRequests';
+
+export const GONE_MESSAGE = "This team isn't available any more.";
 
 // The back link names the screen underneath (the mockup's "‹ My Teams").
 const BACK_LABELS = {
   MyTeams: 'My Teams',
   Explore: 'Explore',
-  Invites: 'Invites',
+  Notifications: 'Notifications',
 };
 function backLabel(navigation) {
   const state = navigation.getState?.();
@@ -101,14 +111,7 @@ function dialogFor(kind, team, row) {
         goBack: true,
       };
     case 'declineRequest':
-      return {
-        title: `Decline ${name}'s request?`,
-        message: 'They can ask to join again later.',
-        confirmTitle: 'Decline',
-        destructive: true,
-        request: () =>
-          api.post(`/teams/${team.id}/requests/${row.userId}/reject`),
-      };
+      return declineRequestDialog(team.id, row);
     case 'cancelInvite':
       return {
         title: `Cancel the invite to ${name}?`,
@@ -169,7 +172,13 @@ export default function TeamDetailScreen({ route, navigation }) {
       style={{ gap: spacing.detailGap, paddingBottom: spacing.xxxl }}
     >
       <BackLink label={backLabel(navigation)} onPress={navigation.goBack} />
-      {status !== 'ready' ? (
+      {status === 'gone' ? (
+        <EmptyState
+          message={GONE_MESSAGE}
+          actionTitle="Back"
+          onAction={navigation.goBack}
+        />
+      ) : status !== 'ready' ? (
         <TeamLoadState status={status} onRetry={retry} />
       ) : (
         <TeamContent
@@ -319,10 +328,12 @@ function TeamContent({ team, isPlayer, busy, run, ask, navigation }) {
 
       {state === 'captain' && team.joinRequests?.length > 0 ? (
         <JoinRequestsCard
-          team={team}
+          requests={team.joinRequests}
           busy={busy}
-          run={run}
-          ask={ask}
+          onApprove={row =>
+            run(approveKey(team.id, row), () => approveRequest(team.id, row))
+          }
+          onDecline={row => ask('declineRequest', row)}
           onOpen={openPlayer}
         />
       ) : null}
@@ -436,71 +447,7 @@ function SideBySide({ children }) {
   return <View style={[styles.wrapRow, { gap: spacing.md }]}>{children}</View>;
 }
 
-// The captain's join requests, oldest first, each with its message under the row.
-// Approving needs no confirmation; declining asks first (ask).
-function JoinRequestsCard({ team, busy, run, ask, onOpen }) {
-  const { spacing } = useTheme();
-  const requests = team.joinRequests;
-  return (
-    <Card>
-      <SectionHeader
-        title="Join requests"
-        right={<Pill label={String(requests.length)} />}
-      />
-      {requests.map((row, index) => {
-        const name = personName(row);
-        const last = index === requests.length - 1;
-        const key = `approve-${row.userId}`;
-        return (
-          <View key={row.userId}>
-            {/* The row draws no line of its own, so the message sits above the line. */}
-            <ListRow
-              name={name}
-              meta={personMeta(row)}
-              onPress={() => onOpen(row)}
-              last
-              actions={
-                <View style={[styles.row, { gap: spacing.sm }]}>
-                  <IconButton
-                    variant="reject"
-                    accessibilityLabel={`Decline ${name}`}
-                    disabled={busy !== null}
-                    onPress={() => ask('declineRequest', row)}
-                  />
-                  <IconButton
-                    variant="approve"
-                    accessibilityLabel={`Approve ${name}`}
-                    disabled={busy !== null}
-                    onPress={() =>
-                      run(key, () =>
-                        api.post(
-                          `/teams/${team.id}/requests/${row.userId}/approve`,
-                        ),
-                      )
-                    }
-                  />
-                </View>
-              }
-            />
-            {row.message ? (
-              <Text
-                variant="bodySmall"
-                color="textMuted"
-                style={{ paddingBottom: spacing.md }}
-              >
-                {`“${row.message}”`}
-              </Text>
-            ) : null}
-            {last ? null : <Divider />}
-          </View>
-        );
-      })}
-    </Card>
-  );
-}
-
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center' },
   wrapRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
   grow: { flexGrow: 1, flexBasis: 0 },
   shrink: { flexShrink: 1 },

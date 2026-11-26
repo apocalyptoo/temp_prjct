@@ -25,7 +25,9 @@ import {
 export default function TransferCaptaincyScreen({ route, navigation }) {
   const { teamId, teamName } = route.params;
   const { spacing } = useTheme();
-  const { team, status, reload, retry } = useTeam(teamId, navigation);
+  const { team, status, reload, retry } = useTeam(teamId, navigation, {
+    leaveWhenGone: true,
+  });
   const [picked, setPicked] = useState(null); // the member row being confirmed
   const { run, busy: saving } = useBusyAction();
 
