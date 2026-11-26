@@ -31,7 +31,7 @@ Every account has exactly one role, chosen when the account is created.
 
 Admin accounts can't be created from the app. They're made with a script (see [section 8](#8-configuration)).
 
-Still missing: the badge on the Notifications tab, reports and blocking, venue review and search. See [ROADMAP.md](ROADMAP.md), Phase 4.
+Still missing: reports, blocking and the rest of the moderation work. See [ROADMAP.md](ROADMAP.md), Phase 4.
 
 ---
 

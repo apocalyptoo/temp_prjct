@@ -60,7 +60,7 @@ const privacyPage = legalPage({
       items: [
         'Your email address, and your password in a scrambled form (a hash) that can\'t be turned back into the password',
         'For players: your name, phone number and position, and, if you add them, your height, weight and area',
-        'For venue owners: your venue listing (venue name, phone, address, website and description)',
+        'For venue owners: your venue listing (venue name, phone, address, area, website, opening hours, pricing info and description)',
         'Your teams, and the invites and join requests you send or receive',
         'Your notifications: the newest 50 updates about your teams or your venue, with the names of the teams, players and venues they mention',
       ],
