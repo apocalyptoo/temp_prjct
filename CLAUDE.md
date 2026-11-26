@@ -6,6 +6,7 @@ Guidance for Claude Code in this repository. Kept short on purpose: it's loaded 
 
 - I'm a beginner. After every change, explain what you changed and why in plain language, before I commit.
 - Keep changes small: one task per change. Don't refactor unrelated code.
+- If you notice anything outside the task (a bug, an outdated comment or doc, unused code or files, a risk, an inconsistency, a better alternative), list it at the end of your summary under "Noticed but not changed", with where it is and why it matters. If there's nothing, say "Nothing noticed".
 - The old code (a university project) is not a constraint: where a task touches code that conflicts with `docs/PRODUCT.md`, `docs/DESIGN.md` or `docs/DECISIONS.md`, replace it properly. Still task by task, with tests and small commits.
 - Bugs: reproduce first, then fix, then prove it's fixed.
 - Write or update tests for anything you change in the backend.
