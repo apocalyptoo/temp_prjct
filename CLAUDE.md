@@ -52,6 +52,7 @@ npx prisma generate          # after any schema.prisma change
 npx prisma migrate deploy    # apply migrations; `npx prisma migrate dev --name <name>` creates one (ask first)
 npm run dev                  # nodemon on src/server.js, port 4000; ignores tests/
 node scripts/createAdmin.js  # create the admin or change its password (ADMIN_EMAIL, ADMIN_PASSWORD)
+node scripts/seedDevAccounts.js  # DEV ONLY, local DB only, temporary: test accounts aa/ab/bb/ad for the app's Quick login (--fresh, --remove)
 npm test                     # node:test suite in tests/ (needs `npm run dev` running and the local DB)
 node --test tests/auth-tokens.test.js   # one test file
 ```

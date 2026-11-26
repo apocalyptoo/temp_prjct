@@ -165,6 +165,7 @@ Rule: write a short spec in `docs/features/` before building each feature below.
 
 ## Phase 5: Deployment readiness
 
+- [ ] Before release: run seedDevAccounts.js --remove on any database that has the test accounts, and confirm the quick login buttons don't appear in the release build.
 - [ ] Review finding 1: the final `applicationId`, app name and launcher icon, and a release keystore with Play App Signing ([review](reviews/2026-11-23-independent-review.md))
 - [ ] Review finding 2: Play Console: developer account, Data safety form, content rating, app access instructions, privacy policy URL, the closed test. The closed test starts only when no old screen is reachable by players or owners (finding 9) and moderation and account deletion are built ([review](reviews/2026-11-23-independent-review.md))
 - [ ] Review finding 8: a crash reporter in the app (a new package, needs my approval) and a minimum-version check ([review](reviews/2026-11-23-independent-review.md))

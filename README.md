@@ -39,6 +39,7 @@ From `backend/`:
    ```bash
    node scripts/createAdmin.js
    ```
+   Optional, **development only and temporary** (local database only): `node scripts/seedDevAccounts.js` creates four test accounts for the app's "Quick login" buttons, which only development builds show on the Login screen: Player A (`aa` / `aa`), Player B (`ab` / `ab`), a venue owner with a live venue (`bb` / `bb`) and a second, test-only admin (`ad` / `ad`). It refuses to run unless `DATABASE_URL` points to `localhost` or `127.0.0.1`. Running it again resets them; `--fresh` also removes their teams, memberships and notifications; `--remove` deletes them. Create your real admin (step 4) first: `createAdmin.js` won't create a second admin while `ad` exists.
 5. Start the server (it restarts when code changes, but not for changes in `tests/`; port 4000 by default):
    ```bash
    npm run dev

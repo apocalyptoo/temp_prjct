@@ -19,6 +19,12 @@ import { useBusyAction } from '../../hooks/useBusyAction';
 
 const LOGO = require('../../../assets/icons/ball.png');
 
+// Development builds only (temporary): one-tap logins with the test accounts from
+// backend/scripts/seedDevAccounts.js. Required inside the __DEV__ check, like the UI
+// gallery in AuthStack.js: a release build replaces __DEV__ with false and drops the
+// file before bundling, so neither the row nor its test passwords are in the app.
+const QuickLogin = __DEV__ ? require('../Dev/QuickLogin').default : null;
+
 export default function LoginScreen({ navigation }) {
   const { login, resendVerification } = useContext(AuthContext);
   const { spacing, sizes } = useTheme();
@@ -158,6 +164,7 @@ export default function LoginScreen({ navigation }) {
           style={styles.center}
         />
       ) : null}
+      {QuickLogin ? <QuickLogin /> : null}
     </Screen>
   );
 }

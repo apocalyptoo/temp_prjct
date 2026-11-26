@@ -131,7 +131,8 @@ backend/
 │   ├── schema.prisma    the database tables, described in code
 │   └── migrations/      the history of changes to the tables
 ├── scripts/
-│   └── createAdmin.js   creates the admin account
+│   ├── createAdmin.js   creates the admin account
+│   └── seedDevAccounts.js  development only: test accounts for the app's Quick login
 └── tests/               automated tests (run with `npm test` while the server is running)
 ```
 
@@ -333,7 +334,7 @@ Screens are built from ready-made pieces in `src/components/ui/`, so each piece 
 
 They take their colours, fonts and sizes only from the theme, and a test fails if a file in the folder contains a colour code or a font name, so that rule can't slip. What each one takes: [TECHNICAL.md 8.3](TECHNICAL.md#83-shared-components).
 
-**UI gallery (development only).** In a development build, the Login screen has a small "UI gallery" link that opens a screen showing every component in its states. Release builds don't contain it at all.
+**UI gallery (development only).** In a development build, the Login screen has a small "UI gallery" link that opens a screen showing every component in its states. Release builds don't contain it at all. The same goes for **Quick login** (temporary): four buttons under it that log in with test accounts in one tap (two players, a venue owner and a test admin), made on the local database by `node scripts/seedDevAccounts.js` in `backend/`. That script refuses to run on any database that isn't on this computer, because the accounts have weak passwords; before release it removes them with `--remove` (ROADMAP Phase 5).
 
 ### Icons
 
@@ -540,7 +541,7 @@ See backend/.env.example.
 
 It names the setting and the reason but never prints the value, because several settings are secrets. Without this check, a missing setting would only show up later, for example as a crash the first time an email is sent. The rule for each setting: [TECHNICAL.md section 2](TECHNICAL.md#2-backend-settings).
 
-**The admin account** comes from `node scripts/createAdmin.js`, run in `backend/`. It reads `ADMIN_EMAIL` and `ADMIN_PASSWORD` and creates the admin, or, if the admin already exists, changes its password (that's how you change the admin password). It never prints the password, and there's only ever one admin.
+**The admin account** comes from `node scripts/createAdmin.js`, run in `backend/`. It reads `ADMIN_EMAIL` and `ADMIN_PASSWORD` and creates the admin, or, if the admin already exists, changes its password (that's how you change the admin password). It never prints the password, and there's only ever one real admin (the development-only test admin from `seedDevAccounts.js` is the one exception, on the local database).
 
 The mobile app has no config file. Its backend address lives in `IndoorFootballApp/src/api/api.js`.
 
