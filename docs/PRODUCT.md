@@ -329,6 +329,7 @@ _Implementation note:_ the owner profile needs new fields (area, opening hours, 
 
 *No update:*
 - A player cancels their join request. It just disappears from the captain's "Needs your action". (Decided 2026-11-26.)
+- Invites and join requests cancelled because one player blocked the other (see "Administration and moderation"). (Decided 2026-11-26.)
 
 **How it looks**
 - One **Notifications** screen with two sections: **"Needs your action"** (invites and requests, with accept/approve and decline buttons right there) and **"Updates"** (newest first).
@@ -349,12 +350,13 @@ _Implementation note:_ "Needs your action" items come from pending invites and j
 
 ### Administration and moderation (v1.0)
 
-**Why this is required:** player profiles, team names and descriptions, and venue listings are user-generated content (UGC). Google Play requires apps with UGC to have Terms of Use that users accept before creating content, in-app reporting of users and content, and in-app blocking of users.
+**Why this is required:** player profiles, team names and descriptions, and venue listings are user-generated content (UGC). Google Play requires apps with UGC to have Terms of Use that users accept before creating content, in-app reporting of users and content, and in-app blocking of users. Blocking is required because the app also has one-to-one interactions: invites and join requests, which can carry a message. So blocking stays in v1.0 (decided 2026-11-26).
 
 **Admin powers**
 - Existing: stats, view and delete users, view and delete teams, view venues.
 - **Approve venues** (see "Venue owners").
 - **Suspend and unsuspend users.** A suspended user can't log in and doesn't appear in discovery or lists, but their data is kept. At login they see: "Your account has been suspended. Contact [support email]."
+- **A suspended captain's team** stays listed and keeps its members, but takes no new members: no join requests and no invites until the admin unsuspends or deletes the captain. (Decided 2026-11-26.)
 - **Review and act on reports** (see below).
 - The admin can't edit other users' text in v1.0. Offensive content is handled by deleting the team or suspending or deleting the user.
 - **One admin account**, created with the script. There's no way to promote users to admin inside the app.
@@ -372,6 +374,8 @@ _Implementation note:_ "Needs your action" items come from pending invites and j
 **Blocking**
 - A **Block** button on player profiles.
 - When A blocks B: B can't invite A or request to join A's teams, and A can't invite B. Neither sees the other in player lists or search.
+- "A's teams" are the teams A **captains**. A team where A is only a member stays open to B; its captain decides. (Decided 2026-11-26.)
+- When A blocks B, any **pending invites or join requests between them** (in either direction, for teams either of them captains) are **cancelled silently**: no notification for either side. (Decided 2026-11-26.)
 - If they're already on the same team, nothing changes automatically. The captain can still remove someone.
 - Blocking is silent: B isn't told. A can unblock from **Settings → Blocked players**.
 
@@ -383,7 +387,7 @@ _Implementation note:_ "Needs your action" items come from pending invites and j
 **Support email**
 - One dedicated support email address (not the owner's personal email). It's shown on the suspension message, in Settings, and on the Play Store listing.
 
-_Implementation note:_ suspension (a flag on the user), reports and blocks each need schema additions, which need approval.
+_Implementation note:_ suspension (a flag on the user), reports and blocks each need schema additions, which need approval. Feature spec: [features/moderation.md](features/moderation.md).
 
 ### Challenges and results (v1.1, approved now, built later)
 

@@ -560,3 +560,23 @@ The owner approved `docs/features/notifications.md`: its five defaults (D1–D5)
 
 **Alternatives considered:** keeping deleted players' names, or replacing them with "A player" (rejected); no update, or a named one, for a deleted member (rejected); no update when the last member leaves (rejected); "{venue} is live" (rejected); keeping Team detail's alert (rejected); the venue update outside the transaction (rejected); hiding the name of a team the admin deletes (rejected for now).
 **Consequence:** the backend tasks (F5.1, F5.2) build exactly the data and API in the spec. The `notifications` migration still needs the owner's approval when it's created.
+
+### 2026-11-26: Moderation details
+The owner's decisions for the moderation feature (Phase 4, Step 3, feature 6), made before its spec. The rules are in `docs/PRODUCT.md` under "Administration and moderation".
+- **Blocking stays in v1.0.** Google Play's User Generated Content policy requires in-app blocking for apps with public user content and one-to-one interactions. ConnectArena has both: public profiles, team names and venue listings, and invites and join requests (which can carry a message).
+- **"B can't request to join A's teams" means the teams A captains.** A team where A is only a member stays open to B; its captain decides.
+- **When A blocks B, any pending invites or join requests between them are cancelled silently**: in either direction, for teams either of them captains, with no notification for either side.
+- **When a team's captain is suspended, the team stays listed and its members stay, but it takes no new members**: no join requests and no invites until the admin unsuspends or deletes the captain.
+
+**Why:**
+- Without blocking the app can't meet the Play policy, and the closed test needs it in the build (review of 2026-11-23, finding 2).
+- Blocking protects A from B; it shouldn't let A close a team that belongs to someone else. That team's captain can judge B for themselves.
+- A pending invite or request left in place could still be accepted or approved, bringing the two together after the block, and would keep showing each other's names. Cancelling without a notification keeps blocking silent (telling blocked users was rejected on 2026-11-18).
+- Deleting or hiding the team would punish its members for their captain. But nobody can answer requests while the captain can't log in, and new players shouldn't join a team whose captain was suspended.
+
+**Alternatives considered:** dropping blocking from v1.0 (rejected: Play policy), blocking B from every team A is in (rejected: A would decide for other captains), keeping or hiding the pending items instead of cancelling them (rejected), hiding a suspended captain's team (rejected: unfair to its members), letting it keep taking members (rejected).
+**Consequence:** the feature spec is `docs/features/moderation.md`; everything in it beyond these four decisions and the rules already in PRODUCT.md is a proposal until the owner approves it. Reports, blocks and suspension are schema changes that need approval in the backend task.
+
+### 2026-11-26: Moderation feature spec approved
+The owner approved `docs/features/moderation.md`: its five defaults (D1–D5), all of Claude Code's proposals (P1–P40, listed in the spec's section i), and its open questions Q1–Q11 as recommended in section h. In short: venue owners can't block; a blocked player still sees the blocker's page, without an invite card; "your own team" for reporting is a team you captain; reports go with a deleted user or team; suspended members stay visible in their own teams; the admin Teams tab is rebuilt and the Venues list is paged in the approved order; blocks apply in both directions; no captaincy for a suspended member unless nobody else is left; a deleted team keeps its name in the update; a suspended player's pending join requests are hidden and can't be approved.
+**Consequence:** the backend tasks (F6.1–F6.4) build exactly the data and API in the spec. The `moderation` migration still needs the owner's approval when it's created. ROADMAP Phase 5's support email item now only creates the address and makes `SUPPORT_EMAIL` required.
