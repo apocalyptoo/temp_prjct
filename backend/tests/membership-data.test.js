@@ -108,8 +108,8 @@ describe('Replies', () => {
       for (const row of [...found.members, ...found.pendingInvites]) assertReplyRow(row, path);
     }
 
-    const invite = (await get('/players/invites', invitee.jwt)).find((i) => i.teamId === team.id);
-    assertReplyRow(invite, '/players/invites');
+    const invite = (await get('/notifications', invitee.jwt)).needsAction.invites.find((i) => i.teamId === team.id);
+    assertReplyRow(invite, '/notifications');
   });
 });
 

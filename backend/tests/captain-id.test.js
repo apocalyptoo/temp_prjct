@@ -87,7 +87,7 @@ describe('Team replies', () => {
   });
 });
 
-describe('GET /players/invites', () => {
+describe('GET /notifications: invites', () => {
   test('has team.captain (id and name only) and no team.owner', async (t) => {
     const captain = await createLoggedInUser(t, {
       role: 'PLAYER',
@@ -97,13 +97,12 @@ describe('GET /players/invites', () => {
     const team = await createTeam(captain, 'Invite Captain Test');
     await postJson(`/teams/${team.id}/invite`, { userId: invitee.user.id }, captain.jwt);
 
-    const invites = await get('/players/invites', invitee.jwt);
+    const { invites } = (await get('/notifications', invitee.jwt)).needsAction;
     const invite = invites.find((i) => i.teamId === team.id);
 
     assert.ok(invite, 'the invite should be listed');
     assert.deepEqual(invite.team.captain, { id: captain.user.id, name: 'Captain Karim' });
     assert.equal('owner' in invite.team, false);
-    assert.equal(invite.team.captainId, captain.user.id);
     assert.equal('ownerId' in invite.team, false);
     assert.equal('role' in invite, false, 'the invite row has no role');
   });

@@ -1,12 +1,7 @@
 import { prisma } from '../db.js';
 import { viewerFrom, toVisibleUser, isAcceptedTeammate } from '../utils/visibility.js';
 import { parseId } from '../utils/ids.js';
-import {
-  MEMBERSHIP_FIELDS_NOT_IN_REPLIES,
-  MAX_TEAM_MEMBERS,
-  isMember,
-  isPendingInvite,
-} from '../utils/membership.js';
+import { MAX_TEAM_MEMBERS, isMember, isPendingInvite } from '../utils/membership.js';
 import { findPlayerPage } from '../utils/discovery.js';
 import { pagedReply } from '../utils/paging.js';
 
@@ -82,50 +77,6 @@ export const updateMyPlayerProfile = async (req, res, next) => {
     return next(err);
   }
 };
-
-// The viewer's pending invites (not their own join requests), newest first.
-export const getPendingInvites = async (req, res, next) => {
-  try {
-    const userId = req.user.id;
-    const invites = await prisma.teamMember.findMany({
-      where: { userId, status: 'pending', origin: 'invite' },
-      omit: MEMBERSHIP_FIELDS_NOT_IN_REPLIES,
-      include: {
-        team: {
-          include: {
-            ...ACCEPTED_MEMBER_COUNT,
-            // The team's captain is always a player, so the name comes from their
-            // player profile.
-            captain: {
-              select: {
-                id: true,
-                playerProfile: { select: { name: true } },
-              },
-            }
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-    // The captain is another user: show them through the visibility rules ({ id, name }).
-    const viewer = viewerFrom(req);
-    res.json(
-      invites.map((invite) => {
-        const { captain } = invite.team;
-        return {
-          ...invite,
-          team: {
-            ...withCounts(invite.team),
-            captain: toVisibleUser({ id: captain.id, name: captain.playerProfile?.name || 'Unknown' }, viewer),
-          },
-        };
-      })
-    );
-  } catch (err) {
-    return next(err);
-  }
-};
-
 
 // The viewer's own pending join requests, newest first, each with their message (the
 // requester may see their own) and how full the team is (GET /players/requests).

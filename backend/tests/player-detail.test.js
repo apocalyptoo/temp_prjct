@@ -285,12 +285,16 @@ describe('GET /players/:id: not a player, or not there', () => {
     }
   });
 
-  test('/players/me, /players/invites and /players/requests are still their own routes', async (t) => {
+  test('/players/me and /players/requests are still their own routes; /players/invites is gone', async (t) => {
     const viewer = await loggedInPlayer(t, 'Route Check');
 
     assert.equal((await getJson('/players/me', viewer.jwt)).body.email, viewer.user.email);
-    assert.ok(Array.isArray((await getJson('/players/invites', viewer.jwt)).body));
     assert.ok(Array.isArray((await getJson('/players/requests', viewer.jwt)).body));
+    // Removed in F5.3 (notifications spec P11): the invites are on GET /notifications, and
+    // "invites" now reaches /players/:id like any other bad id.
+    const gone = await getJson('/players/invites', viewer.jwt);
+    assert.equal(gone.status, 400);
+    assert.deepEqual(gone.body, { error: 'Invalid player id' });
   });
 
   test('a login is needed', async () => {

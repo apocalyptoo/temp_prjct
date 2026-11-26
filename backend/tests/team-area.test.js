@@ -137,7 +137,7 @@ describe('Editing the area', () => {
 });
 
 describe('The area in team replies', () => {
-  test('GET /teams/:teamId, GET /teams/me and GET /players/invites carry it', async (t) => {
+  test('GET /teams/:teamId, GET /teams/me and the invites on GET /notifications carry it', async (t) => {
     const captain = await createLoggedInPlayer(t);
     const invited = await createLoggedInPlayer(t);
     const withArea = await createTeam(captain, { name: 'Has Area', area: 'Mirpur' });
@@ -154,7 +154,7 @@ describe('The area in team replies', () => {
     assert.equal(mine.find((team) => team.id === withArea.id).area, 'Mirpur');
     assert.equal(mine.find((team) => team.id === without.id).area, null);
 
-    const invites = await getJson('/players/invites', invited.jwt);
+    const { invites } = (await getJson('/notifications', invited.jwt)).needsAction;
     assert.equal(invites.find((invite) => invite.teamId === withArea.id).team.area, 'Mirpur');
     assert.equal(invites.find((invite) => invite.teamId === without.id).team.area, null);
   });

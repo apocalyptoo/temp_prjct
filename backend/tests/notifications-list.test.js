@@ -129,15 +129,6 @@ describe('Needs your action: invites', () => {
 
     assert.deepEqual((await screenOf(player)).needsAction, { invites: [], joinRequests: [] });
   });
-
-  test('the same invites as GET /players/invites, which the current app still uses', async (t) => {
-    const captain = await createPlayer(t, 'Rahim');
-    const player = await createPlayer(t, 'Nayeem');
-    await invite(await createTeam(captain, 'Alpha FC'), player);
-    const old = await getJson('/players/invites', player.jwt);
-    const { needsAction } = await screenOf(player);
-    assert.deepEqual(needsAction.invites.map((row) => row.id), old.map((row) => row.id));
-  });
 });
 
 describe('Needs your action: join requests', () => {

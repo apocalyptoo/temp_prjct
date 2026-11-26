@@ -93,10 +93,10 @@ describe('Other users never see email or phone', () => {
     }
   });
 
-  test("GET /players/invites: the inviting captain's email is hidden", async (t) => {
+  test("GET /notifications: the inviting captain's email is hidden", async (t) => {
     const { pending } = await teamWithMembers(t);
 
-    const invites = await get('/players/invites', pending.jwt);
+    const { invites } = (await get('/notifications', pending.jwt)).needsAction;
 
     assert.ok(invites.length >= 1);
     for (const invite of invites) assert.equal('email' in invite.team.captain, false);
@@ -183,7 +183,7 @@ describe('A join request message is seen only by the captain, the requester and 
     for (const viewer of [captain, teammate, requester]) {
       elsewhere.push(await get('/teams', viewer.jwt), await get('/teams/me', viewer.jwt));
     }
-    elsewhere.push(await get('/players/invites', pending.jwt), await get('/players', outsider.jwt), await get('/admin/teams', admin.jwt));
+    elsewhere.push(await get('/notifications', pending.jwt), await get('/players', outsider.jwt), await get('/admin/teams', admin.jwt));
     assert.doesNotMatch(JSON.stringify(elsewhere), new RegExp(MESSAGE));
   });
 });
@@ -204,7 +204,7 @@ describe('No response ever contains passwords or tokens', () => {
       await get('/players', captain.jwt),
       await get('/players/me', captain.jwt),
       await get(`/players/${captain.user.id}`, pending.jwt),
-      await get('/players/invites', pending.jwt),
+      await get('/notifications', pending.jwt),
       await get('/teams', captain.jwt),
       await get('/teams/me', captain.jwt),
       await get(`/teams/${team.id}`, captain.jwt),

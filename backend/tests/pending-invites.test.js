@@ -92,7 +92,7 @@ describe('Member lists contain only accepted members', () => {
   });
 });
 
-describe('GET /players/invites', () => {
+describe('GET /notifications: invites', () => {
   test('lists invites only, never the player\'s own join requests, with the team\'s member count', async (t) => {
     const { invitee, team } = await setUpTeam(t);
     const otherCaptain = await createLoggedInPlayer(t);
@@ -101,7 +101,7 @@ describe('GET /players/invites', () => {
       data: { teamId: otherTeam.id, userId: invitee.user.id, status: 'pending', origin: 'request', message: 'Hi' },
     });
 
-    const invites = await getJson('/players/invites', invitee.jwt);
+    const { invites } = (await getJson('/notifications', invitee.jwt)).needsAction;
 
     assert.deepEqual(invites.map((i) => i.teamId), [team.id]);
     assert.equal(invites[0].team.memberCount, 2, 'accepted members only');
